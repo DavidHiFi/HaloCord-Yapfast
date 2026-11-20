@@ -25,6 +25,9 @@ use crate::{
     noise::{Denoiser, PAIR, Sent},
 };
 
+// HaloCord: the flat stereo microphone, and the switch to it mid-call.
+mod flat;
+
 /// Whether Discord voice has audio on this platform yet.
 pub const AVAILABLE: bool = crate::audio_io::AVAILABLE;
 
@@ -247,7 +250,8 @@ const BEFORE_OPENING: usize = 10;
 const WARM_UP: u32 = 20;
 
 /// Sends the microphone only while someone talks, starting a little before.
-struct Gate {
+/// It keeps blocks of `N` samples: a mono block, or a stereo one.
+struct Gate<const N: usize = BLOCK> {
     /// The quietest speech it opens on, in RMS dBFS.
     sensitivity: f32,
     hold: u32,
@@ -255,12 +259,12 @@ struct Gate {
     /// How many blocks in a row would have opened it.
     opening: u32,
     /// The last blocks while shut, oldest first.
-    before: VecDeque<[f32; BLOCK]>,
+    before: VecDeque<[f32; N]>,
     /// What the last block sends.
-    sent: Vec<[f32; BLOCK]>,
+    sent: Vec<[f32; N]>,
 }
 
-impl Default for Gate {
+impl<const N: usize> Default for Gate<N> {
     fn default() -> Self {
         Self {
             sensitivity: crate::noise::DEFAULT_SENSITIVITY,
@@ -273,7 +277,7 @@ impl Default for Gate {
     }
 }
 
-impl Gate {
+impl<const N: usize> Gate<N> {
     fn is_open(&self) -> bool {
         self.hold > 0
     }
@@ -281,7 +285,7 @@ impl Gate {
     /// Takes the next 10 ms block, with its level and whether the suppressor
     /// takes it for speech, and returns the blocks to send: none while closed,
     /// and on opening, those kept from before too.
-    fn block(&mut self, samples: &[f32; BLOCK], level: f32, speech: bool) -> &[[f32; BLOCK]] {
+    fn block(&mut self, samples: &[f32; N], level: f32, speech: bool) -> &[[f32; N]] {
         let was_open = self.is_open();
         self.heard = self.heard.saturating_add(1);
         let warm = self.heard > WARM_UP;
@@ -317,7 +321,7 @@ impl Gate {
 
     /// Takes the next block in push-to-talk, which sends it while `open`
     /// rather than when it hears speech, as Discord's does.
-    fn pass(&mut self, samples: &[f32; BLOCK], open: bool) -> &[[f32; BLOCK]] {
+    fn pass(&mut self, samples: &[f32; N], open: bool) -> &[[f32; N]] {
         self.heard = self.heard.saturating_add(1);
         self.opening = 0;
         // Back in voice activation, the next block decides.
@@ -386,7 +390,7 @@ impl MicrophoneThread {
                 crate::audio_io::raise_capture_priority();
                 let mut denoiser = None;
                 for request in waiting {
-                    denoiser = request.run(denoiser);
+                    denoiser = flat::run(request, denoiser);
                 }
             })
             .context("could not start the Discord microphone")?;
@@ -507,7 +511,7 @@ impl GateMeter {
         let spawned = std::thread::Builder::new()
             .name("yapfast-gate-meter".into())
             .spawn(move || {
-                if let Err(error) = measure(microphone.as_deref(), &worker, playback) {
+                if let Err(error) = flat::measure(microphone.as_deref(), &worker, playback) {
                     tracing::warn!(%error, "could not measure the Discord microphone");
                     worker.failed.store(true, Ordering::Relaxed);
                 }
@@ -873,7 +877,7 @@ fn measure(
     let mut blocks = [[0i16; BLOCK]; PAIR];
     let mut shown = f32::NEG_INFINITY;
     let mut silent = 0u32;
-    while !shared.stop.load(Ordering::Relaxed) {
+    while !shared.stop.load(Ordering::Relaxed) && !flat::on() {
         for block in &mut blocks {
             stream.read(block);
             // Nothing at all from the device, as a muted or wrong one
@@ -942,7 +946,7 @@ impl CaptureRequest {
     /// Captures until stopped, with `denoiser` if it's the suppressor
     /// chosen, and returns the one it used, or `denoiser` if the microphone
     /// didn't open.
-    fn run(self, denoiser: Option<Denoiser>) -> Option<Denoiser> {
+    fn run(&self, denoiser: Option<Denoiser>) -> Option<Denoiser> {
         let mut stream = match open_microphone(self.microphone.as_deref()) {
             Ok(stream) => {
                 let _ = self.opened.send(Ok(()));
@@ -963,7 +967,7 @@ impl CaptureRequest {
         let mut blocks = [[0i16; BLOCK]; PAIR];
         let mut pace = Pace::default();
         let mut lightly = false;
-        while !self.stop.load(Ordering::Relaxed) {
+        while !self.stop.load(Ordering::Relaxed) && !flat::on() {
             // Each block's read, and the time after it until the next read.
             let mut times = [(Duration::ZERO, Instant::now()); PAIR];
             for (block, time) in blocks.iter_mut().zip(&mut times) {

@@ -22,6 +22,7 @@ pub(super) use account::BLOCKED_STEP;
 mod advanced;
 mod discord;
 mod games;
+mod halocord;
 mod messages;
 mod notifications;
 mod sounds;
@@ -55,6 +56,8 @@ pub enum Pref {
     PlaySound(usize),
     GpuRendering(bool),
     GpuEncoding(bool),
+    /// A change on HaloCord's page.
+    HaloCord(crate::halocord::Change),
     CloseToTray(bool),
     MultipleWindows(bool),
     DeveloperMode(bool),
@@ -224,6 +227,10 @@ impl Settings {
                 cx.layout.voice.gpu_encoding = Some(on);
                 yapfast_core::stream_worker::set_hardware_encoding(on);
                 cx.keep("gpu_encoding", on);
+            }
+            Pref::HaloCord(change) => {
+                cx.layout.halocord.change(change);
+                cx.keep("halocord", &cx.layout.halocord);
             }
             Pref::CloseToTray(on) => {
                 prefs.close_to_tray = Some(on);

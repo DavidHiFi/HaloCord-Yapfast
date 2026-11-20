@@ -67,6 +67,8 @@ mod frame;
 use yapfast_iced_kit::frames;
 mod friends;
 mod graphics;
+// HaloCord's plugins; the hooks are listed in docs/halocord.md.
+mod halocord;
 mod header;
 use yapfast_iced_kit::icons;
 mod image_viewer;

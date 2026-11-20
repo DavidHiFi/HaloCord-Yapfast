@@ -49,6 +49,8 @@ pub mod encode;
 #[cfg(feature = "matrix")]
 pub mod experiment;
 pub mod frames;
+// HaloCord's settings; the hooks are listed in docs/halocord.md.
+pub mod halocord;
 pub mod keybinds;
 pub mod layout_file;
 pub mod leveling;

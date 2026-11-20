@@ -709,3 +709,34 @@ fn the_mic_test_without_a_call_deafens_nothing() {
     assert!(testing(&app));
     assert_eq!(call(&app), before);
 }
+
+/// HaloCord's page: the stereo loader on at 510 kbit/s from the start, its
+/// bit rate shown only while it's on, both kept across a restart.
+#[test]
+fn halocord_sends_stereo_at_510_unless_changed() {
+    let (mut app, folder) = preview();
+    let loader = &crate::halocord::PLUGINS[0];
+    let bitrate = &loader.settings[0];
+    assert!(app.layout.halocord.on(loader));
+    assert_eq!(app.layout.halocord.value(loader, bitrate), 510);
+    open(&mut app, Section::HaloCord);
+    assert!(shows(&app, "Stereo loader"));
+    assert!(shows(&app, "MICROPHONE BIT RATE"));
+    interact(&mut app, |ui| {
+        ui.click("256 kbit/s").expect("the choice");
+    });
+    interact(&mut app, |ui| {
+        ui.click("Stereo loader").expect("the switch");
+    });
+    assert!(
+        !shows(&app, "MICROPHONE BIT RATE"),
+        "settings hide while off"
+    );
+    let layout = stored(&folder);
+    let kept = &layout["halocord"]["plugins"]["stereo-loader"];
+    assert_eq!(kept["on"], false);
+    assert_eq!(kept["settings"]["bitrate"], 256);
+    let again = start(&folder, true);
+    assert!(!again.layout.halocord.on(loader));
+    assert_eq!(again.layout.halocord.value(loader, bitrate), 256);
+}

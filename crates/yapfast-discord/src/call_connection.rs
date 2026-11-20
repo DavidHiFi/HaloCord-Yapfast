@@ -30,10 +30,10 @@ use crate::{
     voice_connection::{Closed, Connection, Identity, lock, receive, send_json},
 };
 
-/// The microphone's bit rate and mode: stereo at 128 kbit/s in Opus's music
-/// mode, as songbird sent it when it ran calls, and as Yapfast's voice
-/// processing was tuned with.
-const BITRATE: i32 = 128_000;
+/// The microphone's bit rate unless changed, in stereo in Opus's music mode;
+/// [`crate::voice::set_microphone_bitrate`] changes it.
+#[cfg(test)]
+const BITRATE: i32 = crate::voice::DEFAULT_MICROPHONE_BITRATE as i32;
 /// 20 ms of Opus silence, which Discord's clients send five of when they
 /// stop talking.
 const SILENCE: [u8; 3] = [0xf8, 0xff, 0xfe];
@@ -263,14 +263,14 @@ fn catches_up(read: usize, taken: Duration) -> bool {
     read < CATCH_UP && taken < CATCH_UP_TIME
 }
 
-/// Takes the next 20 ms of the microphone into `pcm`, in both channels,
+/// Takes the next 20 ms of the microphone, interleaved stereo, into `pcm`,
 /// and says whether a whole frame waited; if not, it takes nothing.
 fn take_frame(buffer: &mut VecDeque<f32>, pcm: &mut [f32]) -> bool {
-    if buffer.len() < FRAME {
+    if buffer.len() < FRAME * 2 {
         return false;
     }
-    for (out, sample) in pcm.chunks_exact_mut(2).zip(buffer.drain(..FRAME)) {
-        out.fill(sample);
+    for (out, sample) in pcm.iter_mut().zip(buffer.drain(..FRAME * 2)) {
+        *out = sample;
     }
     true
 }
@@ -297,7 +297,9 @@ fn codecs() -> Value {
 /// The call's audio and video, kept across moves and reconnections.
 struct Media {
     encoder: opus::Encoder,
-    /// One frame of the microphone, in both channels, and its Opus packet.
+    /// The bit rate the encoder sends at, in bit/s.
+    bitrate: i32,
+    /// One frame of the microphone, interleaved stereo, and its Opus packet.
     pcm: Vec<f32>,
     packet: Vec<u8>,
     sequence: u16,
@@ -440,8 +442,10 @@ impl Diagnostics {
 
 impl Media {
     fn new(video: channel::SyncSender<VideoFrame>, stats: Arc<CallStats>) -> Result<Self> {
+        let bitrate = crate::voice::microphone_bitrate() as i32;
         Ok(Self {
-            encoder: opus::Encoder::new(2, opus::Application::Audio, BITRATE)?,
+            encoder: opus::Encoder::new(2, opus::Application::Audio, bitrate)?,
+            bitrate,
             pcm: vec![0.0; FRAME * 2],
             packet: vec![0; 1500],
             sequence: rand::random(),
@@ -706,7 +710,7 @@ impl Media {
                 Some(sending) if sending.playing.load(Ordering::Relaxed) => {
                     let mut buffer = lock(&sending.buffer);
                     let dropped = sending.dropped.swap(0, Ordering::Relaxed);
-                    self.diagnostics.microphone(buffer.len(), dropped);
+                    self.diagnostics.microphone(buffer.len() / 2, dropped);
                     Some(take_frame(&mut buffer, &mut self.pcm))
                 }
                 _ => None,
@@ -743,6 +747,16 @@ impl Media {
             );
         }
         if playing {
+            let wanted = crate::voice::microphone_bitrate() as i32;
+            if wanted != self.bitrate {
+                self.encoder.set_bitrate(wanted)?;
+                tracing::info!(
+                    from = self.bitrate,
+                    to = wanted,
+                    "the call's microphone changes bit rate"
+                );
+                self.bitrate = wanted;
+            }
             let length = self.encoder.encode_float(&self.pcm, &mut self.packet)?;
             let opus = &self.packet[..length];
             if let Some(payload) = connection.dave.encrypt_opus(opus) {
@@ -1179,18 +1193,15 @@ mod tests {
     #[test]
     fn a_tick_takes_only_a_whole_frame_of_the_microphone() {
         let mut pcm = vec![1.0; FRAME * 2];
-        let mut buffer: VecDeque<f32> = (0..FRAME / 2).map(|at| at as f32).collect();
+        let mut buffer: VecDeque<f32> = (0..FRAME).map(|at| at as f32).collect();
         assert!(!take_frame(&mut buffer, &mut pcm));
-        assert_eq!(
-            buffer.len(),
-            FRAME / 2,
-            "what waited stays for the next tick"
-        );
-        buffer.extend((FRAME / 2..FRAME * 3 / 2).map(|at| at as f32));
+        assert_eq!(buffer.len(), FRAME, "what waited stays for the next tick");
+        buffer.extend((FRAME..FRAME * 3).map(|at| at as f32));
         assert!(take_frame(&mut buffer, &mut pcm));
-        assert_eq!(&pcm[..4], &[0.0, 0.0, 1.0, 1.0]);
-        assert_eq!(pcm[FRAME * 2 - 1], (FRAME - 1) as f32);
-        assert_eq!(buffer.front(), Some(&(FRAME as f32)));
+        // Interleaved stereo goes as it is: each channel its own.
+        assert_eq!(&pcm[..4], &[0.0, 1.0, 2.0, 3.0]);
+        assert_eq!(pcm[FRAME * 2 - 1], (FRAME * 2 - 1) as f32);
+        assert_eq!(buffer.front(), Some(&(FRAME as f32 * 2.0)));
     }
 
     fn tone(encoder: &mut opus::Encoder, frame: usize) -> Vec<u8> {

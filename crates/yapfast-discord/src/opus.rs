@@ -102,6 +102,16 @@ impl Encoder {
         Ok(encoder)
     }
 
+    /// Changes the bit rate, in bit/s, from the next frame.
+    pub fn set_bitrate(&mut self, bitrate: i32) -> Result<()> {
+        // SAFETY: a request that takes one int, as libopus's macros pass it.
+        let code = unsafe { opus_encoder_ctl(self.raw.as_ptr(), SET_BITRATE, bitrate as c_int) };
+        if code < 0 {
+            bail!("Opus wouldn't take a bit rate of {bitrate} ({code})");
+        }
+        Ok(())
+    }
+
     /// Encodes one frame of interleaved samples into `out`, returning the
     /// packet's length.
     pub fn encode_float(&mut self, pcm: &[f32], out: &mut [u8]) -> Result<usize> {
@@ -199,6 +209,13 @@ impl Drop for Decoder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_bit_rate_changes_within_what_opus_takes() {
+        let mut encoder = Encoder::new(2, Application::Audio, 128_000).unwrap();
+        encoder.set_bitrate(510_000).unwrap();
+        assert!(encoder.set_bitrate(-5).is_err());
+    }
 
     #[test]
     fn a_tone_survives_encoding_and_loss() {

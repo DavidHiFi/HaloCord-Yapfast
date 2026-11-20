@@ -97,6 +97,8 @@ pub struct Layout {
     /// What Settings' other pages keep; see [`Prefs`].
     #[serde(flatten)]
     pub prefs: Prefs,
+    /// HaloCord's plugins.
+    pub halocord: crate::halocord::Kept,
 }
 
 /// The window's size while it isn't maximized, in the desktop's own units
