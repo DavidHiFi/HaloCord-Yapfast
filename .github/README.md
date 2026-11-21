@@ -70,7 +70,7 @@ cargo build --locked --release --target x86_64-pc-windows-msvc --no-default-feat
 
 Rust 1.97.1 installs itself from `rust-toolchain.toml`. The first build is big and takes a while.
 
-Close Yapfast, then copy `target†_64-pc-windows-msvceleaseyapfast.exe` over the one in `%LOCALAPPDATA%ProgramsYapfast`.
+Close Yapfast, then copy `target\x86_64-pc-windows-msvc\release\yapfast.exe` over the one in `%LOCALAPPDATA%\Programs\Yapfast`.
 
 Yapfast's own guide covers the Nix route and Linux: see the [main README](../README.md#build-it-yourself). Every hook HaloCord adds to Yapfast's files is listed in [docs/halocord.md](../docs/halocord.md).
 
