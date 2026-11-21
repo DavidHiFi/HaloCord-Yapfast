@@ -214,6 +214,9 @@ pub enum MenuAct {
     ActivityPrivacy,
     /// An order of the search's Sort menu, by its row's `key`.
     SearchSort,
+    /// A HaloCord plugin's row, its plugin and action in the row's `key`
+    /// (docs/halocord.md).
+    Plugin,
 }
 
 #[derive(Clone)]
@@ -427,6 +430,7 @@ pub fn open_menu(app: &mut App, index: usize, at: Point) -> Task<Message> {
     if link.is_some() {
         rows.push(row(MenuAct::CopyLink, "Copy Message Link", Icon::Chain));
     }
+    rows.extend(crate::halocord::menu_rows(&message));
     if message.can_delete && writes {
         rows.push(MenuRow {
             danger: true,
@@ -671,6 +675,10 @@ fn carry_out(app: &mut App, row: &MenuRow, ticked: Option<bool>, stays: bool) ->
             crate::browser::open(&row.key);
             focus
         }
+        MenuAct::Plugin => {
+            let item = menu.item.clone().unwrap_or_default();
+            Task::batch([focus, crate::halocord::pick(app, &row.key, &item)])
+        }
         act => {
             let item = menu.item.clone().unwrap_or_default();
             self::act(app, act, item, menu.at, menu.place)
@@ -839,7 +847,8 @@ pub fn act(
         | MenuAct::CopyMediaLink
         | MenuAct::OpenMediaLink
         | MenuAct::CopyTextLink
-        | MenuAct::OpenTextLink => focus,
+        | MenuAct::OpenTextLink
+        | MenuAct::Plugin => focus,
     }
 }
 

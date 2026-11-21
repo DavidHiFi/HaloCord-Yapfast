@@ -2989,6 +2989,10 @@ impl Application {
     }
 
     pub fn dispatch(&mut self, action: Action) -> Vec<Effect> {
+        // HaloCord's plugins see it first and last (docs/halocord.md).
+        if !crate::halocord::keeps_action(&action) {
+            return Vec::new();
+        }
         // A keystroke in the composer shows no picture that wasn't on screen.
         let composing = matches!(
             action,
@@ -3000,10 +3004,14 @@ impl Application {
         if !composing {
             effects.extend(self.request_pictures());
         }
+        crate::halocord::after(self, &mut effects);
         effects
     }
 
     pub fn apply(&mut self, event: Event) -> Vec<Effect> {
+        if !crate::halocord::keeps_event(&event) {
+            return Vec::new();
+        }
         let mut effects = self.apply_event(event);
         // A DM just started, or a thread asked for, opens once the lists
         // have it.
@@ -3025,6 +3033,7 @@ impl Application {
         effects.extend(self.send_pending_message());
         effects.extend(self.show_panel_profile());
         effects.extend(self.request_pictures());
+        crate::halocord::after(self, &mut effects);
         effects
     }
 

@@ -665,7 +665,11 @@ pub fn live(
     done: &UnboundedSender<Done>,
     events: &UnboundedSender<Event>,
 ) {
-    let event = match event.map(|live| super::interactions::live(live, events)) {
+    // HaloCord's plugins may drop it first (docs/halocord.md).
+    let event = event.map(|live| {
+        crate::halocord::live(live).and_then(|live| super::interactions::live(live, events))
+    });
+    let event = match event {
         Ok(Some(live)) => Ok(live),
         Ok(None) => return,
         Err(missed) => Err(missed),

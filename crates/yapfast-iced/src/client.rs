@@ -166,6 +166,8 @@ impl Client {
                 }
                 Effect::Backend(yapfast_core::chat::Command::Typing { .. })
                     if !self.share_typing => {}
+                // Held back by a HaloCord plugin (docs/halocord.md).
+                Effect::Backend(command) if !yapfast_core::halocord::sends(&command) => {}
                 Effect::Backend(command) => {
                     #[cfg(test)]
                     self.sent.push(command.clone());

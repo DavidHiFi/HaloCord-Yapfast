@@ -1,7 +1,13 @@
-//! HaloCord's settings for Yapfast's core, kept here so Yapfast's own files
-//! carry only the hooks that read them. `docs/halocord.md` lists every hook.
+//! HaloCord's settings and plug-in points for Yapfast's core, kept here so
+//! Yapfast's own files carry only the hooks that call in. `docs/halocord.md`
+//! lists every hook.
 
 use std::sync::atomic::{AtomicBool, Ordering};
+
+use crate::{
+    application::{Action, Application, Effect},
+    chat::{ChatMessage, Command, Event},
+};
 
 /// The bit rates HaloCord's page offers, in kbit/s.
 pub const BITRATES: [u32; 5] = [64, 128, 256, 384, 510];
@@ -36,4 +42,269 @@ pub fn set_bitrate(kbps: Option<u32>) {
     }
     #[cfg(not(feature = "discord"))]
     let _ = kbps;
+}
+
+/// What a plugin hooks into. Each one does nothing unless the plugin says
+/// otherwise, so a plugin writes only the ones it needs. The numbers are the
+/// plug-in points in `docs/halocord.md`.
+pub trait Hooks: Sync {
+    /// The plugin's id, as on HaloCord's page.
+    fn id(&self) -> &'static str;
+
+    /// 1. Before the app handles an action; `false` drops it.
+    fn action(&self, _action: &Action) -> bool {
+        true
+    }
+
+    /// 1. Before the app takes an event from the networks; `false` drops it.
+    fn event(&self, _event: &Event) -> bool {
+        true
+    }
+
+    /// 1. After the app handled an action or an event: what it now holds,
+    /// and what it's about to do, to change or add to.
+    fn after(&self, _app: &Application, _effects: &mut Vec<Effect>) {}
+
+    /// 2. A command on its way to the networks; `false` holds it back.
+    fn command(&self, _command: &Command) -> bool {
+        true
+    }
+
+    /// 3. A live Discord event, before any channel sees it; `false` drops it.
+    #[cfg(feature = "discord")]
+    fn live(&self, _live: &yapfast_discord::service::Live) -> bool {
+        true
+    }
+
+    /// 4. Tags drawn after a message's author.
+    fn extras(&self, _message: &ChatMessage) -> Vec<&'static str> {
+        Vec::new()
+    }
+
+    /// 5. Rows for a message's menu, as its action and its label.
+    fn menu(&self, _message: &ChatMessage) -> Vec<(&'static str, &'static str)> {
+        Vec::new()
+    }
+
+    /// 5. One of this plugin's menu rows was chosen for `message`.
+    fn pick(&self, _action: &str, _message: &ChatMessage) -> Picked {
+        Picked::default()
+    }
+}
+
+/// What a plugin's menu row does: actions for the app, and text to copy.
+#[derive(Default)]
+pub struct Picked {
+    pub actions: Vec<Action>,
+    pub copy: Option<String>,
+}
+
+#[cfg(not(test))]
+static PLUGGED: std::sync::RwLock<Vec<&'static dyn Hooks>> = std::sync::RwLock::new(Vec::new());
+
+#[cfg(test)]
+thread_local! {
+    // Each test plugs its own, out of the way of the tests beside it.
+    static PLUGGED: std::cell::RefCell<Vec<&'static dyn Hooks>> =
+        const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Plugs a plugin's hooks in, or takes them out.
+pub fn plug(hooks: &'static dyn Hooks, on: bool) {
+    let change = |plugged: &mut Vec<&'static dyn Hooks>| {
+        plugged.retain(|held| held.id() != hooks.id());
+        if on {
+            plugged.push(hooks);
+        }
+    };
+    #[cfg(not(test))]
+    change(
+        &mut PLUGGED
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()),
+    );
+    #[cfg(test)]
+    PLUGGED.with(|plugged| change(&mut plugged.borrow_mut()));
+}
+
+/// The plugins plugged in, copied so a hook may plug or unplug.
+fn plugged() -> Vec<&'static dyn Hooks> {
+    #[cfg(not(test))]
+    return PLUGGED
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone();
+    #[cfg(test)]
+    PLUGGED.with(|plugged| plugged.borrow().clone())
+}
+
+/// 1. Whether the app handles `action`.
+pub fn keeps_action(action: &Action) -> bool {
+    plugged().iter().all(|hooks| hooks.action(action))
+}
+
+/// 1. Whether the app takes `event`.
+pub fn keeps_event(event: &Event) -> bool {
+    plugged().iter().all(|hooks| hooks.event(event))
+}
+
+/// 1. The plugins' say after an action or an event.
+pub fn after(app: &Application, effects: &mut Vec<Effect>) {
+    for hooks in plugged() {
+        hooks.after(app, effects);
+    }
+}
+
+/// 2. Whether `command` goes on to the networks.
+pub fn sends(command: &Command) -> bool {
+    plugged().iter().all(|hooks| hooks.command(command))
+}
+
+/// 3. A live Discord event, unless a plugin drops it.
+#[cfg(feature = "discord")]
+pub fn live(live: yapfast_discord::service::Live) -> Option<yapfast_discord::service::Live> {
+    plugged()
+        .iter()
+        .all(|hooks| hooks.live(&live))
+        .then_some(live)
+}
+
+/// 4. The plugins' tags for a message's author line.
+pub fn extras(message: &ChatMessage) -> Vec<&'static str> {
+    plugged()
+        .iter()
+        .flat_map(|hooks| hooks.extras(message))
+        .collect()
+}
+
+/// 5. The plugins' rows for a message's menu: each row's key (the plugin's
+/// id and the action, as `id/action`) and its label.
+pub fn menu(message: &ChatMessage) -> Vec<(String, &'static str)> {
+    plugged()
+        .iter()
+        .flat_map(|hooks| {
+            hooks
+                .menu(message)
+                .into_iter()
+                .map(|(action, label)| (format!("{}/{action}", hooks.id()), label))
+        })
+        .collect()
+}
+
+/// 5. What the row with `key` does for `message`; nothing once its plugin
+/// is out.
+pub fn pick(key: &str, message: &ChatMessage) -> Picked {
+    let Some((id, action)) = key.split_once('/') else {
+        return Picked::default();
+    };
+    plugged()
+        .into_iter()
+        .find(|hooks| hooks.id() == id)
+        .map_or_else(Picked::default, |hooks| hooks.pick(action, message))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Drops drafts and every event, and asks for a page after the rest.
+    struct Tap;
+
+    impl Hooks for Tap {
+        fn id(&self) -> &'static str {
+            "tap"
+        }
+        fn action(&self, action: &Action) -> bool {
+            !matches!(action, Action::SetDraft(_))
+        }
+        fn event(&self, _event: &Event) -> bool {
+            false
+        }
+        fn after(&self, _app: &Application, effects: &mut Vec<Effect>) {
+            effects.push(Effect::OpenPage("after".into()));
+        }
+        fn command(&self, command: &Command) -> bool {
+            !matches!(command, Command::Typing { .. })
+        }
+        fn extras(&self, message: &ChatMessage) -> Vec<&'static str> {
+            if message.bot { vec!["BOT"] } else { Vec::new() }
+        }
+        fn menu(&self, _message: &ChatMessage) -> Vec<(&'static str, &'static str)> {
+            vec![("raw", "Copy raw")]
+        }
+        fn pick(&self, action: &str, message: &ChatMessage) -> Picked {
+            Picked {
+                copy: (action == "raw").then(|| message.body.clone()),
+                ..Picked::default()
+            }
+        }
+    }
+
+    fn opened_after(effects: &[Effect]) -> bool {
+        effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::OpenPage(page) if page == "after"))
+    }
+
+    #[test]
+    fn a_plugin_taps_actions_and_events_before_and_after() {
+        let mut app = Application::default();
+        assert!(!opened_after(&app.dispatch(Action::AskAppCommands)));
+        plug(&Tap, true);
+        assert!(app.dispatch(Action::SetDraft("dropped".into())).is_empty());
+        assert!(opened_after(&app.dispatch(Action::AskAppCommands)));
+        assert!(app.apply(Event::InteractionSettled("1".into())).is_empty());
+        plug(&Tap, false);
+        assert!(!opened_after(&app.dispatch(Action::AskAppCommands)));
+    }
+
+    #[test]
+    fn a_plugin_holds_back_commands() {
+        let typing = Command::Typing {
+            room: "room".into(),
+            typing: true,
+        };
+        assert!(sends(&typing));
+        plug(&Tap, true);
+        assert!(!sends(&typing));
+    }
+
+    #[test]
+    fn a_plugin_adds_tags_and_menu_rows() {
+        let bot = ChatMessage {
+            bot: true,
+            body: "hello".into(),
+            ..ChatMessage::default()
+        };
+        assert!(extras(&bot).is_empty() && menu(&bot).is_empty());
+        plug(&Tap, true);
+        assert_eq!(extras(&bot), ["BOT"]);
+        assert!(extras(&ChatMessage::default()).is_empty());
+        assert_eq!(menu(&bot), [("tap/raw".to_owned(), "Copy raw")]);
+        assert_eq!(pick("tap/raw", &bot).copy.as_deref(), Some("hello"));
+        assert!(pick("gone/raw", &bot).copy.is_none());
+        plug(&Tap, false);
+        assert!(pick("tap/raw", &bot).copy.is_none());
+    }
+
+    #[cfg(feature = "discord")]
+    #[test]
+    fn a_plugin_drops_live_events() {
+        struct KeepDeleted;
+        impl Hooks for KeepDeleted {
+            fn id(&self) -> &'static str {
+                "keep-deleted"
+            }
+            fn live(&self, live: &yapfast_discord::service::Live) -> bool {
+                !matches!(live, yapfast_discord::service::Live::Deleted { .. })
+            }
+        }
+        let deleted = || yapfast_discord::service::Live::Deleted {
+            channel: "1".into(),
+            id: "2".into(),
+        };
+        assert!(live(deleted()).is_some());
+        plug(&KeepDeleted, true);
+        assert!(live(deleted()).is_none());
+    }
 }

@@ -6,9 +6,9 @@ use iced::Element;
 use super::{Pref, pref};
 use crate::{
     app::Message,
-    controls::choices,
+    controls::{choices, slider},
     form,
-    halocord::{Change, PLUGINS},
+    halocord::{Change, Kind, PLUGINS},
     settings::Page,
 };
 
@@ -39,20 +39,80 @@ impl<'a> Page<'a> {
             ];
             if on {
                 for (place, setting) in plugin.settings.iter().enumerate() {
-                    group.push(form::heading(theme, setting.heading));
-                    group.push(choices(
-                        theme,
-                        setting.names,
-                        kept.choice(plugin, setting),
-                        move |choice| {
-                            pref(Pref::HaloCord(Change::Choose {
-                                plugin: index,
-                                setting: place,
-                                choice,
-                            }))
-                        },
-                    ));
-                    group.push(form::note(theme, setting.note));
+                    let change = move |change| pref(Pref::HaloCord(change));
+                    match &setting.kind {
+                        Kind::Choice { names, .. } => {
+                            group.push(form::heading(theme, setting.heading));
+                            group.push(choices(
+                                theme,
+                                names,
+                                kept.choice(plugin, setting),
+                                move |choice| {
+                                    change(Change::Choose {
+                                        plugin: index,
+                                        setting: place,
+                                        choice,
+                                    })
+                                },
+                            ));
+                            group.push(form::note(theme, setting.note));
+                        }
+                        Kind::Switch { .. } => {
+                            let set = kept.flag(plugin, setting);
+                            group.push(
+                                form::switch(
+                                    setting.heading,
+                                    set,
+                                    Some(change(Change::Flag {
+                                        plugin: index,
+                                        setting: place,
+                                        on: !set,
+                                    })),
+                                )
+                                .description(setting.note)
+                                .view(self.cx.look),
+                            );
+                        }
+                        Kind::Slider {
+                            most, step, unit, ..
+                        } => {
+                            let value = kept.value(plugin, setting);
+                            group.push(
+                                slider(setting.heading, value, *most, move |value| {
+                                    change(Change::Slide {
+                                        plugin: index,
+                                        setting: place,
+                                        value,
+                                    })
+                                })
+                                .step(*step)
+                                .shown(format!("{value}{unit}"))
+                                .mark(false)
+                                .view(theme),
+                            );
+                            group.push(form::note(theme, setting.note));
+                        }
+                        Kind::Text { placeholder, .. } => {
+                            group.push(form::heading(theme, setting.heading));
+                            group.push(
+                                form::field(
+                                    theme,
+                                    setting.key,
+                                    placeholder,
+                                    kept.text(plugin, setting),
+                                )
+                                .on_input(move |text| {
+                                    change(Change::Type {
+                                        plugin: index,
+                                        setting: place,
+                                        text,
+                                    })
+                                })
+                                .into(),
+                            );
+                            group.push(form::note(theme, setting.note));
+                        }
+                    }
                 }
             }
             page.push(form::group(group));
