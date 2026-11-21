@@ -45,6 +45,13 @@ pub struct Setting {
 }
 
 /// What a setting is, and its value unless changed.
+#[cfg_attr(
+    not(test),
+    allow(
+        dead_code,
+        reason = "the switch, slider and text are for plugins still to come"
+    )
+)]
 pub enum Kind {
     /// One choice of a few: the names shown and the values kept, in order.
     Choice {
