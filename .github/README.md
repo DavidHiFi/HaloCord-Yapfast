@@ -8,13 +8,14 @@
 
 The next HaloCord: stereo microphone and 510 kbit/s calls, with its own settings page.
 
-<a href="#installation">
-<img src="https://img.shields.io/badge/%F0%9F%93%96%20INSTALL%20GUIDE-2EA043?style=for-the-badge&labelColor=161B22" alt="Read the install guide" height="42">
+<a href="https://github.com/DavidHiFi/HaloCord-Yapfast/releases/latest">
+<img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20DOWNLOAD%20LATEST%20RELEASE-2EA043?style=for-the-badge&labelColor=161B22" alt="Download the latest release" height="42">
 </a>
 
 <br><br>
 
-<img src="https://img.shields.io/github/license/DavidHiFi/HaloCord-Yapfast?style=flat-square&label=license&color=8957E5&labelColor=161B22" alt="License">
+<img src="https://img.shields.io/github/v/release/DavidHiFi/HaloCord-Yapfast?style=flat-square&label=version&color=8957E5&labelColor=161B22" alt="Latest version">
+<img src="https://img.shields.io/github/downloads/DavidHiFi/HaloCord-Yapfast/total?style=flat-square&label=downloads&color=1F6FEB&labelColor=161B22" alt="Total downloads">
 <img src="https://img.shields.io/badge/platform-Windows-DB6D28?style=flat-square&labelColor=161B22" alt="Platform: Windows">
 
 </div>
@@ -23,14 +24,13 @@ The next HaloCord: stereo microphone and 510 kbit/s calls, with its own settings
 
 ## Installation
 
-There is no download yet. For now you build it yourself.
+1. Download the `HaloCord-Yapfast` ZIP from the [latest release](https://github.com/DavidHiFi/HaloCord-Yapfast/releases/latest) and extract the whole thing.
+2. Close Yapfast if it's open.
+3. Double-click `yapfast.exe`. The ZIP isn't code signed, so Windows SmartScreen may warn you. Choose **More info**, then **Run anyway**.
+4. New to Yapfast? Link your account with the QR code. Already use it? You stay logged in.
+5. Find **HaloCord** at the bottom of Settings.
 
-1. Install Yapfast from its [releases page](https://github.com/yapfast/yapfast/releases) and link your account once.
-2. Install [Rust](https://rustup.rs) and the Visual Studio C++ build tools.
-3. Clone this repo. The `halocord` branch is the default.
-4. Build it from the project folder (the exact command is under "Building from source" below).
-5. Close Yapfast, then copy `target\x86_64-pc-windows-msvc\release\yapfast.exe` over the one in `%LOCALAPPDATA%\Programs\Yapfast`.
-6. Open Yapfast and find **HaloCord** at the bottom of Settings.
+To build it yourself, see "Building from source" below.
 
 ## Features
 
@@ -48,13 +48,13 @@ There is no download yet. For now you build it yourself.
 ## Notes
 
 > [!IMPORTANT]
-> **Early days.** This is the first plugin. More of HaloCord's plugins come over one by one.
+> **Early days.** This is the first plugin. On the way: the MochaCord theme with the glass window, fake mute and fake deafen, the staff tag, a compact user area, and an installer that patches your own Yapfast.
 
 > [!NOTE]
 > **Replacing the old HaloCord.** The Electron-based [HaloCord](https://github.com/DavidHiFi/HaloCord) is retired. This repo is where HaloCord carries on.
 
 > [!WARNING]
-> **Yapfast's own updater** puts the stock app back when it updates. Rebuild and copy the file again after each Yapfast update.
+> **Updates come from here.** An update Yapfast itself offers is the stock app, without HaloCord. Wait for the next HaloCord release instead.
 
 <details>
 <summary><b>Building from source</b></summary>
@@ -69,6 +69,8 @@ cargo build --locked --release --target x86_64-pc-windows-msvc --no-default-feat
 ```
 
 Rust 1.97.1 installs itself from `rust-toolchain.toml`. The first build is big and takes a while.
+
+Close Yapfast, then copy `target†_64-pc-windows-msvceleaseyapfast.exe` over the one in `%LOCALAPPDATA%ProgramsYapfast`.
 
 Yapfast's own guide covers the Nix route and Linux: see the [main README](../README.md#build-it-yourself). Every hook HaloCord adds to Yapfast's files is listed in [docs/halocord.md](../docs/halocord.md).
 
