@@ -49,6 +49,11 @@ pub fn hover_bar<'a>(ctx: crate::ctx::Ctx<'a>, index: usize) -> Option<Element<'
     if message.deleted || message.delivery != chat::Delivery::default() {
         return None;
     }
+    // HaloCord (yapfast#263): gone while a drag selects, so the text it
+    // floats over, a grouped message's one line, can be selected and seen.
+    if ctx.lanes.timeline.selecting && !kept(ctx, &message.item) {
+        return None;
+    }
     let theme = ctx.look.theme;
     let at = bar_menu_at(ctx, index);
     // The thread beside the channel is narrower: two quick reactions.

@@ -64,6 +64,14 @@ const ROW_GAP: f32 = 1.0;
 /// The divider's line and what's on it, and the space under the last row.
 const DIVIDER: f32 = 26.0;
 const TAIL: f32 = 20.0;
+/// How far from the end the view still counts as at it: anywhere in the
+/// space under the last row, so a new message still brings the view down.
+pub const NEAR_END: f32 = TAIL + 4.0;
+
+/// Whether a view `from_end` px from the end counts as at the end.
+pub fn near_end(from_end: f32) -> bool {
+    from_end <= NEAR_END
+}
 /// A message's content is padded 2 px above and below.
 pub const CONTENT_PAD: f32 = 2.0;
 /// The history's edge: its button's line, Discord's welcome blocks.

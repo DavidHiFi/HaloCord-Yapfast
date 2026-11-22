@@ -87,7 +87,7 @@ pub(crate) fn reveal_row(app: &mut App, index: usize) -> Task<Message> {
     } else {
         return Task::none();
     };
-    app.timeline.at_end = app.timeline.from_end <= 2.0;
+    app.timeline.at_end = crate::timeline::near_end(app.timeline.from_end);
     operation::scroll_to(
         TIMELINE,
         AbsoluteOffset {

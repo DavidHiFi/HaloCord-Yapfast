@@ -372,6 +372,7 @@ mod editor;
 mod halocord_button_pictures;
 mod halocord_buttons;
 mod halocord_demo_frames;
+mod halocord_fixes;
 mod halocord_menu_pictures;
 mod halocord_pictures;
 mod header;
