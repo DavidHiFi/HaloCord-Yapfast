@@ -39,6 +39,7 @@ pub const FAKE_MUTE: &str = "fake-mute";
 pub const FAKE_DEAFEN: &str = "fake-deafen";
 pub const USER_AREA: &str = "user-area";
 pub const RESTART: &str = "restart-button";
+pub const READ_ALL: &str = "read-all-button";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -223,6 +224,15 @@ pub static PLUGINS: &[Plugin] = &[
         id: RESTART,
         name: "Restart button",
         about: "A button in the top bar (beside Settings when the bar is the system's) that closes Yapfast and starts it again the way it was started.",
+        on_at_first: true,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: READ_ALL,
+        name: "Read all button",
+        about: "A button in the top bar (beside Settings when the bar is the system's) that marks every server and message you have unread as read, in one press.",
         on_at_first: true,
         settings: &[],
         apply: |_, _| {},
@@ -560,6 +570,7 @@ pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Press {
     Restart,
+    ReadAll,
 }
 
 /// The buttons the plugins that are on add: icon, tip and what they do.
@@ -568,13 +579,33 @@ pub fn presses(kept: &Kept) -> Vec<(Icon, &'static str, Press)> {
     if kept.is(RESTART) {
         buttons.push((Icon::Refresh, "Restart Yapfast", Press::Restart));
     }
+    if kept.is(READ_ALL) {
+        buttons.push((Icon::MarkRead, "Mark everything read", Press::ReadAll));
+    }
     buttons
+}
+
+/// What marks everything read: every server, and each conversation with
+/// something unread. The core drops those with nothing to mark.
+pub(crate) fn read_all_actions(state: &yapfast_core::application::AppState) -> Vec<Action> {
+    let servers = state.servers.iter().map(|server| server.id.clone());
+    let chats = state
+        .rooms
+        .iter()
+        .filter(|room| room.direct && (room.unread > 0 || room.mentions > 0))
+        .map(|room| room.id.clone());
+    servers.chain(chats).map(Action::MarkRead).collect()
 }
 
 /// A plugin's button was pressed.
 pub fn press(app: &mut App, press: Press) -> Task<Message> {
     match press {
         Press::Restart => app.requests.push(crate::ctx::Request::Restart),
+        Press::ReadAll => {
+            for action in read_all_actions(app.client.state()) {
+                app.client.dispatch(action);
+            }
+        }
     }
     app.sync()
 }

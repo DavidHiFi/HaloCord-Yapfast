@@ -2,10 +2,15 @@
 //! character counter, the new user tag, the member count) driven through
 //! the window.
 
-use super::preview;
+use yapfast_core::{
+    application::{Action, Effect},
+    chat::Command,
+};
+
+use super::{change, preview};
 use crate::{
     app::Message,
-    halocord::{Change, Press, RESTART, changed, place, presses},
+    halocord::{Change, Press, READ_ALL, RESTART, changed, place, presses},
     window_bar::Event,
 };
 
@@ -29,10 +34,12 @@ fn the_buttons_are_on_from_the_start_and_go_when_switched_off() {
     };
     assert_eq!(
         labels(&app),
-        ["Restart Yapfast"],
-        "the owner's own, on at first"
+        ["Restart Yapfast", "Mark everything read"],
+        "both are the owner's own, on at first"
     );
     switch(&mut app, RESTART, false);
+    assert_eq!(labels(&app), ["Mark everything read"]);
+    switch(&mut app, READ_ALL, false);
     assert!(labels(&app).is_empty());
 }
 
@@ -60,4 +67,47 @@ fn restart_asks_the_window_to_relaunch() {
         .clone();
     crate::exit_for(crate::Exit::Closed);
     assert_eq!(seen, crate::Exit::Restart, "it leaves to start again");
+}
+
+#[test]
+fn read_all_marks_each_server_and_unread_chat_and_only_those() {
+    let (mut app, _folder) = preview();
+    let (server, channel) = {
+        let state = app.client.state();
+        let server = state
+            .servers
+            .iter()
+            .find(|server| !server.channels.is_empty())
+            .expect("a server with channels");
+        (server.id.clone(), server.channels[0].clone())
+    };
+    change(&mut app, |state| {
+        state.preview = false;
+        let room = state
+            .rooms
+            .iter_mut()
+            .map(std::sync::Arc::make_mut)
+            .find(|room| room.id == channel)
+            .expect("the channel");
+        room.unread = 3;
+    });
+    let actions = crate::halocord::read_all_actions(app.client.state());
+    assert!(
+        actions
+            .iter()
+            .any(|action| matches!(action, Action::MarkRead(id) if *id == server)),
+        "the server with an unread channel"
+    );
+    let effects: Vec<Effect> = actions
+        .into_iter()
+        .flat_map(|action| app.client.app.dispatch(action))
+        .collect();
+    let marked: Vec<&str> = effects
+        .iter()
+        .filter_map(|effect| match effect {
+            Effect::Backend(Command::MarkRead { room, .. }) => Some(room.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(marked, [channel.as_str()], "only the unread channel");
 }
