@@ -250,6 +250,51 @@ const CATPPUCCIN_MOCHA: Theme = Theme {
     avatar: rgb(0x6c7086),
 };
 
+/// HaloCord's MochaCord: Catppuccin Mocha with the rice values. The grounds
+/// are opaque (the fallback the window shows without glass); the app lays its
+/// glass alpha over them. Hovers are the rice hover wash, edges surface1, and
+/// the accent is mauve with blue links, the two ends of the gradient.
+const MOCHACORD: Theme = Theme {
+    dark: true,
+    rail: rgb(0x181825),
+    sidebar: rgb(0x181825),
+    panel: rgb(0x181825),
+    chat: rgb(0x1e1e2e),
+    stage: rgb(0x1e1e2e),
+    raised: rgb(0x313244),
+    field: rgb(0x313244),
+    sunken: rgb(0x11111b),
+    hover: rgba(0x3132448c),
+    active: rgb(0x45475a),
+    row_hover: rgba(0x31324859),
+    line: rgb(0x313244),
+    outline: rgb(0x45475a),
+    outline_chat: rgb(0x45475a),
+    outline_field: rgb(0x45475a),
+    edge: rgb(0x585b70),
+    text: rgb(0xcdd6f4),
+    secondary: rgb(0xbac2de),
+    muted: rgb(0x9399b2),
+    faint: rgb(0x7f849c),
+    accent: rgb(0xcba6f7),
+    accent_hover: rgb(0xb4befe),
+    on_accent: rgb(0x11111b),
+    accent_soft: rgba(0xcba6f726),
+    danger: rgb(0xf38ba8),
+    danger_hover: rgb(0xeba0ac),
+    on_danger: rgb(0x11111b),
+    live: rgb(0xa6e3a1),
+    loud: rgb(0xfab387),
+    link: rgb(0x89b4fa),
+    button_default: rgb(0x45475a),
+    button_default_hover: rgb(0x585b70),
+    overlay: rgb(0xffffff),
+    shimmer: rgba(0xffffff10),
+    reply_spine: rgb(0x585b70),
+    tooltip: rgb(0x181825),
+    avatar: rgb(0x6c7086),
+};
+
 /// Catppuccin's light flavour, with mauve for the accent.
 const CATPPUCCIN_LATTE: Theme = Theme {
     dark: false,
@@ -575,7 +620,7 @@ pub struct BuiltIn {
 
 /// The themes Yapfast comes with, as Appearance lists them: the dark ones, then
 /// the light ones. The palettes credited in docs/themes.md are MIT licensed.
-pub const BUILT_IN: [BuiltIn; 10] = [
+pub const BUILT_IN: [BuiltIn; 11] = [
     BuiltIn {
         id: "yap",
         name: "Yap",
@@ -590,6 +635,11 @@ pub const BUILT_IN: [BuiltIn; 10] = [
         id: "catppuccin-mocha",
         name: "Catppuccin Mocha",
         theme: CATPPUCCIN_MOCHA,
+    },
+    BuiltIn {
+        id: "mochacord",
+        name: "MochaCord",
+        theme: MOCHACORD,
     },
     BuiltIn {
         id: "dracula",
@@ -837,6 +887,22 @@ mod tests {
         assert_eq!(parse("ffbf47"), None);
         assert_eq!(hex(Colour::rgba(0xffffff10)), "#ffffff10");
         assert_eq!(hex(YAP.accent), "#ffbf47");
+    }
+
+    #[test]
+    fn mochacord_is_mocha_with_the_rice_ends_of_blue_and_mauve() {
+        let mocha = find("mochacord").unwrap();
+        assert_eq!(mocha.name, "MochaCord");
+        assert!(mocha.theme.dark);
+        assert_eq!(mocha.theme.accent, Colour::rgb(0xcba6f7), "mauve");
+        assert_eq!(mocha.theme.link, Colour::rgb(0x89b4fa), "blue");
+        assert_eq!(mocha.theme.chat, Colour::rgb(0x1e1e2e));
+        assert_eq!(mocha.theme.sidebar, Colour::rgb(0x181825));
+        // The grounds are the opaque fallback; only the hovers are washes.
+        for ground in [mocha.theme.rail, mocha.theme.sidebar, mocha.theme.chat] {
+            assert_eq!(ground.alpha(), 0xff);
+        }
+        assert!(mocha.theme.hover.alpha() < 0xff);
     }
 
     #[test]

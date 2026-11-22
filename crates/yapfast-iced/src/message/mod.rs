@@ -708,8 +708,8 @@ fn author_line<'a>(
         line = line.push(ctx.blurple_tag("OP", 1.0));
     }
     // HaloCord's plugins' tags (docs/halocord.md).
-    for tag in yapfast_core::halocord::extras(message) {
-        line = line.push(ctx.blurple_tag(tag, 1.0));
+    for tag in yapfast_core::halocord::extras(message, ctx.app) {
+        line = line.push(crate::halocord::tag(ctx, tag));
     }
     let time = Piece::new(
         vec![span(sent_time(ctx, index, message))],

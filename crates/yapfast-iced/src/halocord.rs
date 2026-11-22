@@ -10,14 +10,34 @@
 
 use std::collections::BTreeMap;
 
-use iced::Task;
-use yapfast_core::chat::ChatMessage;
-use yapfast_core::halocord as engine;
+use iced::{
+    Alignment, Element, Task,
+    widget::{container, text},
+};
+use yapfast_core::{
+    application::Action,
+    chat::ChatMessage,
+    halocord::{self as engine, Tag},
+    voice,
+};
 
 use crate::{
     app::{App, Message},
+    client::Client,
+    ctx::Ctx,
+    fonts::BOLD,
+    layout::Layout,
     menus::{MenuAct, MenuRow},
+    pictures::Icon,
+    style::{faded, hex, rounded},
+    widgets::Pic,
 };
+
+/// The plugins' ids, for the places that look one up.
+pub const STEREO: &str = "stereo-loader";
+pub const FAKE_MUTE: &str = "fake-mute";
+pub const FAKE_DEAFEN: &str = "fake-deafen";
+pub const USER_AREA: &str = "user-area";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -49,7 +69,7 @@ pub struct Setting {
     not(test),
     allow(
         dead_code,
-        reason = "the switch, slider and text are for plugins still to come"
+        reason = "the slider and text are for plugins still to come"
     )
 )]
 pub enum Kind {
@@ -76,35 +96,164 @@ pub enum Kind {
     },
 }
 
-/// The plugins, in the page's order.
-pub static PLUGINS: &[Plugin] = &[Plugin {
-    id: "stereo-loader",
-    name: "Stereo loader",
-    about: "Sends your microphone in stereo, just as it comes in, like TestCord's stereo loader. No echo cancelling, noise suppression, gain control or leveling, so the Voice page's sound cleanup is skipped while this is on: only your microphone volume and the voice gate or push to talk apply. Best with headphones. A call going on switches straight away.",
-    on_at_first: true,
-    settings: &[Setting {
-        key: "bitrate",
-        heading: "MICROPHONE BIT RATE",
-        note: "How much detail your microphone keeps in calls. 510 kbit/s is the most Discord calls carry. With this plugin off, calls send at Yapfast's own 128 kbit/s.",
-        kind: Kind::Choice {
-            names: &[
-                "64 kbit/s",
-                "128 kbit/s",
-                "256 kbit/s",
-                "384 kbit/s",
-                "510 kbit/s",
-            ],
-            values: &engine::BITRATES,
-            unless_changed: engine::DEFAULT_BITRATE,
+/// A switch setting that starts off.
+const fn off(key: &'static str, heading: &'static str, note: &'static str) -> Setting {
+    Setting {
+        key,
+        heading,
+        note,
+        kind: Kind::Switch {
+            unless_changed: false,
         },
-    }],
-    apply: |kept, plugin| {
-        let on = kept.on(plugin);
-        engine::set_flat(on);
-        engine::set_bitrate(on.then(|| kept.value(plugin, &plugin.settings[0])));
+    }
+}
+
+/// The plugins, in the page's order.
+pub static PLUGINS: &[Plugin] = &[
+    Plugin {
+        id: STEREO,
+        name: "Stereo loader",
+        about: "Sends your microphone in stereo, just as it comes in: no echo cancelling, noise suppression or leveling. Best with headphones.",
+        on_at_first: true,
+        settings: &[Setting {
+            key: "bitrate",
+            heading: "MICROPHONE BIT RATE",
+            note: "How much detail your microphone keeps in calls. 510 kbit/s is the most Discord calls carry. With this plugin off, calls send at Yapfast's own 128 kbit/s.",
+            kind: Kind::Choice {
+                names: &[
+                    "64 kbit/s",
+                    "128 kbit/s",
+                    "256 kbit/s",
+                    "384 kbit/s",
+                    "510 kbit/s",
+                ],
+                values: &engine::BITRATES,
+                unless_changed: engine::DEFAULT_BITRATE,
+            },
+        }],
+        apply: |kept, plugin| {
+            let on = kept.on(plugin);
+            engine::set_flat(on);
+            engine::set_bitrate(on.then(|| kept.value(plugin, &plugin.settings[0])));
+        },
+        hooks: None,
     },
-    hooks: None,
-}];
+    Plugin {
+        id: FAKE_MUTE,
+        name: "Fake mute",
+        about: "Others see you muted in calls while you can still talk. Your own microphone stays as you set it.",
+        on_at_first: false,
+        settings: &[],
+        apply: tell_voice,
+        hooks: None,
+    },
+    Plugin {
+        id: FAKE_DEAFEN,
+        name: "Fake deafen",
+        about: "Others see you deafened in calls while you still hear everyone. They see you muted too, as a real deafen shows.",
+        on_at_first: false,
+        settings: &[],
+        apply: tell_voice,
+        hooks: None,
+    },
+    Plugin {
+        id: "staff-tag",
+        name: "Staff tag",
+        about: "Tags the owner, the admins and the mods of a server by their names in chat.",
+        on_at_first: false,
+        settings: &[
+            off("crown", "Crown", "Draw a crown in place of the words."),
+            Setting {
+                key: "role_color",
+                heading: "Role colour",
+                note: "Draw the tag in the member's role colour, where they have one.",
+                kind: Kind::Switch {
+                    unless_changed: true,
+                },
+            },
+        ],
+        apply: |kept, plugin| {
+            engine::staff::set_crown(kept.flag(plugin, &plugin.settings[0]));
+            engine::staff::set_role_color(kept.flag(plugin, &plugin.settings[1]));
+        },
+        hooks: Some(&engine::staff::Staff),
+    },
+    Plugin {
+        id: USER_AREA,
+        name: "User area",
+        about: "How the card at the bottom of the channel list looks, and the buttons on it.",
+        on_at_first: true,
+        settings: &[
+            off(
+                "compact",
+                "Compact mode",
+                "A smaller, tighter card that stays inside the channel list.",
+            ),
+            off(
+                "hide_arrows",
+                "Hide the dropdown arrows",
+                "Takes the little arrows off the mute and deafen buttons.",
+            ),
+            off(
+                "fake_mute_button",
+                "Fake mute button",
+                "A button that switches Fake mute on and off.",
+            ),
+            off(
+                "fake_deafen_button",
+                "Fake deafen button",
+                "A button that switches Fake deafen on and off.",
+            ),
+            off(
+                "stats_button",
+                "Stats button",
+                "A button that opens the call's connection details.",
+            ),
+            off(
+                "stereo_button",
+                "Stereo button",
+                "A button that switches the Stereo loader on and off.",
+            ),
+        ],
+        apply: |_, _| {},
+        hooks: None,
+    },
+];
+
+/// Tells the core what Fake mute and Fake deafen do; both plugins say it.
+fn tell_voice(kept: &Kept, _: &Plugin) {
+    engine::set_fake_voice(kept.is(FAKE_MUTE), kept.is(FAKE_DEAFEN));
+}
+
+/// Whether a search (lowercase, not empty) finds `plugin` by its name, what
+/// it says it does, or the names of its settings.
+pub fn found(plugin: &Plugin, query: &str) -> bool {
+    let has = |words: &str| words.to_lowercase().contains(query);
+    has(plugin.name)
+        || has(plugin.about)
+        || plugin.settings.iter().any(|setting| has(setting.heading))
+}
+
+/// Whether a search finds any plugin, so Settings' list keeps the page.
+pub fn any_found(query: &str) -> bool {
+    PLUGINS.iter().any(|plugin| found(plugin, query))
+}
+
+/// The place of the plugin with `id` in [`PLUGINS`].
+pub fn place(id: &str) -> Option<usize> {
+    PLUGINS.iter().position(|plugin| plugin.id == id)
+}
+
+/// How the user area looks and which buttons it has, from its plugin.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Dock {
+    pub compact: bool,
+    pub arrows_hidden: bool,
+    pub fake_mute: bool,
+    pub fake_deafen: bool,
+    pub stats: bool,
+    pub stereo: bool,
+}
 
 /// What `layout.json` keeps of HaloCord: each plugin's state by its id.
 #[derive(Clone, Debug, Default, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -233,6 +382,51 @@ impl Kept {
         }
     }
 
+    /// Whether the plugin with `id` is on.
+    pub fn is(&self, id: &str) -> bool {
+        PLUGINS
+            .iter()
+            .find(|plugin| plugin.id == id)
+            .is_some_and(|plugin| self.on(plugin))
+    }
+
+    /// What Fake mute or Fake deafen is doing, to say on the user area while
+    /// in a call; deafen wins, as it shows both.
+    pub fn faking(&self) -> Option<&'static str> {
+        if self.is(FAKE_DEAFEN) {
+            Some("Faking deafen")
+        } else if self.is(FAKE_MUTE) {
+            Some("Faking mute")
+        } else {
+            None
+        }
+    }
+
+    /// The user area's options; as it started while its plugin is off.
+    pub fn dock(&self) -> Dock {
+        let Some(area) = PLUGINS
+            .iter()
+            .find(|plugin| plugin.id == USER_AREA)
+            .filter(|plugin| self.on(plugin))
+        else {
+            return Dock::default();
+        };
+        let flag = |key: &str| {
+            area.settings
+                .iter()
+                .find(|setting| setting.key == key)
+                .is_some_and(|setting| self.flag(area, setting))
+        };
+        Dock {
+            compact: flag("compact"),
+            arrows_hidden: flag("hide_arrows"),
+            fake_mute: flag("fake_mute_button"),
+            fake_deafen: flag("fake_deafen_button"),
+            stats: flag("stats_button"),
+            stereo: flag("stereo_button"),
+        }
+    }
+
     /// Tells the core what every plugin does.
     pub fn apply(&self) {
         for plugin in PLUGINS {
@@ -286,6 +480,45 @@ impl Kept {
         state.settings.insert(setting.key.to_owned(), value);
         Some(found)
     }
+}
+
+/// A change from the Plugins page or the user area: kept, told to the core,
+/// and, when it changes what others see of a call, the voice state sent
+/// again. Whether the core was handed an action.
+pub fn changed(layout: &mut Layout, client: &mut Client, change: Change) -> bool {
+    let voice = matches!(
+        &change,
+        Change::Switch { plugin, .. }
+            if PLUGINS
+                .get(*plugin)
+                .is_some_and(|found| found.id == FAKE_MUTE || found.id == FAKE_DEAFEN)
+    );
+    layout.halocord.change(change);
+    crate::layout::store(client.root(), "halocord", &layout.halocord);
+    // Devices is the call's way of sending its voice state once more.
+    let resend = voice && client.state().voice.active();
+    if resend {
+        client.dispatch(Action::Voice(voice::Command::Devices));
+    }
+    resend
+}
+
+/// 4. A plugin's tag after a message's author: its words in a chip, or a
+/// crown, in the colour it sets.
+pub fn tag<'a>(ctx: Ctx<'a>, tag: Tag) -> Element<'a, Message> {
+    let Some(color) = tag.color else {
+        return ctx.blurple_tag(tag.text, 1.0);
+    };
+    if tag.crown {
+        return Pic::square(ctx.look.icon(Icon::Crown, 14, color), 14.0).into();
+    }
+    let ink = hex(color);
+    container(text(tag.text).size(10).font(BOLD).color(ink))
+        .padding([0, 4])
+        .height(16)
+        .align_y(Alignment::Center)
+        .style(move |_| rounded(faded(ink, 0.18), 4))
+        .into()
 }
 
 /// 5. HaloCord's plugins' rows for a message's menu, before Delete.
@@ -358,6 +591,40 @@ mod tests {
         let kept: Kept = serde_json::from_str(json).unwrap();
         assert_eq!(kept.value(&PLUGINS[0], &PLUGINS[0].settings[0]), 256);
         assert_eq!(serde_json::to_string(&kept).unwrap(), json);
+    }
+
+    #[test]
+    fn a_search_finds_plugins_by_name_words_and_settings() {
+        let names = |query: &str| -> Vec<&str> {
+            PLUGINS
+                .iter()
+                .filter(|plugin| found(plugin, query))
+                .map(|plugin| plugin.name)
+                .collect()
+        };
+        assert_eq!(names("stereo"), ["Stereo loader", "User area"]);
+        assert_eq!(names("fake mute"), ["Fake mute", "User area"]);
+        assert_eq!(names("crown"), ["Staff tag"]);
+        assert!(names("zzz").is_empty());
+        assert!(any_found("staff") && !any_found("zzz"));
+    }
+
+    #[test]
+    fn fake_mute_and_deafen_say_so_on_the_user_area() {
+        let on = |id: &str| {
+            let mut kept = Kept::default();
+            kept.change_in(
+                PLUGINS,
+                Change::Switch {
+                    plugin: place(id).unwrap(),
+                    on: true,
+                },
+            );
+            kept
+        };
+        assert_eq!(Kept::default().faking(), None);
+        assert_eq!(on(FAKE_MUTE).faking(), Some("Faking mute"));
+        assert_eq!(on(FAKE_DEAFEN).faking(), Some("Faking deafen"));
     }
 
     fn noop(_: &Kept, _: &Plugin) {}

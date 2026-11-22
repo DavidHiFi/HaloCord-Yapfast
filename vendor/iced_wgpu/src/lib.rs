@@ -28,6 +28,7 @@ pub mod settings;
 pub mod window;
 // Yapfast port: whether this renderer may start.
 mod enabled;
+pub mod glass;
 pub use enabled::set_enabled;
 
 #[cfg(feature = "geometry")]

@@ -24,6 +24,7 @@ mod discord;
 mod games;
 mod halocord;
 mod messages;
+mod mochacord;
 mod notifications;
 mod sounds;
 
@@ -58,6 +59,8 @@ pub enum Pref {
     GpuEncoding(bool),
     /// A change on HaloCord's page.
     HaloCord(crate::halocord::Change),
+    /// A change on MochaCord's page.
+    MochaCord(crate::mochacord::Change),
     CloseToTray(bool),
     MultipleWindows(bool),
     DeveloperMode(bool),
@@ -229,8 +232,14 @@ impl Settings {
                 cx.keep("gpu_encoding", on);
             }
             Pref::HaloCord(change) => {
-                cx.layout.halocord.change(change);
-                cx.keep("halocord", &cx.layout.halocord);
+                if crate::halocord::changed(cx.layout, cx.client, change) {
+                    cx.touch();
+                }
+            }
+            Pref::MochaCord(change) => {
+                cx.layout.mochacord.change(change);
+                cx.keep("mochacord", &cx.layout.mochacord);
+                cx.request(Request::Changed(Shown::Theme));
             }
             Pref::CloseToTray(on) => {
                 prefs.close_to_tray = Some(on);

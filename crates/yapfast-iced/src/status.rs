@@ -303,8 +303,10 @@ impl<'a> View<'a> {
         let card = container(column![header, body])
             .width(POPOVER)
             .style(crate::profile::frame_style(inks, theme.line, 8.0, true));
-        let bottom =
-            self.cx.look.window.height - crate::account::HEIGHT - crate::account::INSET - 4.0;
+        let bottom = self.cx.look.window.height
+            - crate::account::height(self.cx.layout.halocord.dock().compact)
+            - crate::account::INSET
+            - 4.0;
         Some(
             Place::new(opaque(card), Point::new(crate::account::INSET, bottom), 8.0)
                 .anchor(Anchor::Bottom)

@@ -81,6 +81,8 @@ pub enum Section {
     About,
     /// HaloCord's own settings, built into its copy of Yapfast.
     HaloCord,
+    /// HaloCord's look options.
+    MochaCord,
 }
 
 impl Section {
@@ -106,7 +108,8 @@ impl Section {
             Section::Games => "Game Activity",
             Section::Keybinds => "Keybinds",
             Section::About => "About",
-            Section::HaloCord => "HaloCord",
+            Section::HaloCord => "Plugins",
+            Section::MochaCord => "MochaCord",
         }
     }
 
@@ -124,13 +127,14 @@ impl Section {
             Section::Keybinds => Icon::Keyboard,
             Section::About => Icon::Help,
             Section::HaloCord => Icon::Headphones,
+            Section::MochaCord => Icon::Palette,
         }
     }
 }
 
 /// The column's groups and their sections, as Discord's settings group
 /// them.
-const GROUPS: [(&str, &[Section]); 4] = [
+const GROUPS: [(&str, &[Section]); 5] = [
     ("Account", &[Section::Account]),
     (
         "Experience",
@@ -153,6 +157,7 @@ const GROUPS: [(&str, &[Section]); 4] = [
         ],
     ),
     ("HaloCord", &[Section::HaloCord]),
+    ("MochaCord", &[Section::MochaCord]),
 ];
 
 /// Which dropdown is open, at most one.
@@ -444,6 +449,7 @@ impl<'a> Page<'a> {
             Section::Keybinds => self.keybinds_page(),
             Section::About => self.about_page(),
             Section::HaloCord => self.halocord_page(),
+            Section::MochaCord => self.mochacord_page(),
         };
         let line = bar(theme.line, Length::Fill, 1);
         let header = column![
@@ -583,7 +589,10 @@ impl<'a> Page<'a> {
                 if discord_only && self.cx.state.preview {
                     continue;
                 }
-                if !query.is_empty() && !section.title().to_lowercase().contains(&query) {
+                if !query.is_empty()
+                    && !section.title().to_lowercase().contains(&query)
+                    && !(section == Section::HaloCord && crate::halocord::any_found(&query))
+                {
                     continue;
                 }
                 entries = entries.push(self.nav_row(section, settings.section() == section));

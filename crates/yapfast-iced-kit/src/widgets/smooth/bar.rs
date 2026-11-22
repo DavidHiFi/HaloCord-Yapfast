@@ -58,6 +58,56 @@ impl Default for Scroller {
     }
 }
 
+/// HaloCord's look for every bar the app draws: a thumb that runs from
+/// one colour to another along its length, over a faint track. Set once
+/// for the whole app (`set_bar_look`), so a bar needs no style of its own.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct BarGradient {
+    /// The thumb's colour at its start (top, or left).
+    pub from: Color,
+    /// And at its end.
+    pub to: Color,
+    /// The track the thumb runs in.
+    pub track: Color,
+}
+
+impl BarGradient {
+    /// The thumb's fill, `grown` of the way to pointed at: a little
+    /// fainter at rest, full under the pointer. `Down` runs top to
+    /// bottom, `Across` left to right.
+    pub(super) fn thumb(self, axis: Axis, grown: f32) -> iced::Gradient {
+        let fade = 0.8 + 0.2 * grown;
+        let angle = match axis {
+            Axis::Down => std::f32::consts::PI,
+            Axis::Across => std::f32::consts::FRAC_PI_2,
+        };
+        iced::gradient::Linear::new(angle)
+            .add_stop(0.0, self.from.scale_alpha(fade))
+            .add_stop(1.0, self.to.scale_alpha(fade))
+            .into()
+    }
+
+    /// The track's ink, firmer under the pointer.
+    pub(super) fn lane(self, grown: f32) -> Color {
+        self.track.scale_alpha(0.55 + 0.45 * grown)
+    }
+}
+
+static LOOK: std::sync::RwLock<Option<BarGradient>> = std::sync::RwLock::new(None);
+
+/// Draws every bar as `look` says, or as each list's own `Scroller` with
+/// `None`. HaloCord's MochaCord settings turn it on and off.
+pub fn set_bar_look(look: Option<BarGradient>) {
+    if let Ok(mut set) = LOOK.write() {
+        *set = look;
+    }
+}
+
+/// The app-wide bar look, if one is set.
+pub(super) fn look() -> Option<BarGradient> {
+    LOOK.read().ok().and_then(|set| *set)
+}
+
 /// Which way a bar's list scrolls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Axis {
@@ -131,6 +181,28 @@ impl Track {
                 height: thick,
             },
         }
+    }
+
+    /// The track the thumb runs in: the thumb's lane, the edge's length.
+    pub fn lane(&self, grown: f32) -> Rectangle {
+        let (from, long) = self.span();
+        let mut lane = self.thumb(grown);
+        match self.axis {
+            Axis::Down => {
+                lane.y = from;
+                lane.height = long;
+            }
+            Axis::Across => {
+                lane.x = from;
+                lane.width = long;
+            }
+        }
+        lane
+    }
+
+    /// Which way the thumb runs.
+    pub(super) fn axis(&self) -> Axis {
+        self.axis
     }
 
     /// How far the list moves for the thumb to start `grip` before
@@ -369,6 +441,27 @@ mod tests {
             bar.press(track, Point::new(305.0, 220.0)),
             Vector::new(0.0, 1800.0)
         );
+    }
+
+    #[test]
+    fn the_gradient_look_runs_down_a_tall_thumb_and_firms_under_the_pointer() {
+        let look = BarGradient {
+            from: Color::from_rgb(0.54, 0.7, 0.98),
+            to: Color::from_rgb(0.8, 0.65, 0.97),
+            track: Color::from_rgb(0.19, 0.2, 0.27),
+        };
+        let [Some(track), None] = list(0.0) else {
+            panic!("one bar, down");
+        };
+        let iced::Gradient::Linear(rest) = look.thumb(track.axis(), 0.0);
+        let iced::Gradient::Linear(held) = look.thumb(track.axis(), 1.0);
+        assert_eq!(rest.angle.0, std::f32::consts::PI, "top to bottom");
+        assert_eq!(rest.stops[0].unwrap().color.r, look.from.r);
+        assert!(rest.stops[0].unwrap().color.a < held.stops[0].unwrap().color.a);
+        assert!(look.lane(0.0).a < look.lane(1.0).a);
+        // The track is the whole edge, the thumb a part of it.
+        assert_eq!(track.lane(0.0).height, 400.0);
+        assert_eq!(track.lane(0.0).x, track.thumb(0.0).x);
     }
 
     #[test]

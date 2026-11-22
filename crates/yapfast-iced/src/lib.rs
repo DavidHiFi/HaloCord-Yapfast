@@ -70,6 +70,7 @@ mod graphics;
 // HaloCord's plugins; the hooks are listed in docs/halocord.md.
 mod halocord;
 mod header;
+mod mochacord;
 use yapfast_iced_kit::icons;
 mod image_viewer;
 mod info_cards;
@@ -225,6 +226,7 @@ pub fn run(
     pictures::install();
     video::install();
     frames::install();
+    mochacord::prepare(&root);
     fonts::install(TWEMOJI);
     EXECUTOR
         .set(runtime.block_on(async { tokio::runtime::Handle::current() }))

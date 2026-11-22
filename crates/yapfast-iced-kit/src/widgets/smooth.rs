@@ -34,7 +34,7 @@ use super::{At, Hooks, Inner, Wrap};
 mod bar;
 pub mod flick;
 
-pub use bar::Scroller;
+pub use bar::{BarGradient, Scroller, set_bar_look};
 use flick::{Flick, Phase, Room, Rooms};
 
 thread_local! {
@@ -466,16 +466,34 @@ impl<M> Hooks<M> for Smooth {
         let grown = state.bar.grown;
         // A layer of its own: over the list's text and pictures.
         renderer.with_layer(shown, |renderer| {
+            let look = bar::look();
             for track in tracks.iter().flatten() {
+                let round = |bounds: Rectangle| {
+                    Border::default().rounded(bounds.width.min(bounds.height) / 2.0)
+                };
+                if let Some(look) = look {
+                    let lane = track.lane(grown);
+                    renderer.fill_quad(
+                        renderer::Quad {
+                            bounds: lane,
+                            border: round(lane),
+                            ..renderer::Quad::default()
+                        },
+                        look.lane(grown),
+                    );
+                }
                 let thumb = track.thumb(grown);
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: thumb,
-                        border: Border::default().rounded(thumb.width.min(thumb.height) / 2.0),
-                        ..renderer::Quad::default()
-                    },
-                    scroller.ink(grown),
-                );
+                let quad = renderer::Quad {
+                    bounds: thumb,
+                    border: round(thumb),
+                    ..renderer::Quad::default()
+                };
+                match look {
+                    Some(look) => {
+                        renderer.fill_quad(quad, look.thumb(track.axis(), grown));
+                    }
+                    None => renderer.fill_quad(quad, scroller.ink(grown)),
+                }
             }
         });
     }

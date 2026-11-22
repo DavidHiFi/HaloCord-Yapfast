@@ -498,7 +498,7 @@ pub fn window_bar(app: &App) -> Option<Element<'_, Message>> {
     if app.bar_drag.armed.is_some() {
         ground = ground.on_move(|at| Message::Bar(Event::Moved(at)));
     }
-    let rail = theme.rail;
+    let rail = crate::mochacord::glass(theme.rail, crate::mochacord::Dock::Rail);
     let bar = stack![
         ground,
         container(middle)

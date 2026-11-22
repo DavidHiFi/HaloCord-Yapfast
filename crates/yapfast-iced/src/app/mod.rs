@@ -220,7 +220,10 @@ impl App {
         #[cfg(test)]
         yapfast_core::silence_audio();
         let (width, height) = (size.0 as f32, size.1 as f32);
-        let layout = crate::layout::Layout::open(client.root(), &crate::build().version);
+        let mut layout = crate::layout::Layout::open(client.root(), &crate::build().version);
+        if !cfg!(test) {
+            crate::mochacord::first_start(&mut layout, client.root());
+        }
         let themes = Themes::read(&layout);
         let theme = themes.shown();
         let (fitter, fitted) = crate::pictures::Fitter::new();
@@ -233,6 +236,7 @@ impl App {
         // times on the clock Messages chose; the games named by hand.
         layout.voice.apply();
         layout.halocord.apply();
+        layout.mochacord.apply();
         layout.prefs.apply_clock();
         yapfast_core::discord::set_custom_games(&layout.prefs.game_executables);
         client.share_typing = layout.prefs.share_typing.unwrap_or(true);

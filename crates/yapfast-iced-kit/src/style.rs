@@ -64,11 +64,43 @@ pub fn fill(color: Color) -> container::Style {
     }
 }
 
+/// How much HaloCord's corner setting scales the rounded corners, in
+/// percent. 100 leaves them as drawn.
+static CORNER_SCALE: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(100);
+
+/// Sets the corner scale, in percent, up to 200.
+pub fn set_corner_scale(percent: u32) {
+    CORNER_SCALE.store(percent.min(200), std::sync::atomic::Ordering::Relaxed);
+}
+
+/// The corners with the scale applied. Corners over 14 (pills, and circles
+/// such as avatars) keep their size, since the scale is for the cards,
+/// menus and buttons.
+fn scaled(radius: border::Radius) -> border::Radius {
+    let percent = CORNER_SCALE.load(std::sync::atomic::Ordering::Relaxed);
+    if percent == 100 {
+        return radius;
+    }
+    let grow = |corner: f32| {
+        if corner > 14.0 {
+            corner
+        } else {
+            corner * percent as f32 / 100.0
+        }
+    };
+    border::Radius {
+        top_left: grow(radius.top_left),
+        top_right: grow(radius.top_right),
+        bottom_right: grow(radius.bottom_right),
+        bottom_left: grow(radius.bottom_left),
+    }
+}
+
 /// A container filled with `color`, its corners rounded by `radius`.
 pub fn rounded(color: Color, radius: impl Into<border::Radius>) -> container::Style {
     container::Style {
         background: Some(color.into()),
-        border: Border::default().rounded(radius),
+        border: Border::default().rounded(scaled(radius.into())),
         ..Default::default()
     }
 }
@@ -78,14 +110,14 @@ pub fn edge(color: Color, radius: impl Into<border::Radius>) -> Border {
     Border {
         color,
         width: 1.0,
-        radius: radius.into(),
+        radius: scaled(radius.into()),
     }
 }
 
 /// No outline, its corners rounded by `radius`: the border of a button's,
 /// a field's or a quad's style.
 pub fn round(radius: impl Into<border::Radius>) -> Border {
-    Border::default().rounded(radius)
+    Border::default().rounded(scaled(radius.into()))
 }
 
 /// A container filled with `ground` in a 1 px `outline`, its corners

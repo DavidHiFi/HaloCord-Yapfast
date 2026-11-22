@@ -740,3 +740,158 @@ fn halocord_sends_stereo_at_510_unless_changed() {
     assert!(!again.layout.halocord.on(loader));
     assert_eq!(again.layout.halocord.value(loader, bitrate), 256);
 }
+
+/// The new plugins are on the page with their switches, and the stereo
+/// loader stays first.
+#[test]
+fn the_plugins_page_lists_every_plugin() {
+    use crate::halocord::{FAKE_DEAFEN, FAKE_MUTE, PLUGINS, STEREO, USER_AREA, place};
+    let (mut app, _folder) = preview();
+    assert_eq!(PLUGINS[0].id, STEREO);
+    for id in [FAKE_MUTE, FAKE_DEAFEN, USER_AREA, "staff-tag"] {
+        assert!(place(id).is_some(), "{id}");
+    }
+    open(&mut app, Section::HaloCord);
+    for name in ["Stereo loader", "Fake mute", "Fake deafen", "Staff tag"] {
+        assert!(shows(&app, name), "{name}");
+    }
+}
+
+/// Fake mute and fake deafen start off, switch on from the page, and are
+/// kept.
+#[test]
+fn fake_mute_and_deafen_start_off_and_switch_on() {
+    use crate::halocord::{Change, FAKE_DEAFEN, FAKE_MUTE, changed, place};
+    let (mut app, folder) = preview();
+    assert!(!app.layout.halocord.is(FAKE_MUTE));
+    assert!(!app.layout.halocord.is(FAKE_DEAFEN));
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(FAKE_MUTE).unwrap(),
+            on: true,
+        },
+    );
+    assert!(app.layout.halocord.is(FAKE_MUTE));
+    assert!(!app.layout.halocord.is(FAKE_DEAFEN));
+    let layout = stored(&folder);
+    assert_eq!(layout["halocord"]["plugins"]["fake-mute"]["on"], true);
+}
+
+/// The user area keeps its options and shows them as the dock.
+#[test]
+fn the_user_area_options_make_the_dock() {
+    use crate::halocord::{Change, Dock, USER_AREA, changed, place};
+    let (mut app, _folder) = preview();
+    assert_eq!(app.layout.halocord.dock(), Dock::default());
+    let plugin = place(USER_AREA).unwrap();
+    let flag = |setting| Change::Flag {
+        plugin,
+        setting,
+        on: true,
+    };
+    for setting in [0, 1, 2, 4] {
+        changed(&mut app.layout, &mut app.client, flag(setting));
+    }
+    let dock = app.layout.halocord.dock();
+    assert!(dock.compact && dock.arrows_hidden && dock.fake_mute && dock.stats);
+    assert!(!dock.fake_deafen && !dock.stereo);
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert_eq!(app.layout.halocord.dock(), Dock::default());
+}
+
+/// Compact is shorter, and the dock draws in both sizes.
+#[test]
+fn the_compact_card_is_shorter() {
+    assert!(crate::account::height(true) < crate::account::height(false));
+    assert_eq!(crate::account::height(false), crate::account::HEIGHT);
+}
+
+/// MochaCord's page: its options start as the rice has them, a change is
+/// kept in `layout.json` under `mochacord` and read back after a restart.
+#[test]
+fn mochacord_options_are_kept_across_a_restart() {
+    let (mut app, folder) = preview();
+    assert_eq!(app.layout.mochacord.glass_strength, 75);
+    open(&mut app, Section::MochaCord);
+    assert!(shows(&app, "Glass window"));
+    assert!(shows(&app, "Corner roundness"));
+    interact(&mut app, |ui| {
+        ui.click("Blue to mauve accents").expect("the switch");
+    });
+    interact(&mut app, |ui| {
+        ui.click("Cascadia Code").expect("the font");
+    });
+    let kept = &stored(&folder)["mochacord"];
+    assert_eq!(kept["accent_gradient"], false);
+    assert_eq!(kept["font"], "Cascadia Code");
+    let again = start(&folder, true);
+    assert!(!again.layout.mochacord.accent_gradient);
+    assert_eq!(again.layout.mochacord.font, "Cascadia Code");
+    // Put the shared look settings back for the tests after this one.
+    crate::mochacord::Kept::default().apply();
+}
+
+/// What a click at `x` on the user area drawn alone (300 px wide) sends.
+fn dock_click(app: &App, x: f32) -> Vec<Message> {
+    let mut ui = iced_test::Simulator::with_size(
+        iced::Settings::default(),
+        iced::Size::new(300.0, crate::account::HEIGHT + crate::account::INSET),
+        crate::account::view(app.ctx()),
+    );
+    ui.point_at(iced::Point::new(x, crate::account::HEIGHT / 2.0));
+    ui.simulate(iced_test::simulator::click());
+    ui.into_messages().collect()
+}
+
+/// With the arrows hidden the mute button moves to where its arrow was
+/// (nothing is drawn beside it), and the extra buttons draw when enabled
+/// and send their plugin's switch.
+#[test]
+fn the_dock_hides_arrows_and_draws_its_extra_buttons() {
+    use crate::{
+        account::Event,
+        halocord::{Change, FAKE_MUTE, USER_AREA, changed, place},
+    };
+    let mutes = |messages: &[Message]| {
+        messages
+            .iter()
+            .any(|message| matches!(message, Message::Account(Event::Mute)))
+    };
+    let (mut app, _folder) = preview();
+    // Arrows drawn: the mute button sits at 148, and 188 is no mute button.
+    assert!(mutes(&dock_click(&app, 148.0)));
+    assert!(!mutes(&dock_click(&app, 188.0)));
+    let area = place(USER_AREA).unwrap();
+    let flag = |setting| Change::Flag {
+        plugin: area,
+        setting,
+        on: true,
+    };
+    changed(&mut app.layout, &mut app.client, flag(1));
+    assert!(mutes(&dock_click(&app, 188.0)), "the arrows are gone");
+    assert!(!mutes(&dock_click(&app, 148.0)));
+    // No extra button yet: the place beside the cog sends nothing.
+    assert!(
+        dock_click(&app, 225.0).is_empty()
+            || !dock_click(&app, 225.0)
+                .iter()
+                .any(|message| { matches!(message, Message::Account(Event::Plugin(_))) })
+    );
+    changed(&mut app.layout, &mut app.client, flag(2));
+    let sent = dock_click(&app, 225.0);
+    let plugin = place(FAKE_MUTE).unwrap();
+    assert!(
+        sent.iter().any(|message| matches!(
+            message,
+            Message::Account(Event::Plugin(Change::Switch { plugin: found, on: true }))
+                if *found == plugin
+        )),
+        "the fake mute button switches the plugin on"
+    );
+}

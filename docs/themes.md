@@ -55,6 +55,7 @@ card.
 | Yap | `yap` | yes | marigold | Yapfast's own |
 | Bonfire | `bonfire` | yes | blurple | Discord's Dark theme, the default |
 | Catppuccin Mocha | `catppuccin-mocha` | yes | mauve | [Catppuccin](https://github.com/catppuccin/catppuccin) |
+| MochaCord | `mochacord` | yes | mauve, blue links | HaloCord's: Catppuccin Mocha with the rice values; see [HaloCord's build](halocord.md) |
 | Dracula | `dracula` | yes | purple | [Dracula](https://draculatheme.com/contribute) |
 | Nord | `nord` | yes | frost nord8 | [Nord](https://www.nordtheme.com/docs/colors-and-palettes) |
 | Gruvbox Dark | `gruvbox-dark` | yes | orange | [Gruvbox](https://github.com/morhetz/gruvbox) |

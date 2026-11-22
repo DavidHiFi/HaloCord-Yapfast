@@ -223,7 +223,7 @@ pub fn lit_style(
         } else {
             rest.map(Into::into)
         },
-        border: Border::default().rounded(radius),
+        border: crate::style::round(radius),
         ..Default::default()
     }
 }
