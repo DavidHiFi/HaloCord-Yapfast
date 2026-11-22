@@ -40,6 +40,7 @@ pub const FAKE_DEAFEN: &str = "fake-deafen";
 pub const USER_AREA: &str = "user-area";
 pub const RESTART: &str = "restart-button";
 pub const READ_ALL: &str = "read-all-button";
+pub const COUNTER: &str = "character-counter";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -234,6 +235,15 @@ pub static PLUGINS: &[Plugin] = &[
         name: "Read all button",
         about: "A button in the top bar (beside Settings when the bar is the system's) that marks every server and message you have unread as read, in one press.",
         on_at_first: true,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: COUNTER,
+        name: "Character counter",
+        about: "Shows how many letters you have typed beside the message box, like 1,234 / 2,000. It turns amber near the limit and red over it. The limit is 4,000 with Nitro.",
+        on_at_first: false,
         settings: &[],
         apply: |_, _| {},
         hooks: None,
@@ -595,6 +605,61 @@ pub(crate) fn read_all_actions(state: &yapfast_core::application::AppState) -> V
         .filter(|room| room.direct && (room.unread > 0 || room.mentions > 0))
         .map(|room| room.id.clone());
     servers.chain(chats).map(Action::MarkRead).collect()
+}
+
+/// How full the message box is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fill {
+    Fine,
+    Near,
+    Over,
+}
+
+/// `1234` as `1,234`.
+fn thousands(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (at, digit) in digits.chars().enumerate() {
+        if at > 0 && (digits.len() - at) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(digit);
+    }
+    out
+}
+
+/// The counter's words and how full the box is, for a draft of `used`
+/// letters under `limit`. Amber from nine tenths of the limit.
+pub fn counter_words(used: usize, limit: usize) -> (String, Fill) {
+    let fill = if used > limit {
+        Fill::Over
+    } else if used * 10 >= limit * 9 {
+        Fill::Near
+    } else {
+        Fill::Fine
+    };
+    (format!("{} / {}", thousands(used), thousands(limit)), fill)
+}
+
+/// What the counter shows for `draft`: nothing when it's off or the box is
+/// empty.
+pub fn count_words(kept: &Kept, draft: &str, nitro: bool) -> Option<(String, Fill)> {
+    if !kept.is(COUNTER) || draft.is_empty() {
+        return None;
+    }
+    Some(counter_words(
+        draft.chars().count(),
+        if nitro { 4000 } else { 2000 },
+    ))
+}
+
+/// The counter's ink: `quiet` until near the limit.
+pub fn count_color(fill: Fill, quiet: iced::Color) -> iced::Color {
+    match fill {
+        Fill::Fine => quiet,
+        Fill::Near => hex(0xf0b232),
+        Fill::Over => hex(0xf23f42),
+    }
 }
 
 /// A plugin's button was pressed.

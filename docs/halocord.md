@@ -99,6 +99,7 @@ Window (`yapfast-iced`):
   `window_bar`.
 - `account.rs`: the same buttons beside Settings, when the window has no title bar of
   its own.
+- `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
 - `tests/mod.rs`: `mod halocord_buttons;`.
 
 Kit (`yapfast-iced-kit`) and vendor:

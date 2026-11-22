@@ -111,3 +111,44 @@ fn read_all_marks_each_server_and_unread_chat_and_only_those() {
         .collect();
     assert_eq!(marked, [channel.as_str()], "only the unread channel");
 }
+
+#[test]
+fn the_counter_reads_with_commas_and_turns_amber_then_red() {
+    use crate::halocord::{Fill, counter_words};
+    assert_eq!(
+        counter_words(1234, 2000),
+        ("1,234 / 2,000".into(), Fill::Fine)
+    );
+    assert_eq!(counter_words(1800, 2000).1, Fill::Near, "nine tenths");
+    assert_eq!(
+        counter_words(2000, 2000).1,
+        Fill::Near,
+        "at the limit is still allowed"
+    );
+    assert_eq!(counter_words(2001, 2000).1, Fill::Over);
+    assert_eq!(counter_words(5, 4000).0, "5 / 4,000");
+}
+
+#[test]
+fn the_counter_is_off_at_first_and_shows_only_for_a_draft() {
+    use crate::halocord::{COUNTER, count_words};
+    let (mut app, _folder) = preview();
+    assert!(
+        count_words(&app.layout.halocord, "hello", false).is_none(),
+        "off at first"
+    );
+    switch(&mut app, COUNTER, true);
+    let kept = &app.layout.halocord;
+    assert!(count_words(kept, "", false).is_none(), "nothing typed");
+    assert_eq!(
+        count_words(kept, "héllo", false).unwrap().0,
+        "5 / 2,000",
+        "letters, not bytes"
+    );
+    assert_eq!(
+        count_words(kept, "hi", true).unwrap().0,
+        "2 / 4,000",
+        "Nitro"
+    );
+    let _ = app.view();
+}
