@@ -393,6 +393,8 @@ fn the_account_cards_mic_and_headphones_wait_while_a_call_joins() {
     use crate::account::Event;
     use yapfast_core::voice::Phase;
     let (mut app, _folder) = preview();
+    // The buttons HaloCord adds beside Settings only draw without Yapfast's own bar.
+    app.shell.own_title_bar = true;
     let mute = |messages: &[Message]| {
         messages
             .iter()
@@ -586,7 +588,9 @@ fn a_dms_nameplate_fills_its_row_to_the_edges() {
 #[test]
 fn the_account_cards_carets_sit_at_the_middle_of_their_toggles() {
     use crate::call::{Event, Popup};
-    let (app, _folder) = preview();
+    let (mut app, _folder) = preview();
+    // The buttons HaloCord adds beside Settings only draw without Yapfast's own bar.
+    app.shell.own_title_bar = true;
     // The microphone's caret is the 20 px after its 32 px toggle, and a
     // press 8 px above or below the card's middle is on it.
     for off in [-8.0, 8.0] {

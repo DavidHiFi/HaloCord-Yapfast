@@ -864,6 +864,8 @@ fn the_dock_hides_arrows_and_draws_its_extra_buttons() {
             .any(|message| matches!(message, Message::Account(Event::Mute)))
     };
     let (mut app, _folder) = preview();
+    // The buttons HaloCord adds beside Settings only draw without Yapfast's own bar.
+    app.shell.own_title_bar = true;
     // Arrows drawn: the mute button sits at 148, and 188 is no mute button.
     assert!(mutes(&dock_click(&app, 148.0)));
     assert!(!mutes(&dock_click(&app, 188.0)));
