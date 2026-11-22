@@ -39,6 +39,7 @@ pub const FAKE_MUTE: &str = "fake-mute";
 pub const FAKE_DEAFEN: &str = "fake-deafen";
 pub const USER_AREA: &str = "user-area";
 pub const VOLUME_BOOSTER: &str = "volume-booster";
+pub const FORCE_MONO: &str = "force-mono";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -238,6 +239,15 @@ pub static PLUGINS: &[Plugin] = &[
             let on = kept.on(plugin);
             engine::set_volume_cap(on.then(|| kept.value(plugin, &plugin.settings[0])));
         },
+        hooks: None,
+    },
+    Plugin {
+        id: FORCE_MONO,
+        name: "Force mono",
+        about: "Plays everyone's voice the same in both ears, for one-sided headphones or a single speaker.",
+        on_at_first: false,
+        settings: &[],
+        apply: |kept, plugin| engine::set_mono(kept.on(plugin)),
         hooks: None,
     },
 ];

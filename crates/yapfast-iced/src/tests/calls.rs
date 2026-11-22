@@ -707,3 +707,27 @@ fn someones_voice_menu_keeps_the_cores_order_with_an_icon_on_each_row() {
         assert!(row.icon.is_some(), "{} has its icon", row.label);
     }
 }
+
+/// HaloCord's Force mono: off at first, switched on it tells the core to
+/// play every voice the same in both ears, and off again it stops.
+#[test]
+fn force_mono_starts_off_and_switches_the_core() {
+    use crate::halocord::{Change, FORCE_MONO, changed, place};
+    let (mut app, _folder) = super::preview();
+    assert!(!app.layout.halocord.is(FORCE_MONO), "off at first");
+    let mut set = |on| {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Switch {
+                plugin: place(FORCE_MONO).unwrap(),
+                on,
+            },
+        );
+        app.layout.halocord.is(FORCE_MONO)
+    };
+    assert!(set(true));
+    assert!(yapfast_core::halocord::mono());
+    assert!(!set(false));
+    assert!(!yapfast_core::halocord::mono());
+}

@@ -121,6 +121,9 @@ Core (`yapfast-core`):
 - `discord_voice.rs`: both `set_self` calls send `halocord::voice_state(muted, deafened)`.
 - `discord_text/commands.rs`: plug-in point 3, `halocord::live` in `live`.
 - `discord_audio.rs`:
+  - In `mix`, while `halocord::mono()` (Force mono), a person's voice goes through
+    `halocord::add_mono` and the loop moves on (four lines). Stream and Matrix
+    sound are left as they are.
   - `mod flat;`.
   - `Gate` takes its block size as a const generic (`Gate<const N: usize = BLOCK>`),
     so the flat microphone gates stereo blocks with the same gate.

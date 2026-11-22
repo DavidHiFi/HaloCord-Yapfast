@@ -70,6 +70,28 @@ pub fn volume_cap() -> u32 {
     VOLUME_CAP.load(Ordering::Relaxed)
 }
 
+static MONO: AtomicBool = AtomicBool::new(false);
+
+/// Plays everyone's incoming voice as mono (Force mono).
+pub fn set_mono(on: bool) {
+    MONO.store(on, Ordering::Relaxed);
+}
+
+pub fn mono() -> bool {
+    MONO.load(Ordering::Relaxed)
+}
+
+/// Adds one person's interleaved stereo frame to `sum` at `gain`, with both
+/// channels turned into the mean of the two.
+pub fn add_mono(sum: &mut [f32], samples: &[i16], gain: f32) {
+    for (total, pair) in sum.chunks_mut(2).zip(samples.chunks(2)) {
+        let mean = pair.iter().map(|sample| f32::from(*sample)).sum::<f32>() / 2.0 * gain;
+        for channel in total {
+            *channel += mean;
+        }
+    }
+}
+
 static FAKE_MUTE: AtomicBool = AtomicBool::new(false);
 static FAKE_DEAF: AtomicBool = AtomicBool::new(false);
 
@@ -371,6 +393,21 @@ mod tests {
         assert!(pick("gone/raw", &bot).copy.is_none());
         plug(&Tap, false);
         assert!(pick("tap/raw", &bot).copy.is_none());
+    }
+
+    #[test]
+    fn force_mono_plays_the_mean_of_both_sides_in_both() {
+        let mut sum = [0f32; 4];
+        // Left 1000, right -200: the mean is 400, doubled by a gain of 2.
+        add_mono(&mut sum, &[1000, -200, 10, 30], 2.0);
+        assert_eq!(sum, [800.0, 800.0, 40.0, 40.0]);
+        // A second voice adds on, and a frame that stops short leaves the rest.
+        add_mono(&mut sum, &[100, 100], 1.0);
+        assert_eq!(sum, [900.0, 900.0, 40.0, 40.0]);
+        set_mono(true);
+        assert!(mono());
+        set_mono(false);
+        assert!(!mono());
     }
 
     #[test]
