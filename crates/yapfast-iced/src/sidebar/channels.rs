@@ -560,6 +560,13 @@ impl<'a> super::View<'a> {
             let lasted = yapfast_core::clock::lasted(started, self.cx.minute);
             face = face.push(text(lasted).size(12).color(theme.muted));
         }
+        if let Some(count) = room
+            .voice
+            .then(|| crate::halocord::voice_count(self.cx, room.people.len()))
+            .flatten()
+        {
+            face = face.push(count);
+        }
         if !room.badge.is_empty() {
             face = face.push(count_pill(theme, &room.badge, ROW_COUNT, None));
         } else if !room.posts.is_empty() {

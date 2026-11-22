@@ -2,7 +2,7 @@
 //! Yapfast's own files carry only the hooks that call in. `docs/halocord.md`
 //! lists every hook.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 pub mod copy_media_link;
 pub mod copy_sticker_link;
@@ -50,6 +50,52 @@ pub fn set_bitrate(kbps: Option<u32>) {
     }
     #[cfg(not(feature = "discord"))]
     let _ = kbps;
+}
+
+/// A person's and a stream's volume slider goes to this much, in percent,
+/// as Discord's does.
+pub const VOLUME_STOCK: u32 = 200;
+/// The most the Volume booster's page offers, in percent.
+pub const VOLUME_CAPS: [u32; 5] = [200, 400, 600, 800, 1000];
+
+static VOLUME_CAP: AtomicU32 = AtomicU32::new(VOLUME_STOCK);
+
+/// Sets how far a person's and a stream's volume slider goes, in percent, or
+/// Discord's own 200 for `None`. Past 200 the sound keeps growing in step
+/// with the slider: 1000 is five times as loud as 200 (see
+/// [`crate::volume::from_slider`]).
+pub fn set_volume_cap(percent: Option<u32>) {
+    let percent = percent.map_or(VOLUME_STOCK, |percent| {
+        percent.clamp(VOLUME_STOCK, VOLUME_CAPS[VOLUME_CAPS.len() - 1])
+    });
+    VOLUME_CAP.store(percent, Ordering::Relaxed);
+}
+
+/// How far a person's and a stream's volume slider goes, in percent.
+pub fn volume_cap() -> u32 {
+    VOLUME_CAP.load(Ordering::Relaxed)
+}
+
+static MONO: AtomicBool = AtomicBool::new(false);
+
+/// Plays everyone's incoming voice as mono (Force mono).
+pub fn set_mono(on: bool) {
+    MONO.store(on, Ordering::Relaxed);
+}
+
+pub fn mono() -> bool {
+    MONO.load(Ordering::Relaxed)
+}
+
+/// Adds one person's interleaved stereo frame to `sum` at `gain`, with both
+/// channels turned into the mean of the two.
+pub fn add_mono(sum: &mut [f32], samples: &[i16], gain: f32) {
+    for (total, pair) in sum.chunks_mut(2).zip(samples.chunks(2)) {
+        let mean = pair.iter().map(|sample| f32::from(*sample)).sum::<f32>() / 2.0 * gain;
+        for channel in total {
+            *channel += mean;
+        }
+    }
 }
 
 static FAKE_MUTE: AtomicBool = AtomicBool::new(false);
@@ -419,6 +465,21 @@ mod tests {
         assert!(pick("gone/raw", &bot).copy.is_none());
         plug(&Tap, false);
         assert!(pick("tap/raw", &bot).copy.is_none());
+    }
+
+    #[test]
+    fn force_mono_plays_the_mean_of_both_sides_in_both() {
+        let mut sum = [0f32; 4];
+        // Left 1000, right -200: the mean is 400, doubled by a gain of 2.
+        add_mono(&mut sum, &[1000, -200, 10, 30], 2.0);
+        assert_eq!(sum, [800.0, 800.0, 40.0, 40.0]);
+        // A second voice adds on, and a frame that stops short leaves the rest.
+        add_mono(&mut sum, &[100, 100], 1.0);
+        assert_eq!(sum, [900.0, 900.0, 40.0, 40.0]);
+        set_mono(true);
+        assert!(mono());
+        set_mono(false);
+        assert!(!mono());
     }
 
     #[test]

@@ -197,6 +197,10 @@ fn mix(
         if gain == 0.0 {
             continue;
         }
+        if crate::halocord::mono() {
+            crate::halocord::add_mono(&mut sum, samples, gain);
+            continue;
+        }
         for (total, sample) in sum.iter_mut().zip(samples.iter()) {
             *total += f32::from(*sample) * gain;
         }

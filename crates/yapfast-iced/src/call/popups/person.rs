@@ -223,8 +223,9 @@ pub fn choose_voice(
 /// stream's while they share.
 pub fn volumes_view<'a>(ctx: crate::ctx::Ctx<'a>, volumes: &'a Volumes) -> Element<'a, Message> {
     let theme = ctx.look.theme;
+    let most = yapfast_core::halocord::volume_cap();
     let slider = |label, stream: bool, value| {
-        controls::slider(label, value, 200, move |value| {
+        controls::slider(label, value, most, move |value| {
             Message::Call(Event::Volume(stream, value, false))
         })
         .on_release(Message::Call(Event::Volume(stream, value, true)))

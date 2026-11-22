@@ -159,6 +159,9 @@ impl<'a> super::View<'a> {
                 };
                 face = face.push(self.cx.look.glyph(Icon::HeadphoneOff, 16, ink));
             }
+            if let Some(mark) = crate::halocord::unmute_mark(self.cx, person, live) {
+                face = face.push(mark);
+            }
         }
         let ground = if pointed {
             theme.hover

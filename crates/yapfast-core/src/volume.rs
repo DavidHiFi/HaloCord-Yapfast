@@ -20,6 +20,12 @@ use tokio::sync::watch;
 /// Twice as loud, as Discord allows.
 pub const MAX: f32 = 2.0;
 
+/// The loudest a person or a stream plays: [`MAX`], or what HaloCord's
+/// Volume booster lets the slider reach.
+fn most() -> f32 {
+    from_slider(crate::halocord::volume_cap() as f32).max(MAX)
+}
+
 /// The gain of a slider at `value`, from 0 to 200, as Discord's volume
 /// sliders map it: below 100 on a power curve, `(value / 100)^2.8`, so 50 is
 /// about -17 dB; above it 6 dB more for each 100, so 200 is about twice as
@@ -29,8 +35,12 @@ pub fn from_slider(value: f32) -> f32 {
     let share = value.max(0.0) / 100.0;
     if share < 1.0 {
         share.powf(2.8)
-    } else {
+    } else if share <= 2.0 {
         10f32.powf((share - 1.0) * 6.0 / 20.0)
+    } else {
+        // HaloCord's Volume booster: past 200, as loud for each step as
+        // the slider's 200 is for its.
+        from_slider(200.0) * share / 2.0
     }
 }
 
@@ -40,8 +50,10 @@ pub fn to_slider(gain: f32) -> f32 {
         0.0
     } else if gain < 1.0 {
         gain.powf(1.0 / 2.8) * 100.0
-    } else {
+    } else if gain <= from_slider(200.0) {
         (20.0 * gain.log10() / 6.0 + 1.0) * 100.0
+    } else {
+        gain / from_slider(200.0) * 200.0
     }
 }
 
@@ -83,7 +95,7 @@ fn volumes(kind: Kind) -> &'static RwLock<HashMap<String, f32>> {
 
 /// Sets how loud `person` sounds; the default gain forgets the choice.
 pub fn set(kind: Kind, person: &str, volume: f32) {
-    let volume = volume.clamp(0.0, MAX);
+    let volume = volume.clamp(0.0, most());
     {
         let mut volumes = volumes(kind).write().unwrap();
         if (volume - kind.default_gain()).abs() < f32::EPSILON {
@@ -189,6 +201,7 @@ mod tests {
 
     #[test]
     fn remembers_each_persons_voice_and_stream() {
+        let _cap = SPEAKERS_SET.lock().unwrap();
         let mut changes = changes();
         set(Kind::Voice, "volume-test-1", 0.5);
         set(Kind::Stream, "volume-test-1", 3.0);
@@ -273,5 +286,45 @@ mod tests {
         // A stream's default shows at about 54, as on Discord.
         assert_eq!(to_slider(Kind::Stream.default_gain()).round(), 54.0);
         assert_eq!(get(Kind::Stream, "volume-test-4"), 0.18);
+    }
+
+    #[test]
+    fn the_volume_booster_lets_a_person_and_a_stream_play_past_twice_as_loud() {
+        let _cap = SPEAKERS_SET.lock().unwrap();
+        let close = |a: f32, b: f32| (a - b).abs() < 1e-3;
+        // Past the slider's 200 each step is as loud as before, in a line.
+        assert!(close(from_slider(400.0), from_slider(200.0) * 2.0));
+        assert!(close(from_slider(1000.0), from_slider(200.0) * 5.0));
+        for value in [201.0, 400.0, 777.0, 1000.0] {
+            assert!(close(to_slider(from_slider(value)), value), "{value}");
+        }
+        // Unchanged, they play at most twice as loud.
+        crate::halocord::set_volume_cap(None);
+        set(Kind::Voice, "volume-test-7", 9.0);
+        assert_eq!(get(Kind::Voice, "volume-test-7"), MAX);
+        // At a cap of 600, up to the sound the slider's 600 plays.
+        crate::halocord::set_volume_cap(Some(600));
+        set(Kind::Voice, "volume-test-7", 9.0);
+        set(Kind::Stream, "volume-test-8", 20.0);
+        assert!(close(get(Kind::Voice, "volume-test-7"), from_slider(600.0)));
+        assert!(close(
+            get(Kind::Stream, "volume-test-8"),
+            from_slider(600.0)
+        ));
+        assert!(close(
+            heard(Kind::Voice, "volume-test-7"),
+            from_slider(600.0) * speakers()
+        ));
+        // Lowering the cap brings what's kept back under it, as the window's
+        // start does with its saved volumes.
+        crate::halocord::set_volume_cap(None);
+        set(Kind::Voice, "volume-test-7", from_slider(600.0));
+        assert_eq!(get(Kind::Voice, "volume-test-7"), MAX);
+        // A cap is always one of the page's.
+        crate::halocord::set_volume_cap(Some(5000));
+        assert_eq!(crate::halocord::volume_cap(), 1000);
+        crate::halocord::set_volume_cap(Some(10));
+        assert_eq!(crate::halocord::volume_cap(), 200);
+        crate::halocord::set_volume_cap(None);
     }
 }
