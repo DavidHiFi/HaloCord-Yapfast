@@ -29,7 +29,13 @@ struct Reel {
 
 impl Reel {
     fn new() -> Self {
-        let folder = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../audit/release3/demo");
+        Self::into("release3")
+    }
+
+    /// A reel writing to `audit/<release>/demo/`, emptied first.
+    fn into(release: &str) -> Self {
+        let folder = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join(format!("../../../audit/{release}/demo"));
         let _ = std::fs::remove_dir_all(&folder);
         std::fs::create_dir_all(&folder).expect("the demo folder");
         Self {
@@ -93,7 +99,10 @@ fn halocord_demo_frames() {
     let _ = app.sync();
     reel.frame(&app, "plugins-page");
     for (query, ids) in [
-        ("count", &[crate::halocord::COUNTER, crate::halocord::MEMBER_COUNT][..]),
+        (
+            "count",
+            &[crate::halocord::COUNTER, crate::halocord::MEMBER_COUNT][..],
+        ),
         ("mention", &["copy-user-mention"][..]),
     ] {
         let mut typed = String::new();
@@ -116,7 +125,10 @@ fn halocord_demo_frames() {
     reel.frame(&app, "member-count");
 
     let mut draft = String::new();
-    for (step, words) in [(1, "Anyone up for co-op tonight? "), (2, "I can be on after nine. ")] {
+    for (step, words) in [
+        (1, "Anyone up for co-op tonight? "),
+        (2, "I can be on after nine. "),
+    ] {
         draft.push_str(words);
         let caret = draft.len();
         crate::composer::replace_text(
@@ -154,4 +166,62 @@ fn halocord_demo_frames() {
             .is_some_and(|menu| menu.rows.iter().any(|row| row.label == "Copy mention"))
     );
     reel.frame(&app, "copy-mention");
+}
+
+/// Build 4's two plugins: Platform indicators found and switched on, the
+/// marks in the member list, then Copy file text on a file's menu. Writes to
+/// `audit/release4/demo/`.
+#[test]
+#[ignore = "writes demo frames for the owner to look at"]
+fn halocord_demo4_frames() {
+    use serde_json::json;
+    use yapfast_core::yapfast_discord::halocord::note;
+    let (mut app, _folder) = mocha();
+    let _alone = super::plugin_alone();
+    let mut reel = Reel::into("release4");
+    app.show_roster(false);
+    let _ = app.sync();
+    reel.frame(&app, "window");
+
+    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.sync();
+    for (query, id) in [
+        ("platform", crate::halocord::PLATFORMS),
+        ("file text", crate::halocord::COPY_FILE_TEXT),
+    ] {
+        let mut typed = String::new();
+        for letter in query.chars() {
+            typed.push(letter);
+            let _ = app.update(Message::Settings(Event::Search(typed.clone())));
+        }
+        let _ = app.sync();
+        reel.frame(&app, &format!("search-{}", query.replace(' ', "-")));
+        turn(&mut app, id, true);
+        let _ = app.sync();
+        reel.frame(&app, id);
+    }
+    let _ = app.update(Message::Settings(Event::Search(String::new())));
+    close_settings(&mut app);
+
+    for (user, apps) in [
+        (
+            "@riley:preview.local",
+            json!({"desktop": "online", "mobile": "idle"}),
+        ),
+        ("@sam:preview.local", json!({"web": "dnd"})),
+        ("@you:preview.local", json!({"mobile": "online"})),
+    ] {
+        note(user, &json!({ "client_status": apps }));
+    }
+    let _ = app.sync();
+    reel.frame(&app, "platform-marks");
+
+    super::halocord_menu_pictures::a_files_menu(&mut app);
+    assert!(
+        app.win
+            .menu
+            .as_ref()
+            .is_some_and(|menu| menu.rows.iter().any(|row| row.label == "Copy file text"))
+    );
+    reel.frame(&app, "copy-file-text");
 }

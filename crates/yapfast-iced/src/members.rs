@@ -701,6 +701,9 @@ impl<'a> View<'a> {
         if let Some(mark) = crate::halocord::in_voice_mark(self.cx, &look.id) {
             name_line = name_line.push(mark);
         }
+        if let Some(marks) = crate::halocord::platform_marks(self.cx, &look.id) {
+            name_line = name_line.push(marks);
+        }
         let mut person = Person::new(face, name_line);
         if !look.status.is_empty() {
             person = person.sub(self.cx.status_line(

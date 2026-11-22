@@ -150,3 +150,27 @@ fn user_voice_show() {
     switch(&mut app, crate::halocord::USER_VOICE_SHOW, true);
     take(&app, "user-voice-show");
 }
+
+#[test]
+#[ignore]
+fn platform_indicators() {
+    use serde_json::json;
+    use yapfast_core::yapfast_discord::halocord::note;
+    let (mut app, _folder) = mocha();
+    app.client.dispatch(Action::SelectRoom("general".into()));
+    let _ = app.sync();
+    note(
+        "@riley:preview.local",
+        &json!({"client_status": {"desktop": "online", "mobile": "idle"}}),
+    );
+    note(
+        "@sam:preview.local",
+        &json!({"client_status": {"web": "dnd"}}),
+    );
+    note(
+        "@you:preview.local",
+        &json!({"client_status": {"mobile": "online"}}),
+    );
+    switch(&mut app, crate::halocord::PLATFORMS, true);
+    take(&app, "platform-indicators");
+}

@@ -872,3 +872,37 @@ fn user_voice_show_marks_members_who_are_in_a_voice_channel() {
     assert!(in_voice_mark(app.ctx(), "voice-vera").is_some(), "in voice");
     assert!(in_voice_mark(app.ctx(), "nobody").is_none(), "not in voice");
 }
+
+/// HaloCord's Platform indicators: off at first; on, someone seen on one of
+/// Discord's apps gets marks, and someone never seen gets none.
+#[test]
+fn platform_indicators_mark_people_by_the_apps_they_are_on() {
+    use crate::halocord::{Change, PLATFORMS, changed, place, platform_marks};
+    use yapfast_core::yapfast_discord::halocord::note;
+    let (mut app, _folder) = super::preview();
+    note(
+        "halo-platform-pat",
+        &serde_json::json!({"client_status": {"desktop": "online", "web": "dnd"}}),
+    );
+    assert!(!app.layout.halocord.is(PLATFORMS), "off at first");
+    assert!(
+        platform_marks(app.ctx(), "halo-platform-pat").is_none(),
+        "off"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(PLATFORMS).unwrap(),
+            on: true,
+        },
+    );
+    assert!(
+        platform_marks(app.ctx(), "halo-platform-pat").is_some(),
+        "seen"
+    );
+    assert!(
+        platform_marks(app.ctx(), "halo-platform-nobody").is_none(),
+        "unseen"
+    );
+}

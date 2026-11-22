@@ -283,6 +283,9 @@ impl MemberList {
 
     /// Applies a PRESENCE_UPDATE to a listed member; returns whether it changed.
     pub fn presence(&mut self, data: &Value) -> bool {
+        if let Some(user) = data["user"]["id"].as_str() {
+            crate::halocord::note(user, data);
+        }
         if data["guild_id"] != self.guild.as_str() {
             return false;
         }
@@ -381,6 +384,7 @@ fn row(guild: &str, item: &Value, names: &mut Names, people: &mut HashMap<String
     };
     names.learn_member(guild, member);
     let presence = &member["presence"];
+    crate::halocord::note(user, presence);
     people.insert(
         user.to_owned(),
         Person {

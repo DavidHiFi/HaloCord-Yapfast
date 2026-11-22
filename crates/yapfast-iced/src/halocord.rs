@@ -49,6 +49,8 @@ pub const FORCE_MONO: &str = "force-mono";
 pub const CLICK_TO_UNMUTE: &str = "click-to-unmute";
 pub const VOICE_COUNT: &str = "voice-count";
 pub const USER_VOICE_SHOW: &str = "user-voice-show";
+pub const PLATFORMS: &str = "platform-indicators";
+pub const COPY_FILE_TEXT: &str = "copy-file-contents";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -248,6 +250,15 @@ pub static PLUGINS: &[Plugin] = &[
         hooks: Some(&engine::copy_media_link::CopyMediaLink),
     },
     Plugin {
+        id: COPY_FILE_TEXT,
+        name: "Copy file text",
+        about: "Adds Copy file text to a text file's right-click menu, for files up to 2 MB. It copies what the file says, so you don't have to download it.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_file_contents::CopyFileContents),
+    },
+    Plugin {
         id: "copy-sticker-links",
         name: "Copy sticker link",
         about: "Adds Copy sticker link to a sticker's right-click menu. It copies the web address of the sticker.",
@@ -400,7 +411,58 @@ pub static PLUGINS: &[Plugin] = &[
         apply: |_, _| {},
         hooks: None,
     },
+    Plugin {
+        id: PLATFORMS,
+        name: "Platform indicators",
+        about: "Shows which of Discord's apps a member is on, desktop, phone or web, beside their name in the member list, coloured by their status there.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
 ];
+
+/// The copy Copy file text asked for came back: the file as text, for the
+/// clipboard in place of a picture. None when it was a picture.
+pub fn copied_text(bytes: &[u8]) -> Option<String> {
+    engine::copy_file_contents::take_wanted().then(|| engine::copy_file_contents::as_text(bytes))
+}
+
+/// The marks after a member's name for each of Discord's apps they're on
+/// (Platform indicators), each in its status's colour and named when it's
+/// pointed at. None while the plugin is off or nothing is known.
+pub fn platform_marks<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message>> {
+    use yapfast_core::yapfast_discord::halocord::{Status, clients};
+    if !cx.layout.halocord.is(PLATFORMS) {
+        return None;
+    }
+    let seen = clients(user);
+    let theme = cx.look.theme;
+    let marks: Vec<Element<'a, Message>> = [
+        (seen.desktop, Icon::HaloDesktop, "Desktop"),
+        (seen.mobile, Icon::HaloPhone, "Phone"),
+        (seen.web, Icon::HaloWeb, "Web"),
+    ]
+    .into_iter()
+    .filter_map(|(status, icon, app)| {
+        let (colour, said) = match status? {
+            Status::Online => (theme.live, "online"),
+            Status::Idle => (hex(0xf0b232), "idle"),
+            Status::DoNotDisturb => (hex(0xf23f43), "do not disturb"),
+        };
+        Some(
+            iced::widget::tooltip(
+                cx.look.glyph(icon, 14, colour),
+                crate::controls::tip(theme, format!("{app}: {said}")),
+                iced::widget::tooltip::Position::Top,
+            )
+            .gap(6)
+            .into(),
+        )
+    })
+    .collect();
+    (!marks.is_empty()).then(|| iced::widget::Row::with_children(marks).spacing(2).into())
+}
 
 /// The voice channel `user` is in, by the rooms' lists of who is in them.
 pub fn voice_room_of<'a>(
