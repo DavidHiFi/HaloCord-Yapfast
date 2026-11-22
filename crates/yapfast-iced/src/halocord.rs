@@ -246,6 +246,15 @@ pub static PLUGINS: &[Plugin] = &[
         hooks: Some(&engine::copy_sticker_link::CopyStickerLink),
     },
     Plugin {
+        id: "quick-mention",
+        name: "Quick mention",
+        about: "Adds Mention to a message's right-click menu. It puts the sender's name in your message box.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::quick_mention::QuickMention),
+    },
+    Plugin {
         id: "copy-user-urls",
         name: "Copy profile link",
         about: "Adds Copy profile link to someone's right-click menu. It copies the web link to their profile.",
@@ -633,11 +642,24 @@ pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
 
 /// What a chosen row gave: its actions, and its text to copy.
 fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
+    let mentions = picked
+        .actions
+        .iter()
+        .any(|action| matches!(action, Action::MentionPerson(_)));
     for action in picked.actions {
         app.client.dispatch(action);
     }
     let copied = picked.copy.map_or_else(Task::none, iced::clipboard::write);
-    Task::batch([app.sync(), copied])
+    // A mention changes the message box's text: it takes it in and has focus.
+    let focus = if mentions {
+        let draft = app.client.state().draft().to_owned();
+        app.composer.draft.reset(&draft);
+        app.composer.draft_known = draft;
+        iced::widget::operation::focus(crate::composer::COMPOSER)
+    } else {
+        Task::none()
+    };
+    Task::batch([app.sync(), copied, focus])
 }
 
 #[cfg(test)]

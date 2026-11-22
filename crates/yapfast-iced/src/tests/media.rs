@@ -251,6 +251,46 @@ fn a_stickers_right_click_has_the_plugins_rows_only_while_a_plugin_gives_them() 
     );
 }
 
+#[test]
+fn a_messages_menu_has_mention_only_for_someone_elses_discord_message() {
+    use crate::halocord::{Change, changed, place};
+    let (mut app, _folder) = preview();
+    let plugin = place("quick-mention").expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let has_row = |app: &mut crate::app::App, sender: &str| {
+        only(
+            app,
+            ChatMessage {
+                body: "Hello there".into(),
+                sender: sender.into(),
+                ..Default::default()
+            },
+        );
+        let at = bounds_of(app, "Hello there").center();
+        let menu = clicked(app, at, iced::mouse::Button::Right);
+        apply(app, menu);
+        let found = app.win.menu.as_ref().is_some_and(|menu| {
+            menu.rows
+                .iter()
+                .any(|row| row.key == "quick-mention/mention" && row.label == "Mention")
+        });
+        let _ = app.update(crate::app::Message::Menu(crate::menus::Event::Close));
+        found
+    };
+    assert!(has_row(&mut app, "discord:42"));
+    assert!(!has_row(&mut app, "@sam:matrix.org"));
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert!(!has_row(&mut app, "discord:42"));
+}
+
 /// A spoiler beside a card's text: a click uncovers it, the next shows
 /// it large, and a right click opens the message's menu with its rows.
 fn a_thumbnail_uncovers_opens_and_has_its_menu(message: ChatMessage) {

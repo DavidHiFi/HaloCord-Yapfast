@@ -230,3 +230,29 @@ fn picture_of_copy_sticker_links() {
     );
     draw(&app, "copy-sticker-links");
 }
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_quick_mention() {
+    use std::sync::Arc;
+    use yapfast_core::chat::ChatMessage;
+    let (mut app, _folder) = preview();
+    turn_on(&mut app, "quick-mention");
+    super::change(&mut app, |state| {
+        state.messages = Arc::new(vec![Arc::new(ChatMessage {
+            item: "i0".into(),
+            author: "Sam".into(),
+            sender: "discord:42".into(),
+            body: "Anyone up for a game tonight?".into(),
+            ..Default::default()
+        })]);
+    });
+    right_click_on(&mut app, "Anyone up for a game tonight?");
+    assert!(
+        app.win
+            .menu
+            .as_ref()
+            .is_some_and(|menu| menu.rows.iter().any(|row| row.label == "Mention"))
+    );
+    draw(&app, "quick-mention");
+}

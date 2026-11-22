@@ -37,6 +37,8 @@ whole list to carry across.
   menu.
 - `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link in a
   sticker's menu.
+- `crates/yapfast-core/src/halocord/quick_mention.rs`: Mention in a message's menu
+  (puts the sender's name in the message box).
 - `crates/yapfast-core/src/halocord/copy_user_url.rs`: Copy profile link in a
   Discord user's menu.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
