@@ -167,57 +167,57 @@ pub trait Hooks: Sync {
     /// The plugin's id, as on HaloCord's page.
     fn id(&self) -> &'static str;
 
-    /// 1. Before the app handles an action; `false` drops it.
+    /// Hook 1: Before the app handles an action; `false` drops it.
     fn action(&self, _action: &Action) -> bool {
         true
     }
 
-    /// 1. Before the app takes an event from the networks; `false` drops it.
+    /// Hook 1: Before the app takes an event from the networks; `false` drops it.
     fn event(&self, _event: &Event) -> bool {
         true
     }
 
-    /// 1. After the app handled an action or an event: what it now holds,
+    /// Hook 1: After the app handled an action or an event: what it now holds,
     /// and what it's about to do, to change or add to.
     fn after(&self, _app: &Application, _effects: &mut Vec<Effect>) {}
 
-    /// 2. A command on its way to the networks; `false` holds it back.
+    /// Hook 2: A command on its way to the networks; `false` holds it back.
     fn command(&self, _command: &Command) -> bool {
         true
     }
 
-    /// 3. A live Discord event, before any channel sees it; `false` drops it.
+    /// Hook 3: A live Discord event, before any channel sees it; `false` drops it.
     #[cfg(feature = "discord")]
     fn live(&self, _live: &yapfast_discord::service::Live) -> bool {
         true
     }
 
-    /// 4. Tags drawn after a message's author, with the app as it is now.
+    /// Hook 4: Tags drawn after a message's author, with the app as it is now.
     fn extras(&self, _message: &ChatMessage, _app: &Application) -> Vec<Tag> {
         Vec::new()
     }
 
-    /// 5. Rows for a message's menu, as its action and its label.
+    /// Hook 5: Rows for a message's menu, as its action and its label.
     fn menu(&self, _message: &ChatMessage) -> Vec<(&'static str, &'static str)> {
         Vec::new()
     }
 
-    /// 5. One of this plugin's menu rows was chosen for `message`.
+    /// Hook 5: One of this plugin's menu rows was chosen for `message`.
     fn pick(&self, _action: &str, _message: &ChatMessage) -> Picked {
         Picked::default()
     }
 
-    /// 5. Rows for a person's menu (`user` is their id), as action and label.
+    /// Hook 5: Rows for a person's menu (`user` is their id), as action and label.
     fn person_menu(&self, _user: &str) -> Vec<(&'static str, &'static str)> {
         Vec::new()
     }
 
-    /// 5. One of this plugin's person menu rows was chosen for `user`.
+    /// Hook 5: One of this plugin's person menu rows was chosen for `user`.
     fn person_pick(&self, _action: &str, _user: &str) -> Picked {
         Picked::default()
     }
 
-    /// 5. Rows for the right-click menu of a file or sticker, attachment `at`
+    /// Hook 5: Rows for the right-click menu of a file or sticker, attachment `at`
     /// of `message`, as action and label.
     fn attachment_menu(
         &self,
@@ -227,7 +227,7 @@ pub trait Hooks: Sync {
         Vec::new()
     }
 
-    /// 5. One of this plugin's attachment menu rows was chosen.
+    /// Hook 5: One of this plugin's attachment menu rows was chosen.
     fn attachment_pick(&self, _action: &str, _message: &ChatMessage, _at: usize) -> Picked {
         Picked::default()
     }
@@ -279,29 +279,29 @@ fn plugged() -> Vec<&'static dyn Hooks> {
     PLUGGED.with(|plugged| plugged.borrow().clone())
 }
 
-/// 1. Whether the app handles `action`.
+/// Hook 1: Whether the app handles `action`.
 pub fn keeps_action(action: &Action) -> bool {
     plugged().iter().all(|hooks| hooks.action(action))
 }
 
-/// 1. Whether the app takes `event`.
+/// Hook 1: Whether the app takes `event`.
 pub fn keeps_event(event: &Event) -> bool {
     plugged().iter().all(|hooks| hooks.event(event))
 }
 
-/// 1. The plugins' say after an action or an event.
+/// Hook 1: The plugins' say after an action or an event.
 pub fn after(app: &Application, effects: &mut Vec<Effect>) {
     for hooks in plugged() {
         hooks.after(app, effects);
     }
 }
 
-/// 2. Whether `command` goes on to the networks.
+/// Hook 2: Whether `command` goes on to the networks.
 pub fn sends(command: &Command) -> bool {
     plugged().iter().all(|hooks| hooks.command(command))
 }
 
-/// 3. A live Discord event, unless a plugin drops it.
+/// Hook 3: A live Discord event, unless a plugin drops it.
 #[cfg(feature = "discord")]
 pub fn live(live: yapfast_discord::service::Live) -> Option<yapfast_discord::service::Live> {
     plugged()
@@ -310,7 +310,7 @@ pub fn live(live: yapfast_discord::service::Live) -> Option<yapfast_discord::ser
         .then_some(live)
 }
 
-/// 4. The plugins' tags for a message's author line.
+/// Hook 4: The plugins' tags for a message's author line.
 pub fn extras(message: &ChatMessage, app: &Application) -> Vec<Tag> {
     plugged()
         .iter()
@@ -318,35 +318,35 @@ pub fn extras(message: &ChatMessage, app: &Application) -> Vec<Tag> {
         .collect()
 }
 
-/// 5. The plugins' rows for a message's menu: each row's key (the plugin's
+/// Hook 5: The plugins' rows for a message's menu: each row's key (the plugin's
 /// id and the action, as `id/action`) and its label.
 pub fn menu(message: &ChatMessage) -> Vec<(String, &'static str)> {
     rows_of(|hooks| hooks.menu(message))
 }
 
-/// 5. What the row with `key` does for `message`; nothing once its plugin
+/// Hook 5: What the row with `key` does for `message`; nothing once its plugin
 /// is out.
 pub fn pick(key: &str, message: &ChatMessage) -> Picked {
     pick_with(key, |hooks, action| hooks.pick(action, message))
 }
 
-/// 5. The plugins' rows for a person's menu, keyed as [`menu`]'s are.
+/// Hook 5: The plugins' rows for a person's menu, keyed as [`menu`]'s are.
 pub fn person_menu(user: &str) -> Vec<(String, &'static str)> {
     rows_of(|hooks| hooks.person_menu(user))
 }
 
-/// 5. What the person menu's row with `key` does for `user`.
+/// Hook 5: What the person menu's row with `key` does for `user`.
 pub fn person_pick(key: &str, user: &str) -> Picked {
     pick_with(key, |hooks, action| hooks.person_pick(action, user))
 }
 
-/// 5. The plugins' rows for the menu of attachment `at` of `message`, keyed
+/// Hook 5: The plugins' rows for the menu of attachment `at` of `message`, keyed
 /// as [`menu`]'s are.
 pub fn attachment_menu(message: &ChatMessage, at: usize) -> Vec<(String, &'static str)> {
     rows_of(|hooks| hooks.attachment_menu(message, at))
 }
 
-/// 5. What the attachment menu's row with `key` does.
+/// Hook 5: What the attachment menu's row with `key` does.
 pub fn attachment_pick(key: &str, message: &ChatMessage, at: usize) -> Picked {
     pick_with(key, |hooks, action| {
         hooks.attachment_pick(action, message, at)
