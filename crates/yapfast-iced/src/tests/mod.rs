@@ -369,6 +369,8 @@ mod cards;
 mod channel_settings;
 mod dialogs;
 mod editor;
+mod halocord_button_pictures;
+mod halocord_buttons;
 mod halocord_menu_pictures;
 mod header;
 mod link_dialogs;

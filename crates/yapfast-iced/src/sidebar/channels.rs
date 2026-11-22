@@ -76,6 +76,25 @@ impl<'a> super::View<'a> {
                     .size(24.0, 16)
                     .below(),
             ]
+            .push(
+                self.cx
+                    .layout
+                    .halocord
+                    .is(crate::halocord::CLOSE_DMS)
+                    .then(|| {
+                        self.cx
+                            .look
+                            .icon_button(
+                                Icon::X,
+                                "Close all direct messages",
+                                Message::Bar(crate::window_bar::Event::Halo(
+                                    crate::halocord::Press::CloseDms,
+                                )),
+                            )
+                            .size(24.0, 16)
+                            .below()
+                    }),
+            )
             .spacing(4)
             .padding(Padding {
                 left: 8.0,

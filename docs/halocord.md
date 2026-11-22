@@ -41,6 +41,8 @@ whole list to carry across.
   (puts the sender's name in the message box).
 - `crates/yapfast-core/src/halocord/copy_user_url.rs`: Copy profile link in a
   Discord user's menu.
+- `crates/yapfast-core/src/halocord/new_user.rs`: the new account tag plugin's hook (an amber tag by
+  accounts younger than N days, read from the Discord id) and its day count.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -116,6 +118,15 @@ Window (`yapfast-iced`):
   and says "Faking mute" or "Faking deafen" under the name in a call.
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
+- `window_bar.rs`: `Event::Halo(Press)` with its arm in `update` (a plugin's button
+  pressed), and the buttons `halocord::presses` lists, pushed before Inbox in
+  `window_bar`.
+- `account.rs`: the same buttons beside Settings, when the window has no title bar of
+  its own.
+- `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
+- `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
+- `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
+- `tests/mod.rs`: `mod halocord_buttons;` and `mod halocord_button_pictures;`.
 
 Kit (`yapfast-iced-kit`) and vendor:
 
@@ -164,6 +175,8 @@ Calls (`yapfast-discord`):
 - Core `halocord::staff::tests`: ranks, tags and options. `halocord::tests` also
   covers the fake voice state.
 - Window `tests/settings.rs`: the plugins page, fake switches, the user area's dock.
+- Window `tests/halocord_buttons.rs`: the button plugins (restart, read all, close all
+  DMs, the counter, the member count).
 - Window `halocord::tests`: point 5's rows, point 6's kinds, the stereo loader's
   saved values.
 - Window `tests/halocord_menu_pictures.rs`: ignored tests that draw each right-click

@@ -38,6 +38,12 @@ pub const STEREO: &str = "stereo-loader";
 pub const FAKE_MUTE: &str = "fake-mute";
 pub const FAKE_DEAFEN: &str = "fake-deafen";
 pub const USER_AREA: &str = "user-area";
+pub const RESTART: &str = "restart-button";
+pub const READ_ALL: &str = "read-all-button";
+pub const COUNTER: &str = "character-counter";
+pub const NEW_USER: &str = "new-user-tag";
+pub const CLOSE_DMS: &str = "close-all-dms";
+pub const MEMBER_COUNT: &str = "member-count";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -262,6 +268,71 @@ pub static PLUGINS: &[Plugin] = &[
         settings: &[],
         apply: |_, _| {},
         hooks: Some(&engine::copy_user_url::CopyUserUrl),
+    },
+    Plugin {
+        id: RESTART,
+        name: "Restart button",
+        about: "A button in the top bar (beside Settings when the bar is the system's) that closes Yapfast and starts it again the way it was started.",
+        on_at_first: true,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: READ_ALL,
+        name: "Read all button",
+        about: "A button in the top bar (beside Settings when the bar is the system's) that marks every server and message you have unread as read, in one press.",
+        on_at_first: true,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: COUNTER,
+        name: "Character counter",
+        about: "Shows how many letters you have typed beside the message box, like 1,234 / 2,000. It turns amber near the limit and red over it. The limit is 4,000 with Nitro.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: NEW_USER,
+        name: "New account tag",
+        about: "A small amber NEW tag by the names of people whose Discord account is only a few days old, to help you spot throwaway accounts.",
+        on_at_first: false,
+        settings: &[Setting {
+            key: "days",
+            heading: "NEW MEANS UNDER",
+            note: "How old an account may be and still get the tag.",
+            kind: Kind::Choice {
+                names: &["7 days", "14 days", "30 days"],
+                values: &engine::new_user::DAYS,
+                unless_changed: engine::new_user::DEFAULT_DAYS,
+            },
+        }],
+        apply: |kept, plugin| {
+            engine::new_user::set_days(kept.value(plugin, &plugin.settings[0]));
+        },
+        hooks: Some(&engine::new_user::NewUsers),
+    },
+    Plugin {
+        id: CLOSE_DMS,
+        name: "Close all DMs",
+        about: "A small X beside Direct Messages that closes every one-to-one conversation in the list at once. Group chats stay. The messages aren't deleted, and a new message from someone opens theirs again.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: MEMBER_COUNT,
+        name: "Member count",
+        about: "Shows how many people are online and how many have joined, in a line at the top of the member list.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
     },
 ];
 
@@ -660,6 +731,167 @@ fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
         Task::none()
     };
     Task::batch([app.sync(), copied, focus])
+}
+
+/// A button a plugin adds to the top bar or the user area.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Press {
+    Restart,
+    ReadAll,
+    CloseDms,
+}
+
+/// The buttons the plugins that are on add: icon, tip and what they do.
+pub fn presses(kept: &Kept) -> Vec<(Icon, &'static str, Press)> {
+    let mut buttons = Vec::new();
+    if kept.is(RESTART) {
+        buttons.push((Icon::Refresh, "Restart Yapfast", Press::Restart));
+    }
+    if kept.is(READ_ALL) {
+        buttons.push((Icon::MarkRead, "Mark everything read", Press::ReadAll));
+    }
+    buttons
+}
+
+/// What marks everything read: every server, and each conversation with
+/// something unread. The core drops those with nothing to mark.
+pub(crate) fn read_all_actions(state: &yapfast_core::application::AppState) -> Vec<Action> {
+    let servers = state.servers.iter().map(|server| server.id.clone());
+    let chats = state
+        .rooms
+        .iter()
+        .filter(|room| room.direct && (room.unread > 0 || room.mentions > 0))
+        .map(|room| room.id.clone());
+    servers.chain(chats).map(Action::MarkRead).collect()
+}
+
+/// How full the message box is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fill {
+    Fine,
+    Near,
+    Over,
+}
+
+/// `1234` as `1,234`.
+fn thousands(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (at, digit) in digits.chars().enumerate() {
+        if at > 0 && (digits.len() - at) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(digit);
+    }
+    out
+}
+
+/// The counter's words and how full the box is, for a draft of `used`
+/// letters under `limit`. Amber from nine tenths of the limit.
+pub fn counter_words(used: usize, limit: usize) -> (String, Fill) {
+    let fill = if used > limit {
+        Fill::Over
+    } else if used * 10 >= limit * 9 {
+        Fill::Near
+    } else {
+        Fill::Fine
+    };
+    (format!("{} / {}", thousands(used), thousands(limit)), fill)
+}
+
+/// What the counter shows for `draft`: nothing when it's off or the box is
+/// empty.
+pub fn count_words(kept: &Kept, draft: &str, nitro: bool) -> Option<(String, Fill)> {
+    if !kept.is(COUNTER) || draft.is_empty() {
+        return None;
+    }
+    Some(counter_words(
+        draft.chars().count(),
+        if nitro { 4000 } else { 2000 },
+    ))
+}
+
+/// The counter's ink: `quiet` until near the limit.
+pub fn count_color(fill: Fill, quiet: iced::Color) -> iced::Color {
+    match fill {
+        Fill::Fine => quiet,
+        Fill::Near => hex(0xf0b232),
+        Fill::Over => hex(0xf23f42),
+    }
+}
+
+/// The people in a member list's group headings (`Online \u{2014} 12`), as
+/// (online, all): everyone but the group called Offline is online.
+pub fn member_totals(lines: &[crate::looks::MemberLine]) -> (usize, usize) {
+    let (mut online, mut all) = (0, 0);
+    for line in lines {
+        let crate::looks::MemberLine::Heading { text, .. } = line else {
+            continue;
+        };
+        let Some((name, count)) = text.rsplit_once(" \u{2014} ") else {
+            continue;
+        };
+        let Ok(count) = count.trim().parse::<usize>() else {
+            continue;
+        };
+        all += count;
+        if !name.trim().eq_ignore_ascii_case("offline") {
+            online += count;
+        }
+    }
+    (online, all)
+}
+
+/// Puts the count's line first in a member list, when its plugin is on and
+/// there are people to count.
+pub fn add_member_count(kept: &Kept, lines: &mut Vec<crate::looks::MemberLine>) {
+    if !kept.is(MEMBER_COUNT) {
+        return;
+    }
+    let (online, all) = member_totals(lines);
+    if all == 0 {
+        return;
+    }
+    lines.insert(
+        0,
+        crate::looks::MemberLine::Heading {
+            text: format!(
+                "{} online \u{b7} {} members",
+                thousands(online),
+                thousands(all)
+            ),
+            icon: None,
+        },
+    );
+}
+
+/// What closes every conversation in the list: a close for each direct
+/// one. The core drops the groups and anything that can't be closed.
+pub(crate) fn close_dm_actions(state: &yapfast_core::application::AppState) -> Vec<Action> {
+    state
+        .rooms
+        .iter()
+        .filter(|room| room.direct)
+        .map(|room| Action::CloseDm(room.id.clone()))
+        .collect()
+}
+
+/// A plugin's button was pressed.
+pub fn press(app: &mut App, press: Press) -> Task<Message> {
+    match press {
+        Press::Restart => app.requests.push(crate::ctx::Request::Restart),
+        Press::CloseDms => {
+            for action in close_dm_actions(app.client.state()) {
+                app.client.dispatch(action);
+            }
+        }
+        Press::ReadAll => {
+            for action in read_all_actions(app.client.state()) {
+                app.client.dispatch(action);
+            }
+        }
+    }
+    app.sync()
 }
 
 #[cfg(test)]
