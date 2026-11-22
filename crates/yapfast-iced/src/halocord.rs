@@ -38,6 +38,7 @@ pub const STEREO: &str = "stereo-loader";
 pub const FAKE_MUTE: &str = "fake-mute";
 pub const FAKE_DEAFEN: &str = "fake-deafen";
 pub const USER_AREA: &str = "user-area";
+pub const VOLUME_BOOSTER: &str = "volume-booster";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -216,6 +217,27 @@ pub static PLUGINS: &[Plugin] = &[
             ),
         ],
         apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: VOLUME_BOOSTER,
+        name: "Volume booster",
+        about: "Lets a person's volume and a stream's volume go past 200%, up to the most you pick.",
+        on_at_first: true,
+        settings: &[Setting {
+            key: "cap",
+            heading: "MOST VOLUME",
+            note: "How far the sliders in someone's voice menu go. 200% is where Yapfast stops on its own.",
+            kind: Kind::Choice {
+                names: &["200%", "400%", "600%", "800%", "1000%"],
+                values: &engine::VOLUME_CAPS,
+                unless_changed: 1000,
+            },
+        }],
+        apply: |kept, plugin| {
+            let on = kept.on(plugin);
+            engine::set_volume_cap(on.then(|| kept.value(plugin, &plugin.settings[0])));
+        },
         hooks: None,
     },
 ];
@@ -493,8 +515,19 @@ pub fn changed(layout: &mut Layout, client: &mut Client, change: Change) -> bool
                 .get(*plugin)
                 .is_some_and(|found| found.id == FAKE_MUTE || found.id == FAKE_DEAFEN)
     );
+    let booster = matches!(
+        &change,
+        Change::Switch { plugin, .. } | Change::Choose { plugin, .. }
+            if PLUGINS
+                .get(*plugin)
+                .is_some_and(|found| found.id == VOLUME_BOOSTER)
+    );
     layout.halocord.change(change);
     crate::layout::store(client.root(), "halocord", &layout.halocord);
+    if booster {
+        // People's saved volumes play within the new most.
+        layout.voice.apply();
+    }
     // Devices is the call's way of sending its voice state once more.
     let resend = voice && client.state().voice.active();
     if resend {

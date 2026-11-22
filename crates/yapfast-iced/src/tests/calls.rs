@@ -344,6 +344,76 @@ fn someones_tile_right_clicked_sets_their_volume_and_keeps_it() {
     assert!(stored().is_empty());
 }
 
+/// HaloCord's Volume booster: on from the start, someone's slider goes to
+/// 1000% and plays that loud, and it's kept; off, it stops at 200% again,
+/// and the volume kept plays once it's back.
+#[test]
+fn the_volume_booster_takes_someones_slider_past_200() {
+    use crate::halocord::{Change, VOLUME_BOOSTER, changed, place};
+    use yapfast_core::volume::{self, Kind};
+    let (mut app, folder, room) = in_call();
+    super::change(&mut app, |state| {
+        let mut carol = state.voice.participants[0].clone();
+        carol.id = "preview-carol".into();
+        carol.person = "carol".into();
+        carol.user = "Carol".into();
+        carol.local = false;
+        state.voice.participants.push(carol);
+    });
+    assert!(app.layout.halocord.is(VOLUME_BOOSTER), "on at first");
+    let _ = crate::call::update(
+        &mut app,
+        Event::Person(room, "carol".into(), Point::new(400.0, 300.0)),
+    );
+    let _ = crate::call::update(&mut app, Event::Volume(false, 600, true));
+    assert!(shows(&app, "600%"), "the slider goes that far");
+    assert!(
+        volume::get(Kind::Voice, "carol") > 5.0,
+        "and plays that loud"
+    );
+    let stored = || crate::layout::Layout::read(folder.path()).voice.volumes;
+    let kept = *stored().get("carol").expect("kept");
+    assert!((kept - volume::from_slider(600.0)).abs() < 1e-3);
+    // The most it goes to is a choice of the plugin's.
+    let plugin = place(VOLUME_BOOSTER).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 0,
+            choice: 1,
+        },
+    );
+    assert_eq!(yapfast_core::halocord::volume_cap(), 400);
+    assert!((volume::get(Kind::Voice, "carol") - volume::from_slider(400.0)).abs() < 1e-3);
+    // Off, Yapfast's own 200% is the most, and what was kept stays kept.
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert_eq!(yapfast_core::halocord::volume_cap(), 200);
+    assert_eq!(volume::get(Kind::Voice, "carol"), volume::MAX);
+    assert_eq!(stored().get("carol"), Some(&kept));
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 0,
+            choice: 4,
+        },
+    );
+    assert!((volume::get(Kind::Voice, "carol") - kept).abs() < 1e-3);
+    volume::set(Kind::Voice, "carol", 1.0);
+}
+
 #[test]
 fn the_signal_opens_the_connections_details_with_their_tabs() {
     use crate::call::{LinkEvent, LinkTab};

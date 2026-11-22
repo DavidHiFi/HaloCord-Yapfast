@@ -2,7 +2,7 @@
 //! Yapfast's own files carry only the hooks that call in. `docs/halocord.md`
 //! lists every hook.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 pub mod staff;
 
@@ -44,6 +44,30 @@ pub fn set_bitrate(kbps: Option<u32>) {
     }
     #[cfg(not(feature = "discord"))]
     let _ = kbps;
+}
+
+/// A person's and a stream's volume slider goes to this much, in percent,
+/// as Discord's does.
+pub const VOLUME_STOCK: u32 = 200;
+/// The most the Volume booster's page offers, in percent.
+pub const VOLUME_CAPS: [u32; 5] = [200, 400, 600, 800, 1000];
+
+static VOLUME_CAP: AtomicU32 = AtomicU32::new(VOLUME_STOCK);
+
+/// Sets how far a person's and a stream's volume slider goes, in percent, or
+/// Discord's own 200 for `None`. Past 200 the sound keeps growing in step
+/// with the slider: 1000 is five times as loud as 200 (see
+/// [`crate::volume::from_slider`]).
+pub fn set_volume_cap(percent: Option<u32>) {
+    let percent = percent.map_or(VOLUME_STOCK, |percent| {
+        percent.clamp(VOLUME_STOCK, VOLUME_CAPS[VOLUME_CAPS.len() - 1])
+    });
+    VOLUME_CAP.store(percent, Ordering::Relaxed);
+}
+
+/// How far a person's and a stream's volume slider goes, in percent.
+pub fn volume_cap() -> u32 {
+    VOLUME_CAP.load(Ordering::Relaxed)
 }
 
 static FAKE_MUTE: AtomicBool = AtomicBool::new(false);

@@ -78,7 +78,8 @@ Window (`yapfast-iced`):
 - `settings/mod.rs`: `Section::MochaCord`, its title, icon, group entry and page.
 - `settings/pages/mod.rs`: `mod mochacord;`, `Pref::MochaCord(Change)` and its arm.
 - `layout.rs`: the `halocord: crate::halocord::Kept` field on `Layout`.
-- `app/mod.rs`: `layout.halocord.apply();` after `layout.voice.apply();` at start.
+- `app/mod.rs`: `layout.halocord.apply();` before `layout.voice.apply();` at start (the
+  Volume booster's cap is set before people's saved volumes play).
 - `settings/mod.rs`: `Section::HaloCord`, its title ("Plugins") and icon, its group,
   and its page; Settings' own search keeps the section when `halocord::any_found`
   finds a plugin (the page narrows its list the same way).
@@ -93,6 +94,8 @@ Window (`yapfast-iced`):
   (smaller, inside the channel list), hidden dropdown arrows and the extra buttons,
   and says "Faking mute" or "Faking deafen" under the name in a call.
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
+- `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
+  (200 unless the Volume booster is on), in place of 200.
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
 
 Kit (`yapfast-iced-kit`) and vendor:
@@ -113,6 +116,8 @@ Core (`yapfast-core`):
 - `application.rs`: plug-in point 1, two checks and two `after` calls.
 - `application/members.rs`: `member_standing(place, user)`, whether a member owns the
   server and what it lets them do (the staff tag reads it).
+- `volume.rs`: `most()` in place of `MAX` in `set` (`MAX`, or what the Volume booster's cap
+  allows), and `from_slider` / `to_slider` carry on in a line past 200.
 - `discord_voice.rs`: both `set_self` calls send `halocord::voice_state(muted, deafened)`.
 - `discord_text/commands.rs`: plug-in point 3, `halocord::live` in `live`.
 - `discord_audio.rs`:
