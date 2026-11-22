@@ -591,6 +591,38 @@ fn lounge_member_menu(user: &str) -> (App, tempfile::TempDir) {
 }
 
 #[test]
+fn copy_mention_joins_a_discord_users_menu_when_its_plugin_is_on() {
+    use crate::halocord::{Change, changed, place};
+    use crate::menus::MenuAct;
+    let (mut app, _folder) = lounge_member_menu("4");
+    assert!(!labels(&app).contains(&"Copy mention".to_owned()));
+    let plugin = place("copy-user-mention").expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    app.win.menu = None;
+    let _ = crate::person_menu::open_person_menu(
+        &mut app,
+        "4",
+        Point::new(300.0, 200.0),
+        crate::person_menu::CONTEXT_MENU,
+    );
+    let at = index(&app, "Copy mention");
+    let row = &app.win.menu.as_ref().expect("a menu").rows[at];
+    assert_eq!(row.act, MenuAct::Plugin);
+    assert_eq!(row.key, "copy-user-mention/copy");
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(at)));
+    assert!(app.win.menu.is_none(), "choosing it closes the menu");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}
+
+#[test]
 fn a_members_menu_beside_a_voice_channel_ticks_and_changes_the_calls_rows() {
     let (mut app, _folder) = lounge_member_menu("4");
     let shown = rows(&app);

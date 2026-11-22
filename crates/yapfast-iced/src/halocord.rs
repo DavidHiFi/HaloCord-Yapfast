@@ -218,6 +218,15 @@ pub static PLUGINS: &[Plugin] = &[
         apply: |_, _| {},
         hooks: None,
     },
+    Plugin {
+        id: "copy-user-mention",
+        name: "Copy mention",
+        about: "Adds Copy mention to someone's right-click menu. It copies the text that pings them when you send it.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_user_mention::CopyUserMention),
+    },
 ];
 
 /// Tells the core what Fake mute and Fake deafen do; both plugins say it.
@@ -523,7 +532,17 @@ pub fn tag<'a>(ctx: Ctx<'a>, tag: Tag) -> Element<'a, Message> {
 
 /// 5. HaloCord's plugins' rows for a message's menu, before Delete.
 pub fn menu_rows(message: &ChatMessage) -> Vec<MenuRow> {
-    let mut rows: Vec<MenuRow> = engine::menu(message)
+    keyed(engine::menu(message))
+}
+
+/// 5. HaloCord's plugins' rows for a person's menu, after its own.
+pub fn person_rows(user: &str) -> Vec<MenuRow> {
+    keyed(engine::person_menu(user))
+}
+
+/// Menu rows from the engine's keys and labels, the first set apart.
+fn keyed(rows: Vec<(String, &'static str)>) -> Vec<MenuRow> {
+    let mut rows: Vec<MenuRow> = rows
         .into_iter()
         .map(|(key, label)| MenuRow::plain(MenuAct::Plugin, label).key(key))
         .collect();
@@ -533,12 +552,25 @@ pub fn menu_rows(message: &ChatMessage) -> Vec<MenuRow> {
     rows
 }
 
+/// 5. A plugin's menu row was chosen: in a person's menu (`place` is the
+/// person) it's theirs, else it's for the message `item`.
+pub fn chosen(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Task<Message> {
+    match place {
+        Some(user) => done(app, engine::person_pick(key, user)),
+        None => pick(app, key, item),
+    }
+}
+
 /// 5. A plugin's menu row was chosen for the message `item`.
 pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
     let Some(message) = app.client.state().message(item).cloned() else {
         return Task::none();
     };
-    let picked = engine::pick(key, &message);
+    done(app, engine::pick(key, &message))
+}
+
+/// What a chosen row gave: its actions, and its text to copy.
+fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
     for action in picked.actions {
         app.client.dispatch(action);
     }

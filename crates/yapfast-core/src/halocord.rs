@@ -4,6 +4,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+pub mod copy_user_mention;
 pub mod staff;
 
 use crate::{
@@ -80,6 +81,12 @@ fn shown_voice_state(
     (muted || deaf || fake_mute, deaf)
 }
 
+/// `user` when it is a Discord user's id (digits), as a person's menu is
+/// given it; Matrix ids and anything else give none.
+pub fn discord_user(user: &str) -> Option<&str> {
+    (!user.is_empty() && user.bytes().all(|byte| byte.is_ascii_digit())).then_some(user)
+}
+
 /// A tag a plugin draws after a message's author: its words, a crown in
 /// place of them, and the colour it's drawn in (an RGB number), if the
 /// plugin sets one.
@@ -145,6 +152,16 @@ pub trait Hooks: Sync {
 
     /// 5. One of this plugin's menu rows was chosen for `message`.
     fn pick(&self, _action: &str, _message: &ChatMessage) -> Picked {
+        Picked::default()
+    }
+
+    /// 5. Rows for a person's menu (`user` is their id), as action and label.
+    fn person_menu(&self, _user: &str) -> Vec<(&'static str, &'static str)> {
+        Vec::new()
+    }
+
+    /// 5. One of this plugin's person menu rows was chosen for `user`.
+    fn person_pick(&self, _action: &str, _user: &str) -> Picked {
         Picked::default()
     }
 }
@@ -237,27 +254,49 @@ pub fn extras(message: &ChatMessage, app: &Application) -> Vec<Tag> {
 /// 5. The plugins' rows for a message's menu: each row's key (the plugin's
 /// id and the action, as `id/action`) and its label.
 pub fn menu(message: &ChatMessage) -> Vec<(String, &'static str)> {
+    rows_of(|hooks| hooks.menu(message))
+}
+
+/// 5. What the row with `key` does for `message`; nothing once its plugin
+/// is out.
+pub fn pick(key: &str, message: &ChatMessage) -> Picked {
+    pick_with(key, |hooks, action| hooks.pick(action, message))
+}
+
+/// 5. The plugins' rows for a person's menu, keyed as [`menu`]'s are.
+pub fn person_menu(user: &str) -> Vec<(String, &'static str)> {
+    rows_of(|hooks| hooks.person_menu(user))
+}
+
+/// 5. What the person menu's row with `key` does for `user`.
+pub fn person_pick(key: &str, user: &str) -> Picked {
+    pick_with(key, |hooks, action| hooks.person_pick(action, user))
+}
+
+/// The rows each plugged plugin gives, keyed `id/action`.
+fn rows_of(
+    rows: impl Fn(&'static dyn Hooks) -> Vec<(&'static str, &'static str)>,
+) -> Vec<(String, &'static str)> {
     plugged()
-        .iter()
+        .into_iter()
         .flat_map(|hooks| {
-            hooks
-                .menu(message)
+            rows(hooks)
                 .into_iter()
                 .map(|(action, label)| (format!("{}/{action}", hooks.id()), label))
         })
         .collect()
 }
 
-/// 5. What the row with `key` does for `message`; nothing once its plugin
-/// is out.
-pub fn pick(key: &str, message: &ChatMessage) -> Picked {
+/// What the plugin a row's `key` names does for its action; nothing once
+/// the plugin is out.
+fn pick_with(key: &str, pick: impl FnOnce(&'static dyn Hooks, &str) -> Picked) -> Picked {
     let Some((id, action)) = key.split_once('/') else {
         return Picked::default();
     };
     plugged()
         .into_iter()
         .find(|hooks| hooks.id() == id)
-        .map_or_else(Picked::default, |hooks| hooks.pick(action, message))
+        .map_or_else(Picked::default, |hooks| pick(hooks, action))
 }
 
 #[cfg(test)]

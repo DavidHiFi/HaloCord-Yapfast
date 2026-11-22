@@ -353,6 +353,7 @@ mod cards;
 mod channel_settings;
 mod dialogs;
 mod editor;
+mod halocord_menu_pictures;
 mod header;
 mod link_dialogs;
 mod media;
