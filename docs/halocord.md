@@ -96,6 +96,9 @@ Window (`yapfast-iced`):
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
+- `call/mod.rs`: `Event::Unmute(person)` and its arm, which calls `halocord::unmute`.
+- `sidebar/voice.rs`: `voice_person` ends its marks with `halocord::unmute_mark`, a click-to-unmute
+  mark beside someone muted for this account (one `if let`).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
 
 Kit (`yapfast-iced-kit`) and vendor:

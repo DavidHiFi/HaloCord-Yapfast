@@ -40,6 +40,7 @@ pub const FAKE_DEAFEN: &str = "fake-deafen";
 pub const USER_AREA: &str = "user-area";
 pub const VOLUME_BOOSTER: &str = "volume-booster";
 pub const FORCE_MONO: &str = "force-mono";
+pub const CLICK_TO_UNMUTE: &str = "click-to-unmute";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -250,7 +251,56 @@ pub static PLUGINS: &[Plugin] = &[
         apply: |kept, plugin| engine::set_mono(kept.on(plugin)),
         hooks: None,
     },
+    Plugin {
+        id: CLICK_TO_UNMUTE,
+        name: "Click to unmute",
+        about: "Shows a mark beside someone you've muted for yourself in a voice channel. Click it to unmute them.",
+        on_at_first: true,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
 ];
+
+/// The mark beside someone in a voice channel who is muted for this account,
+/// while Click to unmute is on; a click on it unmutes them.
+pub fn unmute_mark<'a>(
+    cx: crate::ctx::Ctx<'a>,
+    person: &yapfast_core::chat::VoicePerson,
+    live: Option<&yapfast_core::voice::Participant>,
+) -> Option<Element<'a, Message>> {
+    if !cx.layout.halocord.is(CLICK_TO_UNMUTE) {
+        return None;
+    }
+    // Volumes are kept by the network id, which the call knows them by.
+    let key = live.map_or_else(|| person.id.clone(), |live| live.person.clone());
+    if !yapfast_core::volume::muted(&key) {
+        return None;
+    }
+    let theme = cx.look.theme;
+    let mark = cx.look.glyph(Icon::VolumeOff, 16, theme.danger);
+    let area = iced::widget::mouse_area(mark)
+        .on_press(Message::Call(crate::call::Event::Unmute(key)))
+        .interaction(iced::mouse::Interaction::Pointer);
+    Some(
+        iced::widget::tooltip(
+            area,
+            crate::controls::tip(theme, "Muted for you. Click to unmute"),
+            iced::widget::tooltip::Position::Top,
+        )
+        .gap(4)
+        .into(),
+    )
+}
+
+/// Unmutes `person` for this account, as their voice menu's Mute box does,
+/// and keeps it (Click to unmute).
+pub fn unmute(app: &mut App, person: &str) {
+    yapfast_core::volume::mute(person, false);
+    let people = &mut app.layout.voice.muted_people;
+    people.remove(person);
+    crate::layout::store(app.client.root(), "muted_people", &*people);
+}
 
 /// Tells the core what Fake mute and Fake deafen do; both plugins say it.
 fn tell_voice(kept: &Kept, _: &Plugin) {

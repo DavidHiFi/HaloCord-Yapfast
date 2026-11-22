@@ -731,3 +731,43 @@ fn force_mono_starts_off_and_switches_the_core() {
     assert!(!set(false));
     assert!(!yapfast_core::halocord::mono());
 }
+
+/// HaloCord's Click to unmute: someone muted for this account gets a mark in
+/// the voice list while the plugin is on, and a click on it unmutes them
+/// and keeps that; off, no mark.
+#[test]
+fn click_to_unmute_marks_the_muted_and_unmutes_on_a_click() {
+    use crate::halocord::{CLICK_TO_UNMUTE, Change, changed, place, unmute_mark};
+    let (mut app, folder) = super::preview();
+    let dana = yapfast_core::chat::VoicePerson {
+        id: "unmute-dana".into(),
+        name: "Dana".into(),
+        ..Default::default()
+    };
+    assert!(app.layout.halocord.is(CLICK_TO_UNMUTE), "on at first");
+    assert!(unmute_mark(app.ctx(), &dana, None).is_none(), "not muted");
+    // Muted from her menu's box, as it does.
+    yapfast_core::volume::mute("unmute-dana", true);
+    app.layout.voice.muted_people.insert("unmute-dana".into());
+    assert!(unmute_mark(app.ctx(), &dana, None).is_some(), "the mark");
+    let _ = app.update(crate::app::Message::Call(Event::Unmute(
+        "unmute-dana".into(),
+    )));
+    assert!(!yapfast_core::volume::muted("unmute-dana"));
+    assert!(!app.layout.voice.muted_people.contains("unmute-dana"));
+    crate::layout::flush(folder.path());
+    let kept = std::fs::read_to_string(folder.path().join("layout.json")).expect("the layout");
+    assert!(!kept.contains("unmute-dana"), "kept unmuted");
+    // Switched off, the mark goes even for someone muted.
+    yapfast_core::volume::mute("unmute-dana", true);
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(CLICK_TO_UNMUTE).unwrap(),
+            on: false,
+        },
+    );
+    assert!(unmute_mark(app.ctx(), &dana, None).is_none(), "plugin off");
+    yapfast_core::volume::mute("unmute-dana", false);
+}
