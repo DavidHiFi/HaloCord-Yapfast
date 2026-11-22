@@ -6,7 +6,7 @@
 
 **HaloCord's voice plugins, built into Yapfast, the light Discord client written in Rust.**
 
-The next HaloCord: 21 plugins, from stereo 510 kbit/s calls and a 1000% volume booster to copy rows, counters and quick buttons, plus the MochaCord glass theme.
+The next HaloCord: 23 plugins, from stereo 510 kbit/s calls and a 1000% volume booster to copy rows, counters and quick buttons, plus the MochaCord glass theme.
 
 <a href="https://github.com/DavidHiFi/HaloCord-Yapfast/releases/latest">
 <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20DOWNLOAD%20LATEST%20RELEASE-2EA043?style=for-the-badge&labelColor=161B22" alt="Download the latest release" height="42">
@@ -56,6 +56,7 @@ To build it yourself, see "Building from source" below.
 - **Character counter:** how many letters you've typed, like 1,234 / 2,000. It turns amber near the limit and red over it.
 - **New account tag:** a small NEW tag by people whose account is only a few days old (7, 14 or 30, your pick).
 - **Member count:** how many people are online and how many have joined, at the top of the member list.
+- **Platform indicators:** small desktop, phone and web marks beside people in the member list, coloured by their status on each. Point at one to read it.
 - **Close all DMs:** one X beside Direct Messages closes every one-to-one chat in the list. Group chats stay, and nothing is deleted.
 
 ### Right-click menus
@@ -63,6 +64,7 @@ To build it yourself, see "Building from source" below.
 - **Copy mention:** copies the text that pings someone.
 - **Copy profile link:** copies the web link to someone's profile.
 - **Copy file link** and **Copy sticker link:** copy the web address of a file or sticker.
+- **Copy file text:** copies what a text file says (notes, logs, code, config files up to 2 MB) straight from its menu.
 - **Quick mention:** puts the sender's name in your message box from a message's menu.
 
 ### Top bar
@@ -78,6 +80,8 @@ To build it yourself, see "Building from source" below.
 
 <img src="assets/halocord-new-plugins.png" alt="Four of the new plugins: the character counter in the message box, Copy mention in a right-click menu, the member count line, and a person's volume at 800%" width="100%">
 
+<img src="assets/halocord-build4.png" alt="The two newest plugins: desktop, phone and web marks beside people in the member list, and Copy file text in a text file's right-click menu" width="100%">
+
 ### MochaCord theme
 
 <img src="assets/mochacord-page.png" alt="The MochaCord page in Yapfast settings: glass window, glass strength, blue to mauve accents, corner roundness and the font list" width="100%">
@@ -90,7 +94,7 @@ To build it yourself, see "Building from source" below.
 
 ### Plugins
 
-<img src="assets/halocord-plugins-list.png" alt="The Plugins page with all 21 plugins and their switches" width="60%">
+<img src="assets/halocord-plugins-list.png" alt="The Plugins page with all 23 plugins and their switches" width="60%">
 
 
 - **Plugins tab:** its own section in Settings, one switch per plugin, a search box, and each plugin's settings under it.
