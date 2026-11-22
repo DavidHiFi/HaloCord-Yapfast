@@ -94,6 +94,12 @@ Window (`yapfast-iced`):
   and says "Faking mute" or "Faking deafen" under the name in a call.
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
+- `window_bar.rs`: `Event::Halo(Press)` with its arm in `update` (a plugin's button
+  pressed), and the buttons `halocord::presses` lists, pushed before Inbox in
+  `window_bar`.
+- `account.rs`: the same buttons beside Settings, when the window has no title bar of
+  its own.
+- `tests/mod.rs`: `mod halocord_buttons;`.
 
 Kit (`yapfast-iced-kit`) and vendor:
 
@@ -142,6 +148,8 @@ Calls (`yapfast-discord`):
 - Core `halocord::staff::tests`: ranks, tags and options. `halocord::tests` also
   covers the fake voice state.
 - Window `tests/settings.rs`: the plugins page, fake switches, the user area's dock.
+- Window `tests/halocord_buttons.rs`: the button plugins (restart, read all, close all
+  DMs, the counter, the member count).
 - Window `halocord::tests`: point 5's rows, point 6's kinds, the stereo loader's
   saved values.
 

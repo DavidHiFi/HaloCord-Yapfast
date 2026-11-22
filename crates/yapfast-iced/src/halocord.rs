@@ -38,6 +38,7 @@ pub const STEREO: &str = "stereo-loader";
 pub const FAKE_MUTE: &str = "fake-mute";
 pub const FAKE_DEAFEN: &str = "fake-deafen";
 pub const USER_AREA: &str = "user-area";
+pub const RESTART: &str = "restart-button";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -215,6 +216,15 @@ pub static PLUGINS: &[Plugin] = &[
                 "A button that switches the Stereo loader on and off.",
             ),
         ],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: RESTART,
+        name: "Restart button",
+        about: "A button in the top bar (beside Settings when the bar is the system's) that closes Yapfast and starts it again the way it was started.",
+        on_at_first: true,
+        settings: &[],
         apply: |_, _| {},
         hooks: None,
     },
@@ -544,6 +554,29 @@ pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
     }
     let copied = picked.copy.map_or_else(Task::none, iced::clipboard::write);
     Task::batch([app.sync(), copied])
+}
+
+/// A button a plugin adds to the top bar or the user area.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Press {
+    Restart,
+}
+
+/// The buttons the plugins that are on add: icon, tip and what they do.
+pub fn presses(kept: &Kept) -> Vec<(Icon, &'static str, Press)> {
+    let mut buttons = Vec::new();
+    if kept.is(RESTART) {
+        buttons.push((Icon::Refresh, "Restart Yapfast", Press::Restart));
+    }
+    buttons
+}
+
+/// A plugin's button was pressed.
+pub fn press(app: &mut App, press: Press) -> Task<Message> {
+    match press {
+        Press::Restart => app.requests.push(crate::ctx::Request::Restart),
+    }
+    app.sync()
 }
 
 #[cfg(test)]
