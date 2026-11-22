@@ -101,6 +101,7 @@ Window (`yapfast-iced`):
   mark beside someone muted for this account (one `if let`).
 - `sidebar/channels.rs`: `room_row` pushes `halocord::voice_count` (the Voice count plugin's number)
   before the badge on a voice channel's row (one `if let`).
+- `members.rs`: `member_row` pushes `halocord::in_voice_mark` after the timed-out clock (one `if let`).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
 
 Kit (`yapfast-iced-kit`) and vendor:

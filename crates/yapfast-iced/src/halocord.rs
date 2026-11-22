@@ -42,6 +42,7 @@ pub const VOLUME_BOOSTER: &str = "volume-booster";
 pub const FORCE_MONO: &str = "force-mono";
 pub const CLICK_TO_UNMUTE: &str = "click-to-unmute";
 pub const VOICE_COUNT: &str = "voice-count";
+pub const USER_VOICE_SHOW: &str = "user-voice-show";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -262,6 +263,15 @@ pub static PLUGINS: &[Plugin] = &[
         hooks: None,
     },
     Plugin {
+        id: USER_VOICE_SHOW,
+        name: "User voice show",
+        about: "Marks a member in the member list while they are in a voice channel, and says which one.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
         id: VOICE_COUNT,
         name: "Voice count",
         about: "Shows how many people are in each voice channel, at the end of its row in the channel list.",
@@ -275,6 +285,36 @@ pub static PLUGINS: &[Plugin] = &[
         hooks: None,
     },
 ];
+
+/// The voice channel `user` is in, by the rooms' lists of who is in them.
+pub fn voice_room_of<'a>(
+    rooms: &'a [std::sync::Arc<yapfast_core::chat::ChatRoom>],
+    user: &str,
+) -> Option<&'a str> {
+    rooms
+        .iter()
+        .find(|room| room.voice && room.people.iter().any(|person| person.id == user))
+        .map(|room| room.name.as_str())
+}
+
+/// The mark on a member's row while they're in a voice channel (User voice
+/// show), saying which one when it's pointed at.
+pub fn in_voice_mark<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message>> {
+    if !cx.layout.halocord.is(USER_VOICE_SHOW) {
+        return None;
+    }
+    let channel = voice_room_of(&cx.state.rooms, user)?;
+    let theme = cx.look.theme;
+    Some(
+        iced::widget::tooltip(
+            cx.look.glyph(Icon::Volume, 14, theme.muted),
+            crate::controls::tip(theme, format!("In {channel}")),
+            iced::widget::tooltip::Position::Top,
+        )
+        .gap(6)
+        .into(),
+    )
+}
 
 /// How many people are in a voice channel, for the end of its row, while
 /// Voice count is on (an empty one only when the plugin's setting says so).

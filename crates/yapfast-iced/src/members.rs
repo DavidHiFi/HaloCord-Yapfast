@@ -698,6 +698,9 @@ impl<'a> View<'a> {
         if look.timed_out {
             name_line = name_line.push(self.cx.look.glyph(Icon::Clock, 14, theme.danger));
         }
+        if let Some(mark) = crate::halocord::in_voice_mark(self.cx, &look.id) {
+            name_line = name_line.push(mark);
+        }
         let mut person = Person::new(face, name_line);
         if !look.status.is_empty() {
             person = person.sub(self.cx.status_line(

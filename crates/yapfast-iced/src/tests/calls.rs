@@ -826,3 +826,49 @@ fn voice_count_writes_how_many_are_in_a_voice_channel() {
     );
     assert!(super::shows(&app, "0"), "0 beside an empty one when asked");
 }
+
+/// HaloCord's User voice show: off at first; on, a member who is in a voice
+/// channel gets a mark that names it, and one who isn't gets none.
+#[test]
+fn user_voice_show_marks_members_who_are_in_a_voice_channel() {
+    use crate::halocord::{Change, USER_VOICE_SHOW, changed, in_voice_mark, place, voice_room_of};
+    let (mut app, _folder) = super::preview();
+    super::change(&mut app, |state| {
+        let lounge = state
+            .rooms
+            .iter_mut()
+            .find(|room| room.id == "lounge")
+            .expect("the preview's Lounge");
+        std::sync::Arc::make_mut(lounge).people = vec![yapfast_core::chat::VoicePerson {
+            id: "voice-vera".into(),
+            name: "Vera".into(),
+            ..Default::default()
+        }];
+    });
+    let lounge = app
+        .client
+        .state()
+        .rooms
+        .iter()
+        .find(|room| room.id == "lounge")
+        .expect("Lounge")
+        .name
+        .clone();
+    assert_eq!(
+        voice_room_of(&app.client.state().rooms, "voice-vera"),
+        Some(lounge.as_str())
+    );
+    assert_eq!(voice_room_of(&app.client.state().rooms, "nobody"), None);
+    assert!(!app.layout.halocord.is(USER_VOICE_SHOW), "off at first");
+    assert!(in_voice_mark(app.ctx(), "voice-vera").is_none(), "off");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(USER_VOICE_SHOW).unwrap(),
+            on: true,
+        },
+    );
+    assert!(in_voice_mark(app.ctx(), "voice-vera").is_some(), "in voice");
+    assert!(in_voice_mark(app.ctx(), "nobody").is_none(), "not in voice");
+}
