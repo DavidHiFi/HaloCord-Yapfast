@@ -237,6 +237,15 @@ pub static PLUGINS: &[Plugin] = &[
         hooks: Some(&engine::copy_media_link::CopyMediaLink),
     },
     Plugin {
+        id: "copy-sticker-links",
+        name: "Copy sticker link",
+        about: "Adds Copy sticker link to a sticker's right-click menu. It copies the web address of the sticker.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_sticker_link::CopyStickerLink),
+    },
+    Plugin {
         id: "copy-user-urls",
         name: "Copy profile link",
         about: "Adds Copy profile link to someone's right-click menu. It copies the web link to their profile.",

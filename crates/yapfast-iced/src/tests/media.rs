@@ -209,6 +209,48 @@ fn a_files_right_click_has_the_plugins_rows_only_while_a_plugin_gives_them() {
     );
 }
 
+#[test]
+fn a_stickers_right_click_has_the_plugins_rows_only_while_a_plugin_gives_them() {
+    use crate::halocord::{Change, changed, place};
+    let (mut app, _folder) = preview();
+    only(
+        &mut app,
+        ChatMessage {
+            body: "Wave".into(),
+            attachments: vec![picture_at("wave.png", 120, Placement::Sticker, false)],
+            ..Default::default()
+        },
+    );
+    // The sticker sits under the message's text.
+    let body = bounds_of(&app, "Wave");
+    let at = iced::Point::new(body.x + 60.0, body.y + body.height + 64.0);
+    let menu = clicked(&app, at, iced::mouse::Button::Right);
+    apply(&mut app, menu);
+    let gives = |app: &crate::app::App| {
+        app.win.menu.as_ref().is_some_and(|menu| {
+            menu.rows
+                .iter()
+                .any(|row| row.key == "copy-sticker-links/copy#0")
+        })
+    };
+    assert!(!gives(&app));
+    let _ = app.update(crate::app::Message::Menu(crate::menus::Event::Close));
+    let plugin = place("copy-sticker-links").expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let menu = clicked(&app, at, iced::mouse::Button::Right);
+    apply(&mut app, menu);
+    assert!(gives(&app), "the sticker's menu");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}
+
 /// A spoiler beside a card's text: a click uncovers it, the next shows
 /// it large, and a right click opens the message's menu with its rows.
 fn a_thumbnail_uncovers_opens_and_has_its_menu(message: ChatMessage) {

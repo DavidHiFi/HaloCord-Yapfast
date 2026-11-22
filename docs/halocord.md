@@ -35,6 +35,8 @@ whole list to carry across.
   Discord user's menu.
 - `crates/yapfast-core/src/halocord/copy_media_link.rs`: Copy file link in a file's
   menu.
+- `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link in a
+  sticker's menu.
 - `crates/yapfast-core/src/halocord/copy_user_url.rs`: Copy profile link in a
   Discord user's menu.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
@@ -102,8 +104,8 @@ Window (`yapfast-iced`):
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines.
 - `person_menu.rs`: plug-in point 5, `open_person_menu` adds `halocord::person_rows`
   (two lines, `rows` is `mut`).
-- `message/attachments.rs`: plug-in point 5, `file_card` wraps its card in a right click
-  (`RightPress`, `Event::Attachment`; three lines).
+- `message/attachments.rs`: plug-in point 5, `file_card` and `stickers` wrap what they draw in a
+  right click (`RightPress`, `Event::Attachment`; a few lines each).
 - `image_viewer.rs`: the `Event::Attachment` variant and its empty arm.
 - `app/screens.rs`: one arm in `image_event` calling `halocord::attachment_menu`.
 - `account.rs`: the User area plugin's options. `height(compact)` beside `HEIGHT`,

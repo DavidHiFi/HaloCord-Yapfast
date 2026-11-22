@@ -157,3 +157,76 @@ fn picture_of_copy_media_link() {
     );
     draw(&app, "copy-media-link");
 }
+
+/// A right click at `at`, then what it sent.
+fn right_click_at(app: &mut App, at: Point) {
+    use iced::{Event, mouse};
+    let messages: Vec<crate::app::Message> = {
+        let mut ui = Simulator::with_size(Settings::default(), app.shell.frame, app.view());
+        ui.point_at(at);
+        ui.simulate([
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)),
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Right)),
+        ]);
+        ui.into_messages().collect()
+    };
+    for message in messages {
+        let _ = app.update(message);
+    }
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_copy_sticker_links() {
+    use std::sync::Arc;
+    use yapfast_core::chat::{Attachment, ChatMessage, Picture, Pixels, Placement};
+    let (mut app, _folder) = preview();
+    turn_on(&mut app, "copy-sticker-links");
+    let sticker = Arc::new(Picture {
+        width: 160,
+        height: 160,
+        rgba: Pixels::new(160, 160, [140u8, 120, 220, 255].repeat(160 * 160)),
+        ..Default::default()
+    });
+    super::change(&mut app, |state| {
+        state.messages = Arc::new(vec![Arc::new(ChatMessage {
+            item: "i0".into(),
+            author: "Sam".into(),
+            body: "Hello there".into(),
+            attachments: vec![Attachment {
+                name: "wave".into(),
+                size: None,
+                image: true,
+                dimensions: None,
+                preview: Some(sticker),
+                preview_failed: false,
+                placement: Placement::Sticker,
+                spoiler: false,
+                video: false,
+                gif: None,
+                url: Some("https://cdn.example/wave.png".into()),
+                description: None,
+            }],
+            ..Default::default()
+        })]);
+    });
+    // The sticker sits under the message's text.
+    let body = {
+        let mut ui = Simulator::with_size(Settings::default(), app.shell.frame, app.view());
+        ui.find("Hello there")
+            .expect("the text")
+            .visible_bounds()
+            .expect("in view")
+    };
+    right_click_at(
+        &mut app,
+        Point::new(body.x + 60.0, body.y + body.height + 64.0),
+    );
+    assert!(
+        app.win
+            .menu
+            .as_ref()
+            .is_some_and(|menu| menu.rows.iter().any(|row| row.label == "Copy sticker link"))
+    );
+    draw(&app, "copy-sticker-links");
+}

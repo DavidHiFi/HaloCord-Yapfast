@@ -303,6 +303,11 @@ pub(super) fn stickers<'a>(
         let pressable = iced::widget::mouse_area(shown)
             .on_press(open)
             .interaction(iced::mouse::Interaction::Pointer);
+        // A right click gives HaloCord's plugins' rows, when there are any.
+        let item = message.item.clone();
+        let pressable = crate::widgets::RightPress::new(pressable, move |_| {
+            Message::Image(crate::image_viewer::Event::Attachment(item.clone(), index))
+        });
         stickers = stickers.push(crate::widgets::Spot::new(pressable, ctx.link_spot).by_press());
     }
     any.then(|| stickers.into())
