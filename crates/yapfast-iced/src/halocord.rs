@@ -41,6 +41,7 @@ pub const USER_AREA: &str = "user-area";
 pub const RESTART: &str = "restart-button";
 pub const READ_ALL: &str = "read-all-button";
 pub const COUNTER: &str = "character-counter";
+pub const NEW_USER: &str = "new-user-tag";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -247,6 +248,26 @@ pub static PLUGINS: &[Plugin] = &[
         settings: &[],
         apply: |_, _| {},
         hooks: None,
+    },
+    Plugin {
+        id: NEW_USER,
+        name: "New account tag",
+        about: "A small amber NEW tag by the names of people whose Discord account is only a few days old, to help you spot throwaway accounts.",
+        on_at_first: false,
+        settings: &[Setting {
+            key: "days",
+            heading: "NEW MEANS UNDER",
+            note: "How old an account may be and still get the tag.",
+            kind: Kind::Choice {
+                names: &["7 days", "14 days", "30 days"],
+                values: &engine::new_user::DAYS,
+                unless_changed: engine::new_user::DEFAULT_DAYS,
+            },
+        }],
+        apply: |kept, plugin| {
+            engine::new_user::set_days(kept.value(plugin, &plugin.settings[0]));
+        },
+        hooks: Some(&engine::new_user::NewUsers),
     },
 ];
 

@@ -152,3 +152,30 @@ fn the_counter_is_off_at_first_and_shows_only_for_a_draft() {
     );
     let _ = app.view();
 }
+
+#[test]
+fn the_new_account_tag_is_off_at_first_and_keeps_its_days() {
+    use crate::halocord::{Change, NEW_USER, PLUGINS};
+    let (mut app, _folder) = preview();
+    assert!(!app.layout.halocord.is(NEW_USER), "off at first");
+    switch(&mut app, NEW_USER, true);
+    assert!(app.layout.halocord.is(NEW_USER));
+    let plugin = place(NEW_USER).expect("the plugin");
+    let days = &PLUGINS[plugin].settings[0];
+    assert_eq!(
+        app.layout.halocord.value(&PLUGINS[plugin], days),
+        7,
+        "7 unless changed"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 0,
+            choice: 2,
+        },
+    );
+    assert_eq!(app.layout.halocord.value(&PLUGINS[plugin], days), 30);
+    let _ = app.view();
+}

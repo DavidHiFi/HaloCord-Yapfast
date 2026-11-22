@@ -4,6 +4,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+pub mod new_user;
 pub mod staff;
 
 use crate::{

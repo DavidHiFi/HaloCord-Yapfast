@@ -31,6 +31,8 @@ whole list to carry across.
   them in or take them out, and the calls each hook below makes.
 - `crates/yapfast-core/src/halocord/staff.rs`: the staff tag plugin's hook (owner,
   admin and mod by names in chat) and its crown and role-colour switches.
+- `crates/yapfast-core/src/halocord/new_user.rs`: the new account tag plugin's hook (an amber tag by
+  accounts younger than N days, read from the Discord id) and its day count.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
