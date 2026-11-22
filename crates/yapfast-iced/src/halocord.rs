@@ -227,6 +227,15 @@ pub static PLUGINS: &[Plugin] = &[
         apply: |_, _| {},
         hooks: Some(&engine::copy_user_mention::CopyUserMention),
     },
+    Plugin {
+        id: "copy-user-urls",
+        name: "Copy profile link",
+        about: "Adds Copy profile link to someone's right-click menu. It copies the web link to their profile.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_user_url::CopyUserUrl),
+    },
 ];
 
 /// Tells the core what Fake mute and Fake deafen do; both plugins say it.

@@ -5,6 +5,7 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 
 pub mod copy_user_mention;
+pub mod copy_user_url;
 pub mod staff;
 
 use crate::{

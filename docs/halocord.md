@@ -33,6 +33,8 @@ whole list to carry across.
   admin and mod by names in chat) and its crown and role-colour switches.
 - `crates/yapfast-core/src/halocord/copy_user_mention.rs`: Copy mention in a
   Discord user's menu.
+- `crates/yapfast-core/src/halocord/copy_user_url.rs`: Copy profile link in a
+  Discord user's menu.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 

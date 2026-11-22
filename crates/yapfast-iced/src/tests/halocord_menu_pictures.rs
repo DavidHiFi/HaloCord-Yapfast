@@ -80,3 +80,18 @@ fn picture_of_copy_user_mention() {
     );
     draw(&app, "copy-user-mention");
 }
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_copy_user_urls() {
+    let (mut app, _folder) = preview();
+    turn_on(&mut app, "copy-user-urls");
+    a_members_menu(&mut app, "1");
+    assert!(
+        app.win
+            .menu
+            .as_ref()
+            .is_some_and(|menu| menu.rows.iter().any(|row| row.label == "Copy profile link"))
+    );
+    draw(&app, "copy-user-urls");
+}
