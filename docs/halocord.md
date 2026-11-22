@@ -99,6 +99,8 @@ Window (`yapfast-iced`):
 - `call/mod.rs`: `Event::Unmute(person)` and its arm, which calls `halocord::unmute`.
 - `sidebar/voice.rs`: `voice_person` ends its marks with `halocord::unmute_mark`, a click-to-unmute
   mark beside someone muted for this account (one `if let`).
+- `sidebar/channels.rs`: `room_row` pushes `halocord::voice_count` (the Voice count plugin's number)
+  before the badge on a voice channel's row (one `if let`).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
 
 Kit (`yapfast-iced-kit`) and vendor:

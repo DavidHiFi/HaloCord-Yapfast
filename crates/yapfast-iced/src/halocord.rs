@@ -41,6 +41,7 @@ pub const USER_AREA: &str = "user-area";
 pub const VOLUME_BOOSTER: &str = "volume-booster";
 pub const FORCE_MONO: &str = "force-mono";
 pub const CLICK_TO_UNMUTE: &str = "click-to-unmute";
+pub const VOICE_COUNT: &str = "voice-count";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -260,7 +261,38 @@ pub static PLUGINS: &[Plugin] = &[
         apply: |_, _| {},
         hooks: None,
     },
+    Plugin {
+        id: VOICE_COUNT,
+        name: "Voice count",
+        about: "Shows how many people are in each voice channel, at the end of its row in the channel list.",
+        on_at_first: false,
+        settings: &[off(
+            "empty",
+            "Show empty channels",
+            "Write 0 beside a voice channel nobody is in.",
+        )],
+        apply: |_, _| {},
+        hooks: None,
+    },
 ];
+
+/// How many people are in a voice channel, for the end of its row, while
+/// Voice count is on (an empty one only when the plugin's setting says so).
+pub fn voice_count<'a>(cx: Ctx<'a>, people: usize) -> Option<Element<'a, Message>> {
+    let kept = &cx.layout.halocord;
+    let plugin = place(VOICE_COUNT).map(|at| &PLUGINS[at])?;
+    if !kept.on(plugin) || (people == 0 && !kept.flag(plugin, &plugin.settings[0])) {
+        return None;
+    }
+    let theme = cx.look.theme;
+    Some(
+        text(people.to_string())
+            .size(12)
+            .font(BOLD)
+            .color(theme.muted)
+            .into(),
+    )
+}
 
 /// The mark beside someone in a voice channel who is muted for this account,
 /// while Click to unmute is on; a click on it unmutes them.

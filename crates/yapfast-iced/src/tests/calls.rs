@@ -771,3 +771,58 @@ fn click_to_unmute_marks_the_muted_and_unmutes_on_a_click() {
     assert!(unmute_mark(app.ctx(), &dana, None).is_none(), "plugin off");
     yapfast_core::volume::mute("unmute-dana", false);
 }
+
+/// HaloCord's Voice count: off at first; on, a voice channel's row ends in
+/// how many people are in it, and an empty one stays bare unless its
+/// setting is on.
+#[test]
+fn voice_count_writes_how_many_are_in_a_voice_channel() {
+    use crate::halocord::{Change, VOICE_COUNT, changed, place};
+    let (mut app, _folder) = super::preview();
+    let crowd = |count: usize| {
+        (0..count)
+            .map(|at| yapfast_core::chat::VoicePerson {
+                id: format!("crowd-{at}"),
+                name: format!("Crowd {at}"),
+                ..Default::default()
+            })
+            .collect::<Vec<_>>()
+    };
+    let put = |app: &mut App, count| {
+        super::change(app, |state| {
+            let lounge = state
+                .rooms
+                .iter_mut()
+                .find(|room| room.id == "lounge")
+                .expect("the preview's Lounge");
+            std::sync::Arc::make_mut(lounge).people = crowd(count);
+        });
+    };
+    let switch = |app: &mut App, on| {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Switch {
+                plugin: place(VOICE_COUNT).unwrap(),
+                on,
+            },
+        );
+    };
+    put(&mut app, 7);
+    assert!(!app.layout.halocord.is(VOICE_COUNT), "off at first");
+    assert!(!super::shows(&app, "7"), "no count while off");
+    switch(&mut app, true);
+    assert!(super::shows(&app, "7"), "seven in the Lounge");
+    put(&mut app, 0);
+    assert!(!super::shows(&app, "0"), "an empty channel stays bare");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin: place(VOICE_COUNT).unwrap(),
+            setting: 0,
+            on: true,
+        },
+    );
+    assert!(super::shows(&app, "0"), "0 beside an empty one when asked");
+}
