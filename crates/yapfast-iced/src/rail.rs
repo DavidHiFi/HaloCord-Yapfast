@@ -652,6 +652,7 @@ impl<'a> View<'a> {
 
     /// A tile with one of the icons on the raised ground, in the accent;
     /// lit, on the accent.
+    #[expect(dead_code, reason = "HaloCord's logo tile took its place")]
     fn glyph_tile(self, icon: Icon, lit: bool) -> Element<'a, Message> {
         let theme = self.cx.look.theme;
         let (ground, ink) = if lit {

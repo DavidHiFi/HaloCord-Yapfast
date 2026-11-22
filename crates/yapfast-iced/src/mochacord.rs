@@ -275,7 +275,7 @@ pub fn backdrop(window: isize, on: bool) {
 /// Puts the backdrop behind the window that just opened, when its surface
 /// is see-through and glass is on.
 pub fn frame(window: &dyn iced::window::Window) {
-    use iced::window::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    use iced::window::raw_window_handle::RawWindowHandle;
     if !(GLASS_ON.load(Ordering::Relaxed) && renderer::glass_active()) {
         return;
     }

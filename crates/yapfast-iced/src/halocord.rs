@@ -846,7 +846,7 @@ pub fn changed(layout: &mut Layout, client: &mut Client, change: Change) -> bool
     resend
 }
 
-/// 4. A plugin's tag after a message's author: its words in a chip, or a
+/// Hook 4: A plugin's tag after a message's author: its words in a chip, or a
 /// crown, in the colour it sets.
 pub fn tag<'a>(ctx: Ctx<'a>, tag: Tag) -> Element<'a, Message> {
     let Some(color) = tag.color else {
@@ -864,12 +864,12 @@ pub fn tag<'a>(ctx: Ctx<'a>, tag: Tag) -> Element<'a, Message> {
         .into()
 }
 
-/// 5. HaloCord's plugins' rows for a message's menu, before Delete.
+/// Hook 5: HaloCord's plugins' rows for a message's menu, before Delete.
 pub fn menu_rows(message: &ChatMessage) -> Vec<MenuRow> {
     keyed(engine::menu(message))
 }
 
-/// 5. HaloCord's plugins' rows for a person's menu, after its own.
+/// Hook 5: HaloCord's plugins' rows for a person's menu, after its own.
 pub fn person_rows(user: &str) -> Vec<MenuRow> {
     keyed(engine::person_menu(user))
 }
@@ -886,7 +886,7 @@ fn keyed(rows: Vec<(String, &'static str)>) -> Vec<MenuRow> {
     rows
 }
 
-/// 5. A plugin's menu row was chosen: in a person's menu (`place` is the
+/// Hook 5: A plugin's menu row was chosen: in a person's menu (`place` is the
 /// person) it's theirs, else it's for the message `item`.
 pub fn chosen(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Task<Message> {
     if let Some((key, at)) = key.split_once('#') {
@@ -902,7 +902,7 @@ pub fn chosen(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Task
     }
 }
 
-/// 5. HaloCord's plugins' rows for the menu of attachment `at` of `message`.
+/// Hook 5: HaloCord's plugins' rows for the menu of attachment `at` of `message`.
 /// Each key carries the attachment's place after a `#`.
 pub fn attachment_rows(message: &ChatMessage, at: usize) -> Vec<MenuRow> {
     let mut rows = keyed(engine::attachment_menu(message, at));
@@ -912,7 +912,7 @@ pub fn attachment_rows(message: &ChatMessage, at: usize) -> Vec<MenuRow> {
     rows
 }
 
-/// 5. Opens the menu of attachment `at` of message `item` at the pointer,
+/// Hook 5: Opens the menu of attachment `at` of message `item` at the pointer,
 /// when plugins give it rows.
 pub fn attachment_menu(app: &mut App, item: &str, at: usize) -> Task<Message> {
     let Some(message) = app.client.state().message(item) else {
@@ -930,7 +930,7 @@ pub fn attachment_menu(app: &mut App, item: &str, at: usize) -> Task<Message> {
     iced::widget::operation::focus(crate::app::NOBODY)
 }
 
-/// 5. A plugin's menu row was chosen for the message `item`.
+/// Hook 5: A plugin's menu row was chosen for the message `item`.
 pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
     let Some(message) = app.client.state().message(item).cloned() else {
         return Task::none();
@@ -1005,7 +1005,7 @@ fn thousands(n: usize) -> String {
     let digits = n.to_string();
     let mut out = String::new();
     for (at, digit) in digits.chars().enumerate() {
-        if at > 0 && (digits.len() - at) % 3 == 0 {
+        if at > 0 && (digits.len() - at).is_multiple_of(3) {
             out.push(',');
         }
         out.push(digit);
@@ -1277,7 +1277,7 @@ mod tests {
         assert_eq!(kept.value(plugin, volume), 80);
         assert_eq!(kept.text(plugin, word), "hello");
         // A slider past its end, or a value of the wrong kind, is as it starts.
-        let mut wrong = kept.clone();
+        let mut wrong = kept;
         let state = wrong.plugins.get_mut("kinds").unwrap();
         state.settings.insert("volume".into(), Value::Number(500));
         state.settings.insert("word".into(), Value::Flag(true));
