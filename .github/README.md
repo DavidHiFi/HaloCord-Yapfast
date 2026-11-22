@@ -6,7 +6,7 @@
 
 **HaloCord's voice plugins, built into Yapfast, the light Discord client written in Rust.**
 
-The next HaloCord: stereo 510 kbit/s calls, fake mute and deafen, staff tags, a roomier user area and the MochaCord glass theme.
+The next HaloCord: 21 plugins, from stereo 510 kbit/s calls and a 1000% volume booster to copy rows, counters and quick buttons, plus the MochaCord glass theme.
 
 <a href="https://github.com/DavidHiFi/HaloCord-Yapfast/releases/latest">
 <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20DOWNLOAD%20LATEST%20RELEASE-2EA043?style=for-the-badge&labelColor=161B22" alt="Download the latest release" height="42">
@@ -39,6 +39,11 @@ To build it yourself, see "Building from source" below.
 - **Stereo loader:** sends your microphone in stereo, just as it comes in. Echo cancelling, noise suppression, gain control and leveling are skipped, so only your mic volume and the voice gate or push to talk apply.
 - **Bit rate:** pick 64, 128, 256, 384 or 510 kbit/s. It changes live, mid-call.
 - **Off switch:** turn the plugin off and calls go back to Yapfast's own sound cleanup at 128 kbit/s.
+- **Volume booster:** a person's volume and a stream's volume go past 200%, up to 1000%. You pick the top.
+- **Force mono:** everyone's voice plays the same in both ears, for one-sided headphones or a single speaker.
+- **Click to unmute:** a mark beside anyone you muted for yourself in a voice channel. Click it to unmute them.
+- **Voice count:** how many people are in each voice channel, at the end of its row.
+- **User voice show:** a mark in the member list beside anyone in a voice channel, saying which one.
 
 ### Privacy
 
@@ -48,12 +53,30 @@ To build it yourself, see "Building from source" below.
 ### Chat
 
 - **Staff tag:** owner, admin and mod tags next to names in chat, with an optional crown and role colour.
+- **Character counter:** how many letters you've typed, like 1,234 / 2,000. It turns amber near the limit and red over it.
+- **New account tag:** a small NEW tag by people whose account is only a few days old (7, 14 or 30, your pick).
+- **Member count:** how many people are online and how many have joined, at the top of the member list.
+- **Close all DMs:** one X beside Direct Messages closes every one-to-one chat in the list. Group chats stay, and nothing is deleted.
+
+### Right-click menus
+
+- **Copy mention:** copies the text that pings someone.
+- **Copy profile link:** copies the web link to someone's profile.
+- **Copy file link** and **Copy sticker link:** copy the web address of a file or sticker.
+- **Quick mention:** puts the sender's name in your message box from a message's menu.
+
+### Top bar
+
+- **Restart button:** closes Yapfast and starts it again.
+- **Read all button:** marks every server and message read in one press.
 
 ### User area
 
 - **Compact mode:** a shorter user area that stays clear of the server list.
 - **Hide the arrows:** drops the little dropdown arrows beside mute and deafen.
 - **Extra buttons:** HaloCord's quick buttons, like fake mute and fake deafen, sit next to settings.
+
+<img src="assets/halocord-new-plugins.png" alt="Four of the new plugins: the character counter in the message box, Copy mention in a right-click menu, the member count line, and a person's volume at 800%" width="100%">
 
 ### MochaCord theme
 
@@ -67,7 +90,11 @@ To build it yourself, see "Building from source" below.
 
 ### Plugins
 
+<img src="assets/halocord-plugins-list.png" alt="The Plugins page with all 21 plugins and their switches" width="60%">
+
+
 - **Plugins tab:** its own section in Settings, one switch per plugin, a search box, and each plugin's settings under it.
+- **Your call:** most plugins start off. The stereo loader, user area, volume booster, click to unmute and the two top bar buttons start on, as they were in HaloCord.
 - **Survives updates:** HaloCord's code lives in its own files, with small hooks into Yapfast, so it moves onto each new Yapfast release with little fuss.
 
 ## Notes
@@ -129,6 +156,7 @@ Thanks to everyone who followed HaloCord over here.
 |---|---|
 | **Yapfast** ([yapfast/yapfast](https://github.com/yapfast/yapfast)) | The whole client. HaloCord adds its plugins on top. |
 | **TestCord** ([Codeberg](https://codeberg.org/Testcord/testcord)) | The stereo loader idea, from TestCord's plugin of the same name. |
+| **Vencord** ([vencord.dev](https://vencord.dev)) and **Equicord** ([Equicord/Equicord](https://github.com/Equicord/Equicord)) plugin authors | The ideas behind the copy rows, quick mention, character counter, new account tag, member count, close all DMs, voice count and user voice show. |
 | **Discord Userdoccers** ([docs.discord.food](https://docs.discord.food)) | The Discord documentation Yapfast is built from. |
 
 Built on [Rust](https://www.rust-lang.org), with [iced](https://iced.rs) and [Opus](https://opus-codec.org).
