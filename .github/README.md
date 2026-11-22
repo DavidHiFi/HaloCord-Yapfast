@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="assets/halocord-page.png" alt="Yapfast settings with the HaloCord page open, showing the Stereo loader switch and the microphone bit rate picker" width="100%">
+<img src="assets/halocord-page.png" alt="Yapfast settings with the Plugins page open: the Stereo loader with its bit rate picker, fake mute, fake deafen, staff tag and the user area" width="100%">
 
 # HaloCord for Yapfast
 
 **HaloCord's voice plugins, built into Yapfast, the light Discord client written in Rust.**
 
-The next HaloCord: stereo microphone and 510 kbit/s calls, with its own settings page.
+The next HaloCord: stereo 510 kbit/s calls, fake mute and deafen, staff tags, a roomier user area and the MochaCord glass theme.
 
 <a href="https://github.com/DavidHiFi/HaloCord-Yapfast/releases/latest">
 <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20DOWNLOAD%20LATEST%20RELEASE-2EA043?style=for-the-badge&labelColor=161B22" alt="Download the latest release" height="42">
@@ -28,7 +28,7 @@ The next HaloCord: stereo microphone and 510 kbit/s calls, with its own settings
 2. Close Yapfast if it's open.
 3. Double-click `yapfast.exe`. The ZIP isn't code signed, so Windows SmartScreen may warn you. Choose **More info**, then **Run anyway**.
 4. New to Yapfast? Link your account with the QR code. Already use it? You stay logged in.
-5. Find **HaloCord** at the bottom of Settings.
+5. Find **Plugins** and **MochaCord** at the bottom of Settings.
 
 To build it yourself, see "Building from source" below.
 
@@ -40,15 +40,40 @@ To build it yourself, see "Building from source" below.
 - **Bit rate:** pick 64, 128, 256, 384 or 510 kbit/s. It changes live, mid-call.
 - **Off switch:** turn the plugin off and calls go back to Yapfast's own sound cleanup at 128 kbit/s.
 
+### Privacy
+
+- **Fake mute:** everyone in the call sees you muted while your microphone keeps working for you.
+- **Fake deafen:** everyone sees you deafened while you still hear the call.
+
+### Chat
+
+- **Staff tag:** owner, admin and mod tags next to names in chat, with an optional crown and role colour.
+
+### User area
+
+- **Compact mode:** a shorter user area that stays clear of the server list.
+- **Hide the arrows:** drops the little dropdown arrows beside mute and deafen.
+- **Extra buttons:** HaloCord's quick buttons, like fake mute and fake deafen, sit next to settings.
+
+### MochaCord theme
+
+<img src="assets/mochacord-page.png" alt="The MochaCord page in Yapfast settings: glass window, glass strength, blue to mauve accents, corner roundness and the font list" width="100%">
+
+- **Glass window:** Catppuccin Mocha over a frosted, blurred window, with a strength slider.
+- **Blue to mauve:** the accent and the scrollbars run from blue to mauve.
+- **Title bar room:** space above the home button for the native Windows title bar.
+- **Your font:** pick the font, weight and corner roundness. FiraCode Nerd Font Medium by default.
+- **New icon:** a riced app and home icon.
+
 ### Plugins
 
-- **HaloCord page:** its own section in Settings, one switch per plugin, with each plugin's settings under it.
+- **Plugins tab:** its own section in Settings, one switch per plugin, a search box, and each plugin's settings under it.
 - **Survives updates:** HaloCord's code lives in its own files, with small hooks into Yapfast, so it moves onto each new Yapfast release with little fuss.
 
 ## Notes
 
 > [!IMPORTANT]
-> **Early days.** This is the first plugin. On the way: the MochaCord theme with the glass window, fake mute and fake deafen, the staff tag, a compact user area, and an installer that patches your own Yapfast.
+> **Early days.** Every plugin here is new. If something looks off, turn that plugin off in the Plugins tab and open an issue.
 
 > [!NOTE]
 > **Replacing the old HaloCord.** The Electron-based [HaloCord](https://github.com/DavidHiFi/HaloCord) is retired. This repo is where HaloCord carries on.
