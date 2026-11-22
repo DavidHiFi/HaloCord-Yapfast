@@ -23,15 +23,26 @@ mod members;
 mod menus;
 mod voice;
 
-pub use buttons::{Dock, Press, press, presses};
-pub(crate) use buttons::{close_dm_actions, read_all_actions};
+pub use buttons::{Press, press, presses};
 use chat::thousands;
-pub use chat::{Fill, count_color, count_words, counter_words, tag};
+pub use chat::{count_color, count_words, tag};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
-pub use members::{add_member_count, member_totals, platform_marks};
+pub use members::{add_member_count, platform_marks};
 pub use menus::{attachment_menu, chosen, copied_text, menu_rows, person_rows};
-pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count, voice_room_of};
+pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
+
+// What only the tests reach from outside.
+#[cfg(test)]
+pub use buttons::Dock;
+#[cfg(test)]
+pub(crate) use buttons::{close_dm_actions, read_all_actions};
+#[cfg(test)]
+pub use chat::{Fill, counter_words};
+#[cfg(test)]
+pub use members::member_totals;
+#[cfg(test)]
+pub use voice::voice_room_of;
 
 pub use id::*;
 
