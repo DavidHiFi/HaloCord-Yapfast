@@ -218,6 +218,51 @@ pub static PLUGINS: &[Plugin] = &[
         apply: |_, _| {},
         hooks: None,
     },
+    Plugin {
+        id: "copy-user-mention",
+        name: "Copy mention",
+        about: "Adds Copy mention to someone's right-click menu. It copies the text that pings them when you send it.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_user_mention::CopyUserMention),
+    },
+    Plugin {
+        id: "copy-media-link",
+        name: "Copy file link",
+        about: "Adds Copy file link to a file's right-click menu. It copies the web address of the file.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_media_link::CopyMediaLink),
+    },
+    Plugin {
+        id: "copy-sticker-links",
+        name: "Copy sticker link",
+        about: "Adds Copy sticker link to a sticker's right-click menu. It copies the web address of the sticker.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_sticker_link::CopyStickerLink),
+    },
+    Plugin {
+        id: "quick-mention",
+        name: "Quick mention",
+        about: "Adds Mention to a message's right-click menu. It puts the sender's name in your message box.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::quick_mention::QuickMention),
+    },
+    Plugin {
+        id: "copy-user-urls",
+        name: "Copy profile link",
+        about: "Adds Copy profile link to someone's right-click menu. It copies the web link to their profile.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_user_url::CopyUserUrl),
+    },
 ];
 
 /// Tells the core what Fake mute and Fake deafen do; both plugins say it.
@@ -523,7 +568,17 @@ pub fn tag<'a>(ctx: Ctx<'a>, tag: Tag) -> Element<'a, Message> {
 
 /// 5. HaloCord's plugins' rows for a message's menu, before Delete.
 pub fn menu_rows(message: &ChatMessage) -> Vec<MenuRow> {
-    let mut rows: Vec<MenuRow> = engine::menu(message)
+    keyed(engine::menu(message))
+}
+
+/// 5. HaloCord's plugins' rows for a person's menu, after its own.
+pub fn person_rows(user: &str) -> Vec<MenuRow> {
+    keyed(engine::person_menu(user))
+}
+
+/// Menu rows from the engine's keys and labels, the first set apart.
+fn keyed(rows: Vec<(String, &'static str)>) -> Vec<MenuRow> {
+    let mut rows: Vec<MenuRow> = rows
         .into_iter()
         .map(|(key, label)| MenuRow::plain(MenuAct::Plugin, label).key(key))
         .collect();
@@ -533,17 +588,78 @@ pub fn menu_rows(message: &ChatMessage) -> Vec<MenuRow> {
     rows
 }
 
+/// 5. A plugin's menu row was chosen: in a person's menu (`place` is the
+/// person) it's theirs, else it's for the message `item`.
+pub fn chosen(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Task<Message> {
+    if let Some((key, at)) = key.split_once('#') {
+        let Some(message) = app.client.state().message(item).cloned() else {
+            return Task::none();
+        };
+        let at = at.parse().unwrap_or(usize::MAX);
+        return done(app, engine::attachment_pick(key, &message, at));
+    }
+    match place {
+        Some(user) => done(app, engine::person_pick(key, user)),
+        None => pick(app, key, item),
+    }
+}
+
+/// 5. HaloCord's plugins' rows for the menu of attachment `at` of `message`.
+/// Each key carries the attachment's place after a `#`.
+pub fn attachment_rows(message: &ChatMessage, at: usize) -> Vec<MenuRow> {
+    let mut rows = keyed(engine::attachment_menu(message, at));
+    for row in &mut rows {
+        row.key = format!("{}#{at}", row.key);
+    }
+    rows
+}
+
+/// 5. Opens the menu of attachment `at` of message `item` at the pointer,
+/// when plugins give it rows.
+pub fn attachment_menu(app: &mut App, item: &str, at: usize) -> Task<Message> {
+    let Some(message) = app.client.state().message(item) else {
+        return Task::none();
+    };
+    let mut rows = attachment_rows(message, at);
+    let Some(first) = rows.first_mut() else {
+        return Task::none();
+    };
+    first.separated = false;
+    app.win.menu = Some(crate::menus::Menu {
+        item: Some(item.to_owned()),
+        ..crate::menus::Menu::new(app.pressed.get(), rows)
+    });
+    iced::widget::operation::focus(crate::app::NOBODY)
+}
+
 /// 5. A plugin's menu row was chosen for the message `item`.
 pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
     let Some(message) = app.client.state().message(item).cloned() else {
         return Task::none();
     };
-    let picked = engine::pick(key, &message);
+    done(app, engine::pick(key, &message))
+}
+
+/// What a chosen row gave: its actions, and its text to copy.
+fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
+    let mentions = picked
+        .actions
+        .iter()
+        .any(|action| matches!(action, Action::MentionPerson(_)));
     for action in picked.actions {
         app.client.dispatch(action);
     }
     let copied = picked.copy.map_or_else(Task::none, iced::clipboard::write);
-    Task::batch([app.sync(), copied])
+    // A mention changes the message box's text: it takes it in and has focus.
+    let focus = if mentions {
+        let draft = app.client.state().draft().to_owned();
+        app.composer.draft.reset(&draft);
+        app.composer.draft_known = draft;
+        iced::widget::operation::focus(crate::composer::COMPOSER)
+    } else {
+        Task::none()
+    };
+    Task::batch([app.sync(), copied, focus])
 }
 
 #[cfg(test)]

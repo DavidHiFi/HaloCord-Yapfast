@@ -31,6 +31,16 @@ whole list to carry across.
   them in or take them out, and the calls each hook below makes.
 - `crates/yapfast-core/src/halocord/staff.rs`: the staff tag plugin's hook (owner,
   admin and mod by names in chat) and its crown and role-colour switches.
+- `crates/yapfast-core/src/halocord/copy_user_mention.rs`: Copy mention in a
+  Discord user's menu.
+- `crates/yapfast-core/src/halocord/copy_media_link.rs`: Copy file link in a file's
+  menu.
+- `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link in a
+  sticker's menu.
+- `crates/yapfast-core/src/halocord/quick_mention.rs`: Mention in a message's menu
+  (puts the sender's name in the message box).
+- `crates/yapfast-core/src/halocord/copy_user_url.rs`: Copy profile link in a
+  Discord user's menu.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -54,7 +64,13 @@ numbers match the port plan.
 5. Menu rows (`yapfast-iced/src/menus.rs`): `MenuAct::Plugin`; `open_menu` adds
    `halocord::menu_rows` before Delete; `carry_out` sends the row's key
    (`plugin-id/action`) to `halocord::pick`; `act` lists it with the menus' own.
-   A row's pick gives actions for the app and text to copy.
+   A row's pick gives actions for the app and text to copy. A person's menu takes
+   rows the same way (`person_menu`, `person_pick`): `open_person_menu` adds
+   `halocord::person_rows`, and `carry_out` sends a row picked in a menu with a
+   `place` to `halocord::chosen`, which routes it to the person.
+   A file's or sticker's menu takes rows too (`attachment_menu`, `attachment_pick`):
+   a right click sends `image_viewer::Event::Attachment`, `halocord::attachment_menu`
+   opens the rows, and a key ending `#<index>` goes to `halocord::attachment_pick`.
 6. Setting kinds: in HaloCord's own files only. Kept values stay plain JSON (a
    number, `true`/`false` or a string), so the stereo loader's saved bit rate reads
    as before.
@@ -88,6 +104,12 @@ Window (`yapfast-iced`):
 - `client.rs`: plug-in point 2, one match arm in `execute`.
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines.
+- `person_menu.rs`: plug-in point 5, `open_person_menu` adds `halocord::person_rows`
+  (two lines, `rows` is `mut`).
+- `message/attachments.rs`: plug-in point 5, `file_card` and `stickers` wrap what they draw in a
+  right click (`RightPress`, `Event::Attachment`; a few lines each).
+- `image_viewer.rs`: the `Event::Attachment` variant and its empty arm.
+- `app/screens.rs`: one arm in `image_event` calling `halocord::attachment_menu`.
 - `account.rs`: the User area plugin's options. `height(compact)` beside `HEIGHT`,
   `Event::Plugin(Change)`, and `view` reads `layout.halocord.dock()` for compact mode
   (smaller, inside the channel list), hidden dropdown arrows and the extra buttons,
@@ -144,6 +166,8 @@ Calls (`yapfast-discord`):
 - Window `tests/settings.rs`: the plugins page, fake switches, the user area's dock.
 - Window `halocord::tests`: point 5's rows, point 6's kinds, the stereo loader's
   saved values.
+- Window `tests/halocord_menu_pictures.rs`: ignored tests that draw each right-click
+  plugin's row into `audit/plugins/menus-<plugin>.png`.
 
 ## Candidates to offer upstream
 

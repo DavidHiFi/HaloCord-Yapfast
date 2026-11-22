@@ -677,7 +677,8 @@ fn carry_out(app: &mut App, row: &MenuRow, ticked: Option<bool>, stays: bool) ->
         }
         MenuAct::Plugin => {
             let item = menu.item.clone().unwrap_or_default();
-            Task::batch([focus, crate::halocord::pick(app, &row.key, &item)])
+            let place = menu.place.as_deref();
+            Task::batch([focus, crate::halocord::chosen(app, &row.key, &item, place)])
         }
         act => {
             let item = menu.item.clone().unwrap_or_default();
