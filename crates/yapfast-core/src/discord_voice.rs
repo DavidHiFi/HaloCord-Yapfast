@@ -737,7 +737,8 @@ pub(crate) async fn call(
                         }
                         Some(Command::LeaveStale) => {}
                     }
-                    discord.set_self(guild, &channel, state.muted, state.deafened, state.camera_phase == CameraPhase::On);
+                    let (shown_muted, shown_deafened) = crate::halocord::voice_state(state.muted, state.deafened);
+                    discord.set_self(guild, &channel, shown_muted, shown_deafened, state.camera_phase == CameraPhase::On);
                     snapshots.send_replace(state.clone());
                 }
                 result = camera::opened(&mut opening) => {
@@ -756,7 +757,8 @@ pub(crate) async fn call(
                             state.error = Some(error.to_string());
                         }
                     }
-                    discord.set_self(guild, &channel, state.muted, state.deafened, state.camera_phase == CameraPhase::On);
+                    let (shown_muted, shown_deafened) = crate::halocord::voice_state(state.muted, state.deafened);
+                    discord.set_self(guild, &channel, shown_muted, shown_deafened, state.camera_phase == CameraPhase::On);
                     snapshots.send_replace(state.clone());
                 }
                 report = next_report(&mut share) => {

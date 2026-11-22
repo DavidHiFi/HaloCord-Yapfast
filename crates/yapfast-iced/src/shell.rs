@@ -264,6 +264,7 @@ impl App {
     /// only while someone may be looking, and counts the open conversation
     /// as read only while the window is in front.
     fn focus_changed(&mut self, focused: bool) {
+        crate::mochacord::set_in_front(focused);
         if std::mem::replace(&mut self.shell.focused, focused) != focused {
             self.client.dispatch(Action::WindowFocused(focused));
             let reads = self.reads();
@@ -449,6 +450,7 @@ impl App {
             min_size: Some(MIN_SIZE),
             decorations: !self.shell.own_title_bar,
             exit_on_close_request: false,
+            transparent: yapfast_iced_kit::renderer::glass_wanted(),
             icon: desktop::desktop()
                 .window_icon()
                 .and_then(|(pixels, width, height)| {
@@ -475,6 +477,7 @@ impl App {
         self.focus_changed(true);
         let tell = self.shell.tell.clone();
         let decorate = window::run(id, move |window| {
+            crate::mochacord::frame(window);
             if let Some(tell) = tell {
                 desktop::desktop().decorate(window, tell);
             }

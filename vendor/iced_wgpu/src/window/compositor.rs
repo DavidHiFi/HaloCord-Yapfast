@@ -52,6 +52,50 @@ impl Compositor {
         compatible_window: Option<W>,
         shell: Shell,
     ) -> Result<Self, Error> {
+        // Yapfast port: a see-through surface first, when the app wants
+        // glass (`crate::glass`); the plain one if that can't be had.
+        let window = compatible_window.map(std::sync::Arc::new);
+        crate::glass::mark_active(false);
+
+        if crate::glass::wanted() && cfg!(windows) {
+            match Self::request_with(
+                settings,
+                window.clone(),
+                shell.clone(),
+                true,
+            )
+            .await
+            {
+                Ok(compositor) => {
+                    crate::glass::mark_active(true);
+                    return Ok(compositor);
+                }
+                Err(error) => {
+                    log::warn!("No see-through surface, drawing opaque: {error}");
+                }
+            }
+        }
+
+        Self::request_with(settings, window, shell, false).await
+    }
+
+    /// [`Compositor::request`], with the surface see-through (`glass`) or
+    /// as iced makes it.
+    async fn request_with<W: compositor::Window>(
+        mut settings: Settings,
+        compatible_window: Option<std::sync::Arc<W>>,
+        shell: Shell,
+        glass: bool,
+    ) -> Result<Self, Error> {
+        let mut backend_options = wgpu::BackendOptions::default();
+
+        if glass {
+            // Only DirectX 12 makes a swap chain from a visual.
+            settings.backends = wgpu::Backends::DX12;
+            backend_options.dx12.presentation_system =
+                wgpu::wgt::Dx12SwapchainKind::DxgiFromVisual;
+        }
+
         let instance = wgpu::util::new_instance_with_webgpu_detection(
             &wgpu::InstanceDescriptor {
                 backends: settings.backends,
@@ -60,6 +104,7 @@ impl Compositor {
                 } else {
                     wgpu::InstanceFlags::empty()
                 },
+                backend_options,
                 ..Default::default()
             },
         )
@@ -124,7 +169,18 @@ impl Compositor {
 
                 log::info!("Available alpha modes: {alpha_modes:#?}");
 
-                let preferred_alpha = if alpha_modes
+                // Yapfast port: what's drawn is premultiplied, so glass
+                // takes that mode or none.
+                if glass
+                    && !alpha_modes
+                        .contains(&wgpu::CompositeAlphaMode::PreMultiplied)
+                {
+                    return None;
+                }
+
+                let preferred_alpha = if glass {
+                    wgpu::CompositeAlphaMode::PreMultiplied
+                } else if alpha_modes
                     .contains(&wgpu::CompositeAlphaMode::PostMultiplied)
                 {
                     wgpu::CompositeAlphaMode::PostMultiplied

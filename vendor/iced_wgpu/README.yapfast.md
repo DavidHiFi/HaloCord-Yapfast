@@ -24,3 +24,11 @@ Changes, marked `Yapfast port` in the source:
   on. The client's build has both renderers, and iced's choice between
   them reads only `ICED_BACKEND`; off by default, a CPU start and the
   tests never start a GPU.
+- `src/glass.rs` (new), `src/window/compositor.rs` `request`: HaloCord's
+  glass. When the app asks (`glass::set_wanted(true)`, before the window
+  opens), the compositor first tries a DirectX 12 surface made from a
+  DirectComposition visual with a premultiplied alpha mode, so what is
+  drawn with alpha lets the window's backdrop show through. If that
+  can't be had it starts as before, opaque, and `glass::active()` says
+  which it got. `request` was split into `request` and `request_with`
+  for the two tries; the window is shared between them as an `Arc`.

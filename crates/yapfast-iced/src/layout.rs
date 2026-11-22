@@ -99,6 +99,8 @@ pub struct Layout {
     pub prefs: Prefs,
     /// HaloCord's plugins.
     pub halocord: crate::halocord::Kept,
+    /// MochaCord's look options.
+    pub mochacord: crate::mochacord::Kept,
 }
 
 /// The window's size while it isn't maximized, in the desktop's own units

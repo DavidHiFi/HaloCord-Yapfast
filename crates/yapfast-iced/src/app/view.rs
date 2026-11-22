@@ -34,7 +34,7 @@ impl App {
         // The window's own background is the theme's chat (`window_style`).
         // The rail and the sidebar on the rail's ground, the account's card
         // across the foot of both.
-        let rail = self.theme.rail;
+        let rail = crate::mochacord::glass(self.theme.rail, crate::mochacord::Dock::Rail);
         let mut foot = column![];
         if let Some(dock) = crate::call::dock::view(self.ctx()) {
             foot = foot.push(dock);
@@ -362,7 +362,10 @@ impl App {
 
     pub fn window_style(&self, _: &iced::Theme) -> iced::theme::Style {
         iced::theme::Style {
-            background_color: self.theme.chat,
+            background_color: crate::mochacord::glass(
+                self.theme.chat,
+                crate::mochacord::Dock::Chat,
+            ),
             text_color: self.theme.text,
         }
     }

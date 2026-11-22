@@ -12,6 +12,9 @@
 //! time the shaper can't draw it ([`load_wanted`]). fontdb maps system font
 //! files rather than reading them, so nothing is copied.
 
+mod pick;
+pub use pick::{Choice, choose, taken};
+
 use std::{
     borrow::Cow,
     sync::{Arc, Mutex},
@@ -78,8 +81,14 @@ pub fn install(twemoji: &'static [u8]) {
     if let Some(mono) = mono {
         db.set_monospace_family(mono);
     }
+    // HaloCord: a chosen font takes DM Sans's name, and DM Sans falls behind.
+    let first = pick::add(&mut db);
     db.set_sans_serif_family("DM Sans");
-    let fallback = Fallback(&["DM Sans", TWEMOJI]);
+    let fallback = Fallback(if first == "DM Sans" {
+        &["DM Sans", TWEMOJI]
+    } else {
+        &[pick::OWN, TWEMOJI]
+    });
     let mut system = font_system().write().expect("font system");
     *system.raw() =
         cosmic_text::FontSystem::new_with_locale_and_db_and_fallback("en-US".into(), db, fallback);

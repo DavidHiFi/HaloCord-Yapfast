@@ -435,7 +435,7 @@ impl<'a> View<'a> {
             .into(),
             None => list,
         };
-        let ground = theme.sidebar;
+        let ground = crate::mochacord::glass(theme.sidebar, crate::mochacord::Dock::Sidebar);
         let mut top = column![self.side_header_view()];
         if let Some(boosts) = self
             .s

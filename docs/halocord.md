@@ -14,9 +14,23 @@ whole list to carry across.
   plug-in point 5 (`menu_rows`, `pick`).
 - `crates/yapfast-iced/src/settings/pages/halocord.rs`: the HaloCord settings page,
   drawn from `PLUGINS`.
+- `crates/yapfast-iced/src/mochacord.rs`: MochaCord's look: what `layout.json` keeps
+  under `mochacord` (glass on and strength, accent gradient, corner roundness, font
+  and weight, and the one-time switch flag), applying it, the glass fills' alpha
+  (`glass`, `Dock`), the first-start switch to the theme, and the Windows backdrop
+  (direct `dwmapi` calls, so no new dependency).
+- `crates/yapfast-iced/src/settings/pages/mochacord.rs`: the MochaCord settings page.
+- `crates/yapfast-iced-kit/src/fonts/pick.rs`: gives the chosen font Yapfast's text
+  name at each weight, and keeps Yapfast's own font behind it.
+- `crates/yapfast-iced-kit/icons/halo-logo.svg`, `packaging/icon.svg`,
+  `packaging/windows/yapfast.ico` and `scripts/make_windows_icon.py`: the blue to
+  mauve icon (`scripts/make-windows-icon` runs the script).
 - `crates/yapfast-core/src/halocord.rs`: switches the core reads (flat microphone,
-  bit rate), and the plug-in points: the `Hooks` a plugin writes, `plug` to put
+  bit rate, fake mute and fake deafen: `voice_state` is what others are sent), `Tag`,
+  and the plug-in points: the `Hooks` a plugin writes, `plug` to put
   them in or take them out, and the calls each hook below makes.
+- `crates/yapfast-core/src/halocord/staff.rs`: the staff tag plugin's hook (owner,
+  admin and mod by names in chat) and its crown and role-colour switches.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -35,7 +49,8 @@ numbers match the port plan.
    before the interactions and the channels see the event; a dropped one goes
    nowhere.
 4. Message extras (`yapfast-iced/src/message/mod.rs`, `author_line`): the plugins'
-   tags after OP or APP, in the same chip.
+   tags after OP or APP. `extras(message, app)` gives `Tag`s (words, crown, colour);
+   `halocord::tag` draws one, in the APP chip when it has no colour.
 5. Menu rows (`yapfast-iced/src/menus.rs`): `MenuAct::Plugin`; `open_menu` adds
    `halocord::menu_rows` before Delete; `carry_out` sends the row's key
    (`plugin-id/action`) to `halocord::pick`; `act` lists it with the menus' own.
@@ -48,21 +63,57 @@ numbers match the port plan.
 
 Window (`yapfast-iced`):
 
-- `lib.rs`: `mod halocord;`.
+- `lib.rs`: `mod halocord;` and `mod mochacord;`; in `run`, `mochacord::prepare(&root);`
+  before `fonts::install`.
+- `layout.rs`: the `mochacord: crate::mochacord::Kept` field on `Layout`.
+- `app/mod.rs`: `mochacord::first_start` after the layout is opened, and
+  `layout.mochacord.apply();` after `layout.halocord.apply();`.
+- `app/view.rs`: `mochacord::glass(..)` on the navigation's fill and on the window's
+  clear colour (`window_style`).
+- `sidebar/mod.rs`: the same on the channel list's ground. `window_bar.rs`: the same on
+  the title bar's ground.
+- `shell.rs`: `transparent` in `window_settings`; `mochacord::frame(window)` in
+  `opened`; `mochacord::set_in_front` in `focus_changed`.
+- `rail.rs`: `HOME_ROOM` above the home tile, and `logo_tile` (the riced icon).
+- `settings/mod.rs`: `Section::MochaCord`, its title, icon, group entry and page.
+- `settings/pages/mod.rs`: `mod mochacord;`, `Pref::MochaCord(Change)` and its arm.
 - `layout.rs`: the `halocord: crate::halocord::Kept` field on `Layout`.
 - `app/mod.rs`: `layout.halocord.apply();` after `layout.voice.apply();` at start.
-- `settings/mod.rs`: `Section::HaloCord`, its title and icon, its group, and its page.
+- `settings/mod.rs`: `Section::HaloCord`, its title ("Plugins") and icon, its group,
+  and its page; Settings' own search keeps the section when `halocord::any_found`
+  finds a plugin (the page narrows its list the same way).
 - `settings/pages/mod.rs`: `mod halocord;`, `Pref::HaloCord(Change)`, and its arm in
-  the change handler, which keeps it under `halocord`.
+  the change handler, which calls `halocord::changed` (keeps it under `halocord`,
+  and sends the voice state again when a fake mute or deafen switch changes in a call).
 - `client.rs`: plug-in point 2, one match arm in `execute`.
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines.
+- `account.rs`: the User area plugin's options. `height(compact)` beside `HEIGHT`,
+  `Event::Plugin(Change)`, and `view` reads `layout.halocord.dock()` for compact mode
+  (smaller, inside the channel list), hidden dropdown arrows and the extra buttons,
+  and says "Faking mute" or "Faking deafen" under the name in a call.
+- `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
+
+Kit (`yapfast-iced-kit`) and vendor:
+
+- `fonts.rs`: `mod pick;`, and a call in `install` before the fallback list.
+- `style.rs`: `set_corner_scale`, read in `rounded`, `edge` and `round`; `controls.rs` `lit_style` takes its corners from `round`.
+- `widgets/smooth.rs` and `smooth/bar.rs`: `BarGradient` and `set_bar_look`, drawn in
+  `Smooth::draw`.
+- `renderer.rs`: `want_glass`, `glass_wanted`, `glass_active`.
+- `icons.rs`: `Icon::HaloLogo`.
+- `vendor/iced_wgpu`: `glass.rs` and the glass attempt in `window/compositor.rs` (see
+  its `README.yapfast.md`).
+- Core `theme.rs`: the `MOCHACORD` built-in theme.
 
 Core (`yapfast-core`):
 
 - `lib.rs`: `pub mod halocord;`.
 - `application.rs`: plug-in point 1, two checks and two `after` calls.
+- `application/members.rs`: `member_standing(place, user)`, whether a member owns the
+  server and what it lets them do (the staff tag reads it).
+- `discord_voice.rs`: both `set_self` calls send `halocord::voice_state(muted, deafened)`.
 - `discord_text/commands.rs`: plug-in point 3, `halocord::live` in `live`.
 - `discord_audio.rs`:
   - `mod flat;`.
@@ -88,6 +139,9 @@ Calls (`yapfast-discord`):
 
 - Core `halocord::tests`: points 1 to 5 through a test plugin (each test thread
   has its own plugged list, so they don't meet).
+- Core `halocord::staff::tests`: ranks, tags and options. `halocord::tests` also
+  covers the fake voice state.
+- Window `tests/settings.rs`: the plugins page, fake switches, the user area's dock.
 - Window `halocord::tests`: point 5's rows, point 6's kinds, the stereo loader's
   saved values.
 

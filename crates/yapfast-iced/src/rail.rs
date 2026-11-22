@@ -111,6 +111,9 @@ pub enum Event {
     Menu(String, iced::Point),
 }
 
+/// Room above the DM home tile, in either title bar.
+const HOME_ROOM: f32 = 8.0;
+
 /// The DM home's marks.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Home {
@@ -599,6 +602,8 @@ impl<'a> View<'a> {
             .spacing(GAP)
             .width(WIDTH);
         container(items.padding(Padding {
+            // Room above the home tile, so it doesn't touch the title bar.
+            top: HOME_ROOM,
             bottom: 12.0,
             ..Padding::ZERO
         }))
@@ -611,7 +616,7 @@ impl<'a> View<'a> {
     fn home_tile(self) -> Element<'a, Message> {
         let home = &self.s.home;
         let pointed = self.cx.pointed.rail.as_deref() == Some("");
-        let face = self.glyph_tile(Icon::Logo, home.selected || pointed);
+        let face = self.logo_tile(home.selected || pointed);
         let marks = Marks {
             selected: home.selected,
             unread: home.unread,
@@ -630,6 +635,19 @@ impl<'a> View<'a> {
         ))
         .height(TILE)
         .into()
+    }
+
+    /// The DM home tile: HaloCord's icon in its own blue to mauve, on the
+    /// raised ground; lit, on the active one.
+    fn logo_tile(self, lit: bool) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let ground = if lit { theme.active } else { theme.raised };
+        self.cx
+            .look
+            .drawn(Icon::HaloLogo, 26)
+            .boxed(TILE)
+            .style(move |_| rounded(ground, RADIUS))
+            .into()
     }
 
     /// A tile with one of the icons on the raised ground, in the accent;

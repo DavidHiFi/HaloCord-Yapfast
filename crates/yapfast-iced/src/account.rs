@@ -28,6 +28,15 @@ pub const HEIGHT: f32 = 57.0;
 pub const INSET: f32 = 8.0;
 /// The avatar on the card.
 const AVATAR: f32 = 40.0;
+/// The compact card's height, avatar and buttons (the User area plugin).
+const COMPACT_HEIGHT: f32 = 44.0;
+const COMPACT_AVATAR: f32 = 30.0;
+const COMPACT_BUTTON: f32 = 28.0;
+
+/// The card's height, compact or not.
+pub fn height(compact: bool) -> f32 {
+    if compact { COMPACT_HEIGHT } else { HEIGHT }
+}
 
 /// What the card shows of the account.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -181,6 +190,8 @@ pub enum Event {
     Deafen,
     /// Offline: connect again now, not when the backend next tries.
     Reconnect,
+    /// One of the card's plugin buttons: a plugin switched.
+    Plugin(crate::halocord::Change),
 }
 
 pub fn update(app: &mut App, event: Event) -> iced::Task<Message> {
@@ -210,6 +221,9 @@ pub fn update(app: &mut App, event: Event) -> iced::Task<Message> {
             crate::call::toggle_on_join(app, matches!(event, Event::Deafen));
             return iced::Task::none();
         }
+        Event::Plugin(change) => {
+            crate::halocord::changed(&mut app.layout, &mut app.client, change);
+        }
         Event::Reconnect if app.client.state().busy => return iced::Task::none(),
         Event::Reconnect => app
             .client
@@ -227,20 +241,33 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     let decoration = state
         .cosmetics
         .decoration(state.account_decoration.as_deref());
+    let dock = ctx.layout.halocord.dock();
+    let compact = dock.compact;
+    let avatar = if compact { COMPACT_AVATAR } else { AVATAR };
     let face = ctx.face(
-        Face::new(account.avatar.as_deref(), &account.name, AVATAR)
+        Face::new(account.avatar.as_deref(), &account.name, avatar)
             .decoration(decoration, pointed)
-            .dot(
-                account
-                    .presence
-                    .map(|presence| (presence, rgb(theme.panel), Point::new(26.0, 26.0))),
-            ),
+            .dot(account.presence.map(|presence| {
+                (
+                    presence,
+                    rgb(theme.panel),
+                    Point::new(avatar - 14.0, avatar - 14.0),
+                )
+            })),
     );
-    let face = ring_and_dot(ctx, account, face);
+    let face = ring_and_dot(ctx, account, face, avatar);
+    let faking = ctx.layout.halocord.faking();
     let second: Element<'a, Message> = if pointed && !account.username.is_empty() {
         text(account.username.as_str())
             .size(13)
             .color(theme.muted)
+            .wrapping(text::Wrapping::None)
+            .into()
+    } else if let Some(faking) = faking.filter(|_| account.in_call) {
+        // Fake mute or fake deafen is on in a call: say so under the name.
+        text(faking)
+            .size(13)
+            .color(theme.accent)
             .wrapping(text::Wrapping::None)
             .into()
     } else {
@@ -250,18 +277,21 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     let open = account
         .linked
         .then_some(Message::Status(crate::status::Event::Toggle));
+    let name = text(account.name.as_str())
+        .size(if compact { 14 } else { 15 })
+        .font(BOLD)
+        .color(if compact && faking.is_some() && account.in_call {
+            theme.accent
+        } else {
+            theme.text
+        })
+        .wrapping(text::Wrapping::None);
     let names = mouse_area(
-        container(
-            column![
-                text(account.name.as_str())
-                    .size(15)
-                    .font(BOLD)
-                    .color(theme.text)
-                    .wrapping(text::Wrapping::None),
-                second
-            ]
-            .width(Length::Fill),
-        )
+        container(if compact {
+            column![name].width(Length::Fill)
+        } else {
+            column![name, second].width(Length::Fill)
+        })
         .padding([0, 6])
         .height(Length::Fill)
         .width(Length::Fill)
@@ -327,6 +357,10 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     };
     // Each device's toggle with the caret of its menu, at the toggle's
     // middle; the menu opens above it.
+    let side = if compact { COMPACT_BUTTON } else { 32.0 };
+    // The card's glyphs, a little smaller when compact.
+    let glyph = |size: u32| if compact { size - 3 } else { size };
+    let carets = !dock.arrows_hidden;
     let caret = |label, popup| {
         ctx.spot(
             ctx.look
@@ -335,7 +369,7 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
                     label,
                     Message::Call(crate::call::Event::Open(popup)),
                 )
-                .size(20.0, 16),
+                .size(if compact { 16.0 } else { 20.0 }, 16),
         )
     };
     let alert = |on: bool| if on { theme.danger } else { theme.text };
@@ -349,57 +383,125 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         }
         let dark = iced::Color::from_rgba8(0x1e, 0, 0, 0.2);
         let seam = iced::Color::from_rgba8(0, 0, 0, 0.15);
+        let ground = container(pair)
+            .height(side)
+            .align_y(Alignment::Center)
+            .style(move |_| rounded(dark, 4));
+        if !carets {
+            return ground.into();
+        }
         stack![
-            container(pair)
-                .height(32)
-                .align_y(Alignment::Center)
-                .style(move |_| rounded(dark, 4)),
+            ground,
             row![
-                Space::new().width(32),
+                Space::new().width(side),
                 container(Space::new())
                     .width(1)
-                    .height(32)
+                    .height(side)
                     .style(move |_| fill(seam)),
             ],
         ]
         .into()
+    };
+    // A toggle with its caret, or the toggle alone when the arrows are hidden.
+    let paired = |toggle: Element<'a, Message>, caret: Element<'a, Message>| {
+        let pair = row![toggle].align_y(Alignment::Center);
+        if carets { pair.push(caret) } else { pair }
     };
     let toggles = !account.in_call || account.ready;
     let toggle = |event| toggles.then_some(Message::Account(event));
     let controls = row![
         dimmed(
             account.shown_muted(join),
-            row![
+            paired(
                 tinted_button(
                     ctx,
                     mic,
                     mic_label,
                     alert(account.shown_muted(join)),
-                    20,
+                    glyph(20),
+                    side,
                     toggle(Event::Mute)
                 ),
                 caret("Input options", crate::call::Popup::Input),
-            ]
-            .align_y(Alignment::Center),
+            ),
         ),
         dimmed(
             account.shown_deafened(join),
-            row![
+            paired(
                 tinted_button(
                     ctx,
                     ear,
                     ear_label,
                     alert(account.shown_deafened(join)),
-                    21,
+                    glyph(21),
+                    side,
                     toggle(Event::Deafen)
                 ),
                 caret("Output options", crate::call::Popup::Output),
-            ]
-            .align_y(Alignment::Center),
+            ),
         ),
     ]
     .spacing(5)
     .align_y(Alignment::Center);
+    // The plugin buttons the User area switches on: a plugin's switch, lit
+    // in the accent while it is on.
+    let kept = &ctx.layout.halocord;
+    let switch_button = |id: &str, icon: Icon, on_label: &'static str, off_label: &'static str| {
+        let on = kept.is(id);
+        let message = crate::halocord::place(id).map(|plugin| {
+            Message::Account(Event::Plugin(crate::halocord::Change::Switch {
+                plugin,
+                on: !on,
+            }))
+        });
+        tinted_button(
+            ctx,
+            icon,
+            if on { on_label } else { off_label },
+            if on { theme.accent } else { theme.text },
+            glyph(20),
+            side,
+            message,
+        )
+    };
+    let mut controls = controls;
+    if dock.fake_mute {
+        controls = controls.push(switch_button(
+            crate::halocord::FAKE_MUTE,
+            Icon::MicOff,
+            "Stop faking mute",
+            "Fake mute",
+        ));
+    }
+    if dock.fake_deafen {
+        controls = controls.push(switch_button(
+            crate::halocord::FAKE_DEAFEN,
+            Icon::HeadphoneOff,
+            "Stop faking deafen",
+            "Fake deafen",
+        ));
+    }
+    if dock.stereo {
+        controls = controls.push(switch_button(
+            crate::halocord::STEREO,
+            Icon::Music,
+            "Turn stereo off",
+            "Turn stereo on",
+        ));
+    }
+    if dock.stats {
+        controls = controls.push(tinted_button(
+            ctx,
+            Icon::ChartBar,
+            "Call stats",
+            theme.text,
+            glyph(20),
+            side,
+            (account.in_call && account.ready).then_some(Message::Call(crate::call::Event::Open(
+                crate::call::Popup::Link,
+            ))),
+        ));
+    }
     // Offline, Reconnect before Settings.
     let state = ctx.state;
     let controls = if !state.preview && !state.online {
@@ -408,7 +510,8 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             Icon::Refresh,
             "Reconnect",
             theme.secondary,
-            20,
+            glyph(20),
+            side,
             (!state.busy).then_some(Message::Account(Event::Reconnect)),
         ))
     } else {
@@ -419,7 +522,8 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         Icon::Settings,
         "Settings",
         theme.text,
-        24,
+        glyph(24),
+        side,
         Some(Message::Settings(crate::settings::Event::Reopen)),
     ));
     let ground = theme.panel;
@@ -430,28 +534,35 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             .into(),
         None => face,
     };
+    let (face_width, face_left, right) = if compact {
+        (avatar + 8.0, 6.0, 8.0)
+    } else {
+        (50.0, 8.0, 14.0)
+    };
     let card = row![
         container(face)
-            .width(50)
+            .width(face_width)
             .padding(Padding {
-                left: 8.0,
+                left: face_left,
                 ..Padding::ZERO
             })
             .align_y(Alignment::Center),
-        container(names).padding([6, 0]).height(Length::Fill),
+        container(names)
+            .padding([if compact { 2 } else { 6 }, 0])
+            .height(Length::Fill),
         controls,
     ]
-    .spacing(5)
+    .spacing(if compact { 3 } else { 5 })
     .padding(Padding {
-        right: 14.0,
+        right,
         ..Padding::ZERO
     })
-    .height(HEIGHT)
+    .height(height(compact))
     .align_y(Alignment::Center);
     // The account's nameplate fills the card, brighter and playing
     // under the pointer.
     let card: Element<'a, Message> =
-        match crate::members::account_plate(ctx, HEIGHT, pointed, pointed) {
+        match crate::members::account_plate(ctx, height(compact), pointed, pointed) {
             Some((plate, palette)) => PlateRow::new(card, Some(plate), palette, ground, 0.0, 1.0)
                 .account()
                 .into(),
@@ -463,7 +574,8 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             .style(move |_| rounded(ground, 8)),
     )
     .padding(Padding {
-        left: INSET,
+        // Compact stays under the channel list, off the rail's foot.
+        left: INSET + if compact { crate::rail::WIDTH } else { 0.0 },
         right: INSET,
         bottom: INSET,
         top: 0.0,
@@ -478,13 +590,14 @@ fn ring_and_dot<'a>(
     ctx: crate::ctx::Ctx<'a>,
     account: &Account,
     face: Element<'a, Message>,
+    avatar: f32,
 ) -> Element<'a, Message> {
     use iced::widget::{Space, pin, stack};
     let theme = ctx.look.theme;
     let mut layers = stack![face];
     if account.speaking {
         let ring = theme.live;
-        let side = AVATAR + 6.0;
+        let side = avatar + 6.0;
         layers = layers.push(
             pin(container(Space::new())
                 .width(side)
@@ -518,21 +631,22 @@ fn ring_and_dot<'a>(
         .height(14)
         .center(14)
         .style(move |_| rounded(ground, 7));
-        layers = layers.push(pin(dot).x(27.0).y(27.0));
+        layers = layers.push(pin(dot).x(avatar - 13.0).y(avatar - 13.0));
     }
-    layers.width(AVATAR).height(AVATAR).into()
+    layers.width(avatar).height(avatar).into()
 }
 
-/// An icon button of the card's, 32 px, its glyph in `ink`; greyed
-/// without a message.
+/// An icon button of the card's, `side` px (32, or less when compact), its
+/// glyph in `ink`; greyed without a message.
 fn tinted_button<'a>(
     ctx: crate::ctx::Ctx<'a>,
     icon: Icon,
     label: &'static str,
     ink: iced::Color,
     glyph: u32,
+    side: f32,
     message: Option<Message>,
 ) -> Element<'a, Message> {
     let face = Pic::square(ctx.look.icon(icon, glyph, rgb(ink)), glyph as f32);
-    ctx.look.face_button(face, 32.0, label, message).into()
+    ctx.look.face_button(face, side, label, message).into()
 }

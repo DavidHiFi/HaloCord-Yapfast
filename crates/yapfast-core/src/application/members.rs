@@ -375,6 +375,17 @@ impl Application {
         })
     }
 
+    /// Whether a member owns the Discord server a place names, and what the
+    /// server's permissions give them (everything, for the owner and
+    /// administrators). HaloCord's staff tags read it (docs/halocord.md).
+    #[cfg(feature = "discord")]
+    pub fn member_standing(&self, place: &str, user: &str) -> Option<(bool, u64)> {
+        let roles = self.member_roles(place, user);
+        let (server, _, _) = self.discord_place(place)?;
+        let owner = server.owner_id.as_deref() == Some(user);
+        Some((owner, server.server_permissions(user, &roles)))
+    }
+
     /// Whether this account may act on another member as `permission`
     /// allows: it holds it and outranks them, which leaves out itself and
     /// the owner.

@@ -1,5 +1,5 @@
-//! HaloCord's page: a switch for each of its plugins, with that plugin's
-//! settings under it while it's on. The list is [`crate::halocord::PLUGINS`].
+//! The Plugins page: a switch for each of HaloCord's plugins, with that
+//! plugin's settings under it while it's on. The list is [`crate::halocord::PLUGINS`].
 
 use iced::Element;
 
@@ -8,7 +8,7 @@ use crate::{
     app::Message,
     controls::{choices, slider},
     form,
-    halocord::{Change, Kind, PLUGINS},
+    halocord::{Change, Kind, PLUGINS, found},
     settings::Page,
 };
 
@@ -17,13 +17,19 @@ impl<'a> Page<'a> {
         let theme = self.cx.look.theme;
         let kept = &self.cx.layout.halocord;
         let mut page = vec![
-            form::title(theme, "HaloCord"),
+            form::title(theme, "Plugins"),
             form::note(
                 theme,
-                "HaloCord's plugins, built into this copy of Yapfast. They stay when HaloCord brings Yapfast up to date.",
+                "Each plugin has a switch, and its settings show under it while it is on. They stay when HaloCord brings Yapfast up to date.",
             ),
         ];
+        // Settings' search box narrows the list to the plugins it finds.
+        let query = self.s.query.to_lowercase();
+        let all = query.is_empty() || "plugins".contains(&query);
         for (index, plugin) in PLUGINS.iter().enumerate() {
+            if !all && !found(plugin, &query) {
+                continue;
+            }
             let on = kept.on(plugin);
             let mut group = vec![
                 form::switch(

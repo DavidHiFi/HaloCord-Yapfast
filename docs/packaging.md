@@ -287,9 +287,11 @@ changes what it serves.
 
 ## The app icon
 
-`packaging/icon.svg` is Yapfast's icon: the logo in marigold, its dots in
-on-accent ink, so it reads on a light taskbar as well as a dark one. The UI
-keeps drawing `crates/yapfast-iced-kit/icons/logo.svg`.
+`packaging/icon.svg` is this build's icon: the logo as a blue to mauve
+gradient, its dots in dark Mocha ink. `scripts/make-windows-icon` (Pillow,
+`scripts/make_windows_icon.py`) redraws `packaging/windows/yapfast.ico` from
+the same shapes at 16 to 256 px. The UI draws
+`crates/yapfast-iced-kit/icons/halo-logo.svg` for the rail's home tile.
 
 On Linux the window's app ID is `io.github.yapfast.Yapfast` (`src/icon.rs`).
 Wayland desktops show a window's icon only through the desktop entry of that

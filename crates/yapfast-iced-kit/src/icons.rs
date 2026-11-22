@@ -83,6 +83,8 @@ pub enum Icon {
     Video,
     Trophy,
     Logo,
+    /// HaloCord's logo: blue to mauve, with dark dots; drawn in its own colours.
+    HaloLogo,
     TriangleAlert,
     Check,
     Lock,
@@ -298,6 +300,7 @@ impl Icon {
             Icon::Video => icon!("video.svg"),
             Icon::Trophy => icon!("trophy.svg"),
             Icon::Logo => icon!("logo.svg"),
+            Icon::HaloLogo => icon!("halo-logo.svg"),
             Icon::TriangleAlert => icon!("triangle-alert.svg"),
             Icon::Check => icon!("check.svg"),
             Icon::Square => icon!("square.svg"),

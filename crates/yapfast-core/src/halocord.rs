@@ -4,6 +4,8 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+pub mod staff;
+
 use crate::{
     application::{Action, Application, Effect},
     chat::{ChatMessage, Command, Event},
@@ -44,6 +46,61 @@ pub fn set_bitrate(kbps: Option<u32>) {
     let _ = kbps;
 }
 
+static FAKE_MUTE: AtomicBool = AtomicBool::new(false);
+static FAKE_DEAF: AtomicBool = AtomicBool::new(false);
+
+/// Makes others see this account muted, or muted and deafened, in calls,
+/// whatever it really is: the voice state sent to Discord says so, while the
+/// microphone and the sound stay as the account set them. See
+/// [`voice_state`].
+pub fn set_fake_voice(mute: bool, deaf: bool) {
+    FAKE_MUTE.store(mute, Ordering::Relaxed);
+    FAKE_DEAF.store(deaf, Ordering::Relaxed);
+}
+
+/// What the voice state sent to Discord says, from the real mute and
+/// deafen: (self mute, self deaf). A fake deafen shows as Discord shows a
+/// real one, deafened and muted.
+pub fn voice_state(muted: bool, deafened: bool) -> (bool, bool) {
+    shown_voice_state(
+        muted,
+        deafened,
+        FAKE_MUTE.load(Ordering::Relaxed),
+        FAKE_DEAF.load(Ordering::Relaxed),
+    )
+}
+
+fn shown_voice_state(
+    muted: bool,
+    deafened: bool,
+    fake_mute: bool,
+    fake_deaf: bool,
+) -> (bool, bool) {
+    let deaf = deafened || fake_deaf;
+    (muted || deaf || fake_mute, deaf)
+}
+
+/// A tag a plugin draws after a message's author: its words, a crown in
+/// place of them, and the colour it's drawn in (an RGB number), if the
+/// plugin sets one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Tag {
+    pub text: &'static str,
+    pub crown: bool,
+    pub color: Option<u32>,
+}
+
+impl Tag {
+    /// Plain words in the window's own tag colour.
+    pub const fn words(text: &'static str) -> Self {
+        Self {
+            text,
+            crown: false,
+            color: None,
+        }
+    }
+}
+
 /// What a plugin hooks into. Each one does nothing unless the plugin says
 /// otherwise, so a plugin writes only the ones it needs. The numbers are the
 /// plug-in points in `docs/halocord.md`.
@@ -76,8 +133,8 @@ pub trait Hooks: Sync {
         true
     }
 
-    /// 4. Tags drawn after a message's author.
-    fn extras(&self, _message: &ChatMessage) -> Vec<&'static str> {
+    /// 4. Tags drawn after a message's author, with the app as it is now.
+    fn extras(&self, _message: &ChatMessage, _app: &Application) -> Vec<Tag> {
         Vec::new()
     }
 
@@ -170,10 +227,10 @@ pub fn live(live: yapfast_discord::service::Live) -> Option<yapfast_discord::ser
 }
 
 /// 4. The plugins' tags for a message's author line.
-pub fn extras(message: &ChatMessage) -> Vec<&'static str> {
+pub fn extras(message: &ChatMessage, app: &Application) -> Vec<Tag> {
     plugged()
         .iter()
-        .flat_map(|hooks| hooks.extras(message))
+        .flat_map(|hooks| hooks.extras(message, app))
         .collect()
 }
 
@@ -226,8 +283,12 @@ mod tests {
         fn command(&self, command: &Command) -> bool {
             !matches!(command, Command::Typing { .. })
         }
-        fn extras(&self, message: &ChatMessage) -> Vec<&'static str> {
-            if message.bot { vec!["BOT"] } else { Vec::new() }
+        fn extras(&self, message: &ChatMessage, _app: &Application) -> Vec<Tag> {
+            if message.bot {
+                vec![Tag::words("BOT")]
+            } else {
+                Vec::new()
+            }
         }
         fn menu(&self, _message: &ChatMessage) -> Vec<(&'static str, &'static str)> {
             vec![("raw", "Copy raw")]
@@ -276,15 +337,49 @@ mod tests {
             body: "hello".into(),
             ..ChatMessage::default()
         };
-        assert!(extras(&bot).is_empty() && menu(&bot).is_empty());
+        let app = Application::default();
+        assert!(extras(&bot, &app).is_empty() && menu(&bot).is_empty());
         plug(&Tap, true);
-        assert_eq!(extras(&bot), ["BOT"]);
-        assert!(extras(&ChatMessage::default()).is_empty());
+        assert_eq!(extras(&bot, &app), [Tag::words("BOT")]);
+        assert!(extras(&ChatMessage::default(), &app).is_empty());
         assert_eq!(menu(&bot), [("tap/raw".to_owned(), "Copy raw")]);
         assert_eq!(pick("tap/raw", &bot).copy.as_deref(), Some("hello"));
         assert!(pick("gone/raw", &bot).copy.is_none());
         plug(&Tap, false);
         assert!(pick("tap/raw", &bot).copy.is_none());
+    }
+
+    #[test]
+    fn a_fake_state_shows_to_others_and_leaves_the_real_one() {
+        assert_eq!(
+            shown_voice_state(false, false, false, false),
+            (false, false)
+        );
+        assert_eq!(shown_voice_state(true, false, false, false), (true, false));
+        // A fake mute shows muted while really unmuted, never deafened.
+        assert_eq!(shown_voice_state(false, false, true, false), (true, false));
+        // A fake deafen shows deafened, and muted as a real deafen does.
+        assert_eq!(shown_voice_state(false, false, false, true), (true, true));
+        // A real deafen stays, fake or not.
+        assert_eq!(shown_voice_state(true, true, true, false), (true, true));
+    }
+
+    /// The voice state sent says deafened while the real deafen stays off,
+    /// which is what keeps the sound playing: the call plays sound by the
+    /// real `deafened`, and only `voice_state`'s answer goes to Discord.
+    #[test]
+    fn a_fake_deafen_sends_self_deaf_while_the_real_deafen_stays_off() {
+        let real_deafened = false;
+        let real_muted = false;
+        set_fake_voice(false, true);
+        let sent = voice_state(real_muted, real_deafened);
+        set_fake_voice(false, false);
+        assert_eq!(sent, (true, true), "Discord is told muted and deafened");
+        assert!(
+            !real_deafened,
+            "the real state, which plays the sound, is off"
+        );
+        assert_eq!(voice_state(real_muted, real_deafened), (false, false));
     }
 
     #[cfg(feature = "discord")]

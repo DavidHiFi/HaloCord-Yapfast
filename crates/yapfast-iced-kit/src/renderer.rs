@@ -21,3 +21,21 @@ pub fn choose(gpu: bool) {
 pub fn gpu() -> bool {
     GPU.load(Ordering::Relaxed)
 }
+
+/// Asks for a see-through window surface (HaloCord's glass) for the window
+/// that opens next. Only the GPU can give one.
+pub fn want_glass(want: bool) {
+    iced_wgpu::glass::set_wanted(want && gpu());
+}
+
+/// Whether the window's surface really is see-through: the GPU started
+/// with one. False on the CPU, with glass not asked for, or when the GPU
+/// could only start the plain surface.
+pub fn glass_active() -> bool {
+    gpu() && iced_wgpu::glass::active()
+}
+
+/// Whether the window about to open asks for a see-through surface.
+pub fn glass_wanted() -> bool {
+    iced_wgpu::glass::wanted()
+}
