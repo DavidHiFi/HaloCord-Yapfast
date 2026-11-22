@@ -70,6 +70,7 @@ fn a_members_menu(app: &mut App, user: &str) {
 #[ignore = "writes a picture for the owner to look at"]
 fn picture_of_copy_user_mention() {
     let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
     turn_on(&mut app, "copy-user-mention");
     a_members_menu(&mut app, "1");
     assert!(
@@ -85,6 +86,7 @@ fn picture_of_copy_user_mention() {
 #[ignore = "writes a picture for the owner to look at"]
 fn picture_of_copy_user_urls() {
     let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
     turn_on(&mut app, "copy-user-urls");
     a_members_menu(&mut app, "1");
     assert!(
@@ -147,6 +149,7 @@ fn right_click_on(app: &mut App, text: &str) {
 #[ignore = "writes a picture for the owner to look at"]
 fn picture_of_copy_media_link() {
     let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
     turn_on(&mut app, "copy-media-link");
     a_files_menu(&mut app);
     assert!(
@@ -181,6 +184,7 @@ fn picture_of_copy_sticker_links() {
     use std::sync::Arc;
     use yapfast_core::chat::{Attachment, ChatMessage, Picture, Pixels, Placement};
     let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
     turn_on(&mut app, "copy-sticker-links");
     let sticker = Arc::new(Picture {
         width: 160,
@@ -237,6 +241,7 @@ fn picture_of_quick_mention() {
     use std::sync::Arc;
     use yapfast_core::chat::ChatMessage;
     let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
     turn_on(&mut app, "quick-mention");
     super::change(&mut app, |state| {
         state.messages = Arc::new(vec![Arc::new(ChatMessage {
