@@ -16,16 +16,31 @@ use crate::{
 /// What the weight row calls each of [`WEIGHTS`].
 const WEIGHT_NAMES: [&str; 6] = ["400", "450", "500", "600", "700", "800"];
 
-/// What the font choice row calls each family; the empty one is Yapfast's.
-fn font_names() -> Vec<&'static str> {
+/// What the font list says under each of [`FONTS`].
+const FONT_NOTES: [&str; 5] = [
+    "MochaCord's own: a coding font with icons built in.",
+    "A coding font with icons built in.",
+    "Windows' own coding font.",
+    "Windows' own font.",
+    "The font Yapfast comes with.",
+];
+
+/// The font list, one row each, so long names never crowd: the empty
+/// family is Yapfast's own.
+fn font_choices() -> Vec<form::Choice<'static>> {
     FONTS
         .iter()
-        .map(|family| {
-            if family.is_empty() {
+        .zip(FONT_NOTES)
+        .map(|(family, note)| form::Choice {
+            title: if family.is_empty() {
                 "Yapfast's own"
             } else {
                 family
             }
+            .into(),
+            description: note.into(),
+            colour: None,
+            offered: true,
         })
         .collect()
 }
@@ -51,7 +66,6 @@ impl<'a> Page<'a> {
             .iter()
             .position(|family| *family == kept.font)
             .unwrap_or(0);
-        let names = font_names();
         let page = vec![
             form::title(theme, "MochaCord"),
             form::note(
@@ -99,7 +113,7 @@ impl<'a> Page<'a> {
             ]),
             form::group(vec![
                 form::heading(theme, "Font"),
-                choices(theme, &names, font_now, move |index| {
+                form::options(theme, font_choices(), Some(font_now), true, move |index| {
                     change(Change::Font(FONTS[index].to_owned()))
                 }),
                 form::heading(theme, "Weight"),
