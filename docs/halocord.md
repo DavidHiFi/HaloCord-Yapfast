@@ -257,6 +257,9 @@ Yapfast's own fix for it lands (its test still passes without ours).
   hour off a preview message's time of 0 and overflowed; it saturates now.
 - The GitHub check installs the newest LLVM (`.github/workflows/halocord.yml`):
   the runner's own clang-cl is older than its Visual Studio's C++ library.
+- Checked, nothing to change: yapfast#257 (code blocks drawn wrong) came from
+  the old Slint window; the iced window draws them right, and the ignored test
+  `code_block_picture` in `tests/halocord_fixes.rs` saves a picture to check.
 
 ## Tests
 
