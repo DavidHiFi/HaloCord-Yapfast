@@ -1,0 +1,35 @@
+# HaloCord's check on every push to the halocord branch: the same format, lint
+# and test run as scripts/halocord-check.ps1 on the build PC, plus a check of the
+# app itself with the features the release is built with.
+name: HaloCord check
+
+on:
+  push:
+    branches: [halocord]
+  pull_request:
+    branches: [halocord]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: halocord-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v5
+      # rust-toolchain.toml pins the compiler; rustup installs it on first use.
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+      - name: HaloCord check
+        shell: pwsh
+        run: ./scripts/halocord-check.ps1
+      - name: The app builds
+        run: cargo check --locked --no-default-features --features desktop,discord
