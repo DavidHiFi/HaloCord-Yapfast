@@ -752,8 +752,8 @@ fn the_plugins_page_lists_every_plugin() {
         assert!(place(id).is_some(), "{id}");
     }
     open(&mut app, Section::HaloCord);
-    for name in ["Stereo loader", "Fake mute", "Fake deafen", "Staff tag"] {
-        assert!(shows(&app, name), "{name}");
+    for plugin in PLUGINS {
+        assert!(shows(&app, plugin.name), "{}", plugin.name);
     }
 }
 
