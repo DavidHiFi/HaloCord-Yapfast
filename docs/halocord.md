@@ -35,6 +35,12 @@ whole list to carry across.
   Discord user's menu.
 - `crates/yapfast-core/src/halocord/copy_media_link.rs`: Copy file link in a file's
   menu.
+- `crates/yapfast-core/src/halocord/copy_file_contents.rs`: Copy file text in a text
+  file's menu (downloads it as Copy Image does; the window copies it as text).
+- `crates/yapfast-discord/src/halocord.rs`: Platform indicators' record of which of
+  Discord's apps each person is on, from a presence's `client_status`.
+- `crates/yapfast-iced-kit/icons/halo-desktop.svg`, `halo-phone.svg`, `halo-web.svg`:
+  its three marks.
 - `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link in a
   sticker's menu.
 - `crates/yapfast-core/src/halocord/quick_mention.rs`: Mention in a message's menu
@@ -125,7 +131,10 @@ Window (`yapfast-iced`):
   mark beside someone muted for this account (one `if let`).
 - `sidebar/channels.rs`: `room_row` pushes `halocord::voice_count` (the Voice count plugin's number)
   before the badge on a voice channel's row (one `if let`).
-- `members.rs`: `member_row` pushes `halocord::in_voice_mark` after the timed-out clock (one `if let`).
+- `members.rs`: `member_row` pushes `halocord::in_voice_mark` after the timed-out clock, then
+  `halocord::platform_marks` (one `if let` each).
+- `shell.rs`: in `shell_sync`, a copied download goes through `halocord::copied_text` first:
+  text Copy file text asked for goes on the clipboard as text, anything else as a picture.
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
 - `window_bar.rs`: `Event::Halo(Press)` with its arm in `update` (a plugin's button
   pressed), and the buttons `halocord::presses` lists, pushed before Inbox in
@@ -144,7 +153,7 @@ Kit (`yapfast-iced-kit`) and vendor:
 - `widgets/smooth.rs` and `smooth/bar.rs`: `BarGradient` and `set_bar_look`, drawn in
   `Smooth::draw`.
 - `renderer.rs`: `want_glass`, `glass_wanted`, `glass_active`.
-- `icons.rs`: `Icon::HaloLogo`.
+- `icons.rs`: `Icon::HaloLogo`, `HaloDesktop`, `HaloPhone`, `HaloWeb`.
 - `vendor/iced_wgpu`: `glass.rs` and the glass attempt in `window/compositor.rs` (see
   its `README.yapfast.md`).
 - Core `theme.rs`: the `MOCHACORD` built-in theme.
@@ -171,6 +180,13 @@ Core (`yapfast-core`):
   - `GateMeter` calls `flat::measure(...)` in place of `measure(...)`.
   - The loops in `CaptureRequest::run` and `measure` also end on `flat::on()`, so
     the flat path takes over within a block.
+
+Discord (`yapfast-discord`):
+
+- `lib.rs`: `pub mod halocord;`.
+- `member_list.rs`: `presence` and the member list's rows call `halocord::note` with the
+  presence (one line each).
+- `service/tracker.rs`: `presence` calls `halocord::note` (one line).
 
 Calls (`yapfast-discord`):
 

@@ -1254,6 +1254,7 @@ impl Tracker {
         let Some(user) = user else {
             return false;
         };
+        crate::halocord::note(user, data);
         let presence = Known {
             presence: Presence::parse(data),
             activity: member_list::activity(&data["activities"]),

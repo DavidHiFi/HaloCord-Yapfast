@@ -4,6 +4,7 @@
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
+pub mod copy_file_contents;
 pub mod copy_media_link;
 pub mod copy_sticker_link;
 pub mod copy_user_mention;

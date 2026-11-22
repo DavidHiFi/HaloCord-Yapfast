@@ -99,7 +99,7 @@ fn picture_of_copy_user_urls() {
 }
 
 /// A message with a file, `notes.txt`, right-clicked in the preview's chat.
-fn a_files_menu(app: &mut App) {
+pub(super) fn a_files_menu(app: &mut App) {
     use std::sync::Arc;
     use yapfast_core::chat::{Attachment, ChatMessage, Placement};
     super::change(app, |state| {
@@ -159,6 +159,22 @@ fn picture_of_copy_media_link() {
             .is_some_and(|menu| menu.rows.iter().any(|row| row.label == "Copy file link"))
     );
     draw(&app, "copy-media-link");
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_copy_file_contents() {
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, crate::halocord::COPY_FILE_TEXT);
+    a_files_menu(&mut app);
+    assert!(
+        app.win
+            .menu
+            .as_ref()
+            .is_some_and(|menu| menu.rows.iter().any(|row| row.label == "Copy file text"))
+    );
+    draw(&app, "copy-file-contents");
 }
 
 /// A right click at `at`, then what it sent.
