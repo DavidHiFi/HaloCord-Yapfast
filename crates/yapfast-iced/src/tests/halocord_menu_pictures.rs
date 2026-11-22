@@ -95,3 +95,65 @@ fn picture_of_copy_user_urls() {
     );
     draw(&app, "copy-user-urls");
 }
+
+/// A message with a file, `notes.txt`, right-clicked in the preview's chat.
+fn a_files_menu(app: &mut App) {
+    use std::sync::Arc;
+    use yapfast_core::chat::{Attachment, ChatMessage, Placement};
+    super::change(app, |state| {
+        state.messages = Arc::new(vec![Arc::new(ChatMessage {
+            item: "i0".into(),
+            author: "Sam".into(),
+            body: "Here are the notes.".into(),
+            attachments: vec![Attachment {
+                name: "notes.txt".into(),
+                size: Some(2048),
+                image: false,
+                dimensions: None,
+                preview: None,
+                preview_failed: false,
+                placement: Placement::Message,
+                spoiler: false,
+                video: false,
+                gif: None,
+                url: Some("https://cdn.example/notes.txt".into()),
+                description: None,
+            }],
+            ..Default::default()
+        })]);
+    });
+    right_click_on(app, "notes.txt");
+}
+
+/// A right click on the text reading `text`, then what it sent.
+fn right_click_on(app: &mut App, text: &str) {
+    use iced::{Event, mouse};
+    let messages: Vec<crate::app::Message> = {
+        let mut ui = Simulator::with_size(Settings::default(), app.shell.frame, app.view());
+        let found = ui.find(text).expect("the text is there");
+        ui.point_at(found.visible_bounds().expect("in view").center());
+        ui.simulate([
+            Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Right)),
+            Event::Mouse(mouse::Event::ButtonReleased(mouse::Button::Right)),
+        ]);
+        ui.into_messages().collect()
+    };
+    for message in messages {
+        let _ = app.update(message);
+    }
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_copy_media_link() {
+    let (mut app, _folder) = preview();
+    turn_on(&mut app, "copy-media-link");
+    a_files_menu(&mut app);
+    assert!(
+        app.win
+            .menu
+            .as_ref()
+            .is_some_and(|menu| menu.rows.iter().any(|row| row.label == "Copy file link"))
+    );
+    draw(&app, "copy-media-link");
+}

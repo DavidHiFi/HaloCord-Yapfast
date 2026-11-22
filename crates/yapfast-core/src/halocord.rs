@@ -4,6 +4,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 
+pub mod copy_media_link;
 pub mod copy_user_mention;
 pub mod copy_user_url;
 pub mod staff;
@@ -165,6 +166,21 @@ pub trait Hooks: Sync {
     fn person_pick(&self, _action: &str, _user: &str) -> Picked {
         Picked::default()
     }
+
+    /// 5. Rows for the right-click menu of a file or sticker, attachment `at`
+    /// of `message`, as action and label.
+    fn attachment_menu(
+        &self,
+        _message: &ChatMessage,
+        _at: usize,
+    ) -> Vec<(&'static str, &'static str)> {
+        Vec::new()
+    }
+
+    /// 5. One of this plugin's attachment menu rows was chosen.
+    fn attachment_pick(&self, _action: &str, _message: &ChatMessage, _at: usize) -> Picked {
+        Picked::default()
+    }
 }
 
 /// What a plugin's menu row does: actions for the app, and text to copy.
@@ -272,6 +288,19 @@ pub fn person_menu(user: &str) -> Vec<(String, &'static str)> {
 /// 5. What the person menu's row with `key` does for `user`.
 pub fn person_pick(key: &str, user: &str) -> Picked {
     pick_with(key, |hooks, action| hooks.person_pick(action, user))
+}
+
+/// 5. The plugins' rows for the menu of attachment `at` of `message`, keyed
+/// as [`menu`]'s are.
+pub fn attachment_menu(message: &ChatMessage, at: usize) -> Vec<(String, &'static str)> {
+    rows_of(|hooks| hooks.attachment_menu(message, at))
+}
+
+/// 5. What the attachment menu's row with `key` does.
+pub fn attachment_pick(key: &str, message: &ChatMessage, at: usize) -> Picked {
+    pick_with(key, |hooks, action| {
+        hooks.attachment_pick(action, message, at)
+    })
 }
 
 /// The rows each plugged plugin gives, keyed `id/action`.

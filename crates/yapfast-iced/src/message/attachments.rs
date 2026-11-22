@@ -347,7 +347,7 @@ pub fn file_card<'a>(
     .spacing(12)
     .align_y(Alignment::Center);
     let (ground, edge) = (theme.sidebar, theme.edge);
-    container(card)
+    let card = container(card)
         .padding(Padding {
             top: 12.0,
             bottom: 12.0,
@@ -355,6 +355,11 @@ pub fn file_card<'a>(
             right: 8.0,
         })
         .max_width(FILE_CARD_WIDTH)
-        .style(move |_| crate::style::outlined(ground, edge, 8.0))
-        .into()
+        .style(move |_| crate::style::outlined(ground, edge, 8.0));
+    // A right click gives HaloCord's plugins' rows, when there are any.
+    let item = item.to_owned();
+    crate::widgets::RightPress::new(card, move |_| {
+        Message::Image(crate::image_viewer::Event::Attachment(item.clone(), index))
+    })
+    .into()
 }

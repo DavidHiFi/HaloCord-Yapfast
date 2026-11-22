@@ -228,6 +228,15 @@ pub static PLUGINS: &[Plugin] = &[
         hooks: Some(&engine::copy_user_mention::CopyUserMention),
     },
     Plugin {
+        id: "copy-media-link",
+        name: "Copy file link",
+        about: "Adds Copy file link to a file's right-click menu. It copies the web address of the file.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_media_link::CopyMediaLink),
+    },
+    Plugin {
         id: "copy-user-urls",
         name: "Copy profile link",
         about: "Adds Copy profile link to someone's right-click menu. It copies the web link to their profile.",
@@ -564,10 +573,45 @@ fn keyed(rows: Vec<(String, &'static str)>) -> Vec<MenuRow> {
 /// 5. A plugin's menu row was chosen: in a person's menu (`place` is the
 /// person) it's theirs, else it's for the message `item`.
 pub fn chosen(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Task<Message> {
+    if let Some((key, at)) = key.split_once('#') {
+        let Some(message) = app.client.state().message(item).cloned() else {
+            return Task::none();
+        };
+        let at = at.parse().unwrap_or(usize::MAX);
+        return done(app, engine::attachment_pick(key, &message, at));
+    }
     match place {
         Some(user) => done(app, engine::person_pick(key, user)),
         None => pick(app, key, item),
     }
+}
+
+/// 5. HaloCord's plugins' rows for the menu of attachment `at` of `message`.
+/// Each key carries the attachment's place after a `#`.
+pub fn attachment_rows(message: &ChatMessage, at: usize) -> Vec<MenuRow> {
+    let mut rows = keyed(engine::attachment_menu(message, at));
+    for row in &mut rows {
+        row.key = format!("{}#{at}", row.key);
+    }
+    rows
+}
+
+/// 5. Opens the menu of attachment `at` of message `item` at the pointer,
+/// when plugins give it rows.
+pub fn attachment_menu(app: &mut App, item: &str, at: usize) -> Task<Message> {
+    let Some(message) = app.client.state().message(item) else {
+        return Task::none();
+    };
+    let mut rows = attachment_rows(message, at);
+    let Some(first) = rows.first_mut() else {
+        return Task::none();
+    };
+    first.separated = false;
+    app.win.menu = Some(crate::menus::Menu {
+        item: Some(item.to_owned()),
+        ..crate::menus::Menu::new(app.pressed.get(), rows)
+    });
+    iced::widget::operation::focus(crate::app::NOBODY)
 }
 
 /// 5. A plugin's menu row was chosen for the message `item`.

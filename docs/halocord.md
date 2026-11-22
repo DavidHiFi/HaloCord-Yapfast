@@ -33,6 +33,8 @@ whole list to carry across.
   admin and mod by names in chat) and its crown and role-colour switches.
 - `crates/yapfast-core/src/halocord/copy_user_mention.rs`: Copy mention in a
   Discord user's menu.
+- `crates/yapfast-core/src/halocord/copy_media_link.rs`: Copy file link in a file's
+  menu.
 - `crates/yapfast-core/src/halocord/copy_user_url.rs`: Copy profile link in a
   Discord user's menu.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
@@ -62,6 +64,9 @@ numbers match the port plan.
    rows the same way (`person_menu`, `person_pick`): `open_person_menu` adds
    `halocord::person_rows`, and `carry_out` sends a row picked in a menu with a
    `place` to `halocord::chosen`, which routes it to the person.
+   A file's or sticker's menu takes rows too (`attachment_menu`, `attachment_pick`):
+   a right click sends `image_viewer::Event::Attachment`, `halocord::attachment_menu`
+   opens the rows, and a key ending `#<index>` goes to `halocord::attachment_pick`.
 6. Setting kinds: in HaloCord's own files only. Kept values stay plain JSON (a
    number, `true`/`false` or a string), so the stereo loader's saved bit rate reads
    as before.
@@ -97,6 +102,10 @@ Window (`yapfast-iced`):
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines.
 - `person_menu.rs`: plug-in point 5, `open_person_menu` adds `halocord::person_rows`
   (two lines, `rows` is `mut`).
+- `message/attachments.rs`: plug-in point 5, `file_card` wraps its card in a right click
+  (`RightPress`, `Event::Attachment`; three lines).
+- `image_viewer.rs`: the `Event::Attachment` variant and its empty arm.
+- `app/screens.rs`: one arm in `image_event` calling `halocord::attachment_menu`.
 - `account.rs`: the User area plugin's options. `height(compact)` beside `HEIGHT`,
   `Event::Plugin(Change)`, and `view` reads `layout.halocord.dock()` for compact mode
   (smaller, inside the channel list), hidden dropdown arrows and the extra buttons,

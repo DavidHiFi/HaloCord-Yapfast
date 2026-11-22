@@ -158,6 +158,57 @@ fn apply(app: &mut crate::app::App, messages: Vec<crate::app::Message>) {
     }
 }
 
+/// A file with an address, `notes.txt`, placed `placement`.
+fn file_at(placement: Placement) -> Attachment {
+    Attachment {
+        image: false,
+        dimensions: None,
+        ..picture_at("notes.txt", 0, placement, false)
+    }
+}
+
+#[test]
+fn a_files_right_click_has_the_plugins_rows_only_while_a_plugin_gives_them() {
+    use crate::{
+        halocord::{Change, changed, place},
+        menus::MenuAct,
+    };
+    let (mut app, _folder) = preview();
+    only(
+        &mut app,
+        ChatMessage {
+            attachments: vec![file_at(Placement::Message)],
+            ..Default::default()
+        },
+    );
+    let at = bounds_of(&app, "notes.txt").center();
+    // No plugin: nothing opens.
+    let menu = clicked(&app, at, iced::mouse::Button::Right);
+    apply(&mut app, menu);
+    assert!(app.win.menu.is_none());
+    let plugin = place("copy-media-link").expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let menu = clicked(&app, at, iced::mouse::Button::Right);
+    apply(&mut app, menu);
+    let shown = app.win.menu.as_ref().expect("the file's menu");
+    assert_eq!(shown.rows.len(), 1);
+    let row = &shown.rows[0];
+    assert_eq!(row.label, "Copy file link");
+    assert_eq!(row.act, MenuAct::Plugin);
+    assert_eq!(row.key, "copy-media-link/copy#0");
+    let _ = app.update(crate::app::Message::Menu(crate::menus::Event::Choose(0)));
+    assert!(app.win.menu.is_none(), "choosing it closes the menu");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}
+
 /// A spoiler beside a card's text: a click uncovers it, the next shows
 /// it large, and a right click opens the message's menu with its rows.
 fn a_thumbnail_uncovers_opens_and_has_its_menu(message: ChatMessage) {
