@@ -174,6 +174,7 @@ fn a_files_right_click_has_the_plugins_rows_only_while_a_plugin_gives_them() {
         menus::MenuAct,
     };
     let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
     only(
         &mut app,
         ChatMessage {
@@ -213,6 +214,7 @@ fn a_files_right_click_has_the_plugins_rows_only_while_a_plugin_gives_them() {
 fn a_stickers_right_click_has_the_plugins_rows_only_while_a_plugin_gives_them() {
     use crate::halocord::{Change, changed, place};
     let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
     only(
         &mut app,
         ChatMessage {
@@ -255,6 +257,7 @@ fn a_stickers_right_click_has_the_plugins_rows_only_while_a_plugin_gives_them() 
 fn a_messages_menu_has_mention_only_for_someone_elses_discord_message() {
     use crate::halocord::{Change, changed, place};
     let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
     let plugin = place("quick-mention").expect("the plugin");
     changed(
         &mut app.layout,

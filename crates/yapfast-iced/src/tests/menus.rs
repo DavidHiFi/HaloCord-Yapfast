@@ -595,6 +595,7 @@ fn copy_mention_joins_a_discord_users_menu_when_its_plugin_is_on() {
     use crate::halocord::{Change, changed, place};
     use crate::menus::MenuAct;
     let (mut app, _folder) = lounge_member_menu("4");
+    let _alone = super::plugin_alone();
     assert!(!labels(&app).contains(&"Copy mention".to_owned()));
     let plugin = place("copy-user-mention").expect("the plugin");
     changed(
@@ -627,6 +628,7 @@ fn copy_profile_link_joins_a_discord_users_menu_when_its_plugin_is_on() {
     use crate::halocord::{Change, changed, place};
     use crate::menus::MenuAct;
     let (mut app, _folder) = lounge_member_menu("4");
+    let _alone = super::plugin_alone();
     assert!(!labels(&app).contains(&"Copy profile link".to_owned()));
     let plugin = place("copy-user-urls").expect("the plugin");
     changed(
@@ -657,6 +659,7 @@ fn copy_profile_link_joins_a_discord_users_menu_when_its_plugin_is_on() {
 #[test]
 fn a_members_menu_beside_a_voice_channel_ticks_and_changes_the_calls_rows() {
     let (mut app, _folder) = lounge_member_menu("4");
+    let _alone = super::plugin_alone();
     let shown = rows(&app);
     let row = |label: &str| {
         shown
