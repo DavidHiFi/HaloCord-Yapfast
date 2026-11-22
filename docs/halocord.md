@@ -7,11 +7,16 @@ whole list to carry across.
 
 ## HaloCord's own files
 
-- `crates/yapfast-iced/src/halocord.rs`: the plugin list (`PLUGINS`), each plugin's
-  settings (a choice, a switch, a slider or a text), what `layout.json` keeps
-  (`halocord.plugins.<id>`), what each plugin tells the core, and the hooks it plugs
-  in while it's on. Adding a plugin is one entry here. Also the window's side of
-  plug-in point 5 (`menu_rows`, `pick`).
+- `crates/yapfast-iced/src/halocord/`: the window's side of the plugins, one file
+  per area, matching the core's `halocord/`.
+  - `mod.rs`: the plugin ids (`id`), the plugin list (`PLUGINS`, which only names
+    each plugin in the page's order), and search.
+  - `kept.rs`: what a plugin is, its settings (a choice, a switch, a slider or a
+    text), what `layout.json` keeps (`halocord.plugins.<id>`) and `changed`.
+  - `voice.rs`, `chat.rs`, `menus.rs`, `buttons.rs`, `members.rs`: the plugins of
+    each area, what each tells the core, the hooks it plugs in while it's on, and
+    what the window draws for it. `menus.rs` is the window's side of plug-in
+    point 5 (`menu_rows`, `pick`).
 - `crates/yapfast-iced/src/settings/pages/halocord.rs`: the HaloCord settings page,
   drawn from `PLUGINS`.
 - `crates/yapfast-iced/src/mochacord.rs`: MochaCord's look: what `layout.json` keeps
@@ -51,6 +56,35 @@ whole list to carry across.
   accounts younger than N days, read from the Discord id) and its day count.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
+
+## Adding a plugin
+
+1. If it needs the core (a hook on actions, events, commands, menus or tags), add
+   `crates/yapfast-core/src/halocord/<name>.rs` with a unit struct that implements
+   `Hooks` (its `id` is the plugin's id), and its tests. Name it in `halocord.rs`
+   (`pub mod <name>;`).
+2. Add its id to `id` in `crates/yapfast-iced/src/halocord/mod.rs`. The id is what
+   `layout.json` keeps, so it never changes once shipped.
+3. Add one `const` in its area's file:
+
+   ```rust
+   pub(super) const MY_PLUGIN: Plugin = Plugin {
+       id: id::MY_PLUGIN,
+       name: "My plugin",
+       about: "What it does, in one plain sentence.",
+       on_at_first: false,
+       settings: &[off("my-switch", "A switch", "What the switch does.")],
+       apply: |_, _| {},
+       hooks: Some(&engine::my_plugin::MyPlugin),
+   };
+   ```
+
+4. Put it in `PLUGINS` where it belongs on the page.
+5. Tests: one for what the hook does (core), and one that switches it on through
+   `changed` and checks the window (`tests/halocord_buttons.rs` has examples).
+6. If a Yapfast file has to call in, add the call and name the file under "Hooks in
+   Yapfast's files". The window test `every_hook_is_in_the_docs` fails otherwise.
+7. `scripts/halocord-check.ps1` must pass before a release.
 
 ## Plug-in points
 
@@ -136,6 +170,9 @@ Window (`yapfast-iced`):
 - `shell.rs`: in `shell_sync`, a copied download goes through `halocord::copied_text` first:
   text Copy file text asked for goes on the clipboard as text, anything else as a picture.
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
+- `tests/calls.rs`, `tests/media.rs`, `tests/menus.rs`, `tests/navigation.rs`: tests of
+  the Volume booster, the copy rows and the buttons beside Settings, in Yapfast's own
+  test files.
 - `window_bar.rs`: `Event::Halo(Press)` with its arm in `update` (a plugin's button
   pressed), and the buttons `halocord::presses` lists, pushed before Inbox in
   `window_bar`.
@@ -208,7 +245,8 @@ Calls (`yapfast-discord`):
 - Window `tests/halocord_buttons.rs`: the button plugins (restart, read all, close all
   DMs, the counter, the member count).
 - Window `halocord::tests`: point 5's rows, point 6's kinds, the stereo loader's
-  saved values.
+  saved values, and `every_hook_is_in_the_docs`, which fails when a Yapfast file
+  calls into HaloCord or MochaCord and this page doesn't name it.
 - Window `tests/halocord_menu_pictures.rs`: ignored tests that draw each right-click
   plugin's row into `audit/plugins/menus-<plugin>.png`.
 
