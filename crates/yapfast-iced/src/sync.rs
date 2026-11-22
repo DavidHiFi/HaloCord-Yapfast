@@ -136,9 +136,7 @@ impl App {
         // with the window in front, is marked read as a message comes, so
         // it isn't put on the rail for that moment.
         if let Some(reading) = state.selected.as_deref().filter(|_| self.reads()) {
-            rail.retain(|item| {
-                !(matches!(item.kind, crate::rail::Kind::Dm) && item.id == reading)
-            });
+            rail.retain(|item| !(matches!(item.kind, crate::rail::Kind::Dm) && item.id == reading));
         }
         if self.rail.items != rail {
             self.rail.items = rail;

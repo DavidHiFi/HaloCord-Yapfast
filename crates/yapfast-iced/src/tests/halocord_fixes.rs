@@ -16,8 +16,7 @@ fn a_message_in_the_dm_being_read_leaves_the_rail_still() {
     let (mut app, _folder) = preview();
     let _ = app.update(Message::Rail(Event::Dm("riley".into())));
     assert_eq!(app.client.state().selected.as_deref(), Some("riley"));
-    let on_rail =
-        |app: &crate::app::App| app.rail.items.iter().any(|item| item.kind == Kind::Dm);
+    let on_rail = |app: &crate::app::App| app.rail.items.iter().any(|item| item.kind == Kind::Dm);
     unread(&mut app, "riley", 1);
     assert!(!on_rail(&app), "the DM being read stays off the rail");
     app.shell.focused = false;
@@ -54,9 +53,8 @@ fn the_hover_bar_goes_while_a_drag_selects() {
     let (mut app, _folder) = preview();
     let index = app.timeline.messages.len() - 1;
     let item: Arc<str> = app.timeline.messages[index].item.as_str().into();
-    let bar = |app: &crate::app::App| {
-        crate::message::hover_bar::hover_bar(app.ctx(), index).is_some()
-    };
+    let bar =
+        |app: &crate::app::App| crate::message::hover_bar::hover_bar(app.ctx(), index).is_some();
     assert!(bar(&app), "the bar shows");
     let mark = crate::piece::Mark {
         row: index,
@@ -101,15 +99,16 @@ fn code_block_picture() {
                 1_700_000_120,
             ),
             said("c3", "Plain text after four lines", 1_700_000_180),
-            said("c4", "```rust\nfn main() {\n    let x = 1;\n}\n```", 1_700_000_240),
+            said(
+                "c4",
+                "```rust\nfn main() {\n    let x = 1;\n}\n```",
+                1_700_000_240,
+            ),
             said("c5", "Plain text after Rust", 1_700_000_300),
         ]);
     });
-    let mut ui = iced_test::Simulator::with_size(
-        iced::Settings::default(),
-        app.shell.frame,
-        app.view(),
-    );
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), app.shell.frame, app.view());
     let snapshot = ui.snapshot(&iced::Theme::Dark).expect("drawn");
     std::fs::create_dir_all(r"D:\Agent Work\yapfast\audit\fixes").expect("folder");
     snapshot
