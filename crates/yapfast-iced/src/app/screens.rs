@@ -175,6 +175,7 @@ impl App {
             Event::Menu(item, index, video) => {
                 crate::image_viewer::media_menu(self, item, index, video)
             }
+            Event::Attachment(item, at) => crate::halocord::attachment_menu(self, &item, at),
             event => {
                 let mut cx = cx!(self);
                 self.viewer.update(event, &mut cx)

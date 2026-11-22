@@ -58,6 +58,9 @@ pub enum Event {
     /// A right click on a message's picture or video, in the timeline or
     /// here: its menu at the pointer.
     Menu(String, usize, bool),
+    /// A right click on a message's file or sticker: the menu HaloCord's
+    /// plugins give it, when they give it rows.
+    Attachment(String, usize),
     /// Where Save's dialog said to put the attachment.
     Saved(String, usize, Option<std::path::PathBuf>),
     /// A message's GIF's star: adds it to the favourite GIFs or takes it
@@ -100,7 +103,7 @@ impl Viewed {
                 cx.dispatch(Action::FavoriteMessageGif { item, index });
             }
             Event::WantFavorites => cx.dispatch(Action::LoadFavoriteGifs),
-            Event::Save(..) | Event::Menu(..) => {}
+            Event::Save(..) | Event::Menu(..) | Event::Attachment(..) => {}
         }
         Task::none()
     }

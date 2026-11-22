@@ -78,7 +78,7 @@ pub fn open_person_menu(
     let developer = app.layout.developer_mode;
     let ticked = voice_ticks(core, user);
     let mut group = None;
-    let rows: Vec<MenuRow> = choices
+    let mut rows: Vec<MenuRow> = choices
         .into_iter()
         .filter(|choice| developer || *choice != MenuChoice::CopyId)
         .map(|choice| {
@@ -112,6 +112,9 @@ pub fn open_person_menu(
             row
         })
         .collect();
+    if !rows.is_empty() {
+        rows.extend(crate::halocord::person_rows(user));
+    }
     if rows.is_empty() {
         return Task::none();
     }

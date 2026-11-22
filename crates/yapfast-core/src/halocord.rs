@@ -2,8 +2,14 @@
 //! Yapfast's own files carry only the hooks that call in. `docs/halocord.md`
 //! lists every hook.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
+pub mod copy_media_link;
+pub mod copy_sticker_link;
+pub mod copy_user_mention;
+pub mod copy_user_url;
+pub mod new_user;
+pub mod quick_mention;
 pub mod staff;
 
 use crate::{
@@ -46,6 +52,52 @@ pub fn set_bitrate(kbps: Option<u32>) {
     let _ = kbps;
 }
 
+/// A person's and a stream's volume slider goes to this much, in percent,
+/// as Discord's does.
+pub const VOLUME_STOCK: u32 = 200;
+/// The most the Volume booster's page offers, in percent.
+pub const VOLUME_CAPS: [u32; 5] = [200, 400, 600, 800, 1000];
+
+static VOLUME_CAP: AtomicU32 = AtomicU32::new(VOLUME_STOCK);
+
+/// Sets how far a person's and a stream's volume slider goes, in percent, or
+/// Discord's own 200 for `None`. Past 200 the sound keeps growing in step
+/// with the slider: 1000 is five times as loud as 200 (see
+/// [`crate::volume::from_slider`]).
+pub fn set_volume_cap(percent: Option<u32>) {
+    let percent = percent.map_or(VOLUME_STOCK, |percent| {
+        percent.clamp(VOLUME_STOCK, VOLUME_CAPS[VOLUME_CAPS.len() - 1])
+    });
+    VOLUME_CAP.store(percent, Ordering::Relaxed);
+}
+
+/// How far a person's and a stream's volume slider goes, in percent.
+pub fn volume_cap() -> u32 {
+    VOLUME_CAP.load(Ordering::Relaxed)
+}
+
+static MONO: AtomicBool = AtomicBool::new(false);
+
+/// Plays everyone's incoming voice as mono (Force mono).
+pub fn set_mono(on: bool) {
+    MONO.store(on, Ordering::Relaxed);
+}
+
+pub fn mono() -> bool {
+    MONO.load(Ordering::Relaxed)
+}
+
+/// Adds one person's interleaved stereo frame to `sum` at `gain`, with both
+/// channels turned into the mean of the two.
+pub fn add_mono(sum: &mut [f32], samples: &[i16], gain: f32) {
+    for (total, pair) in sum.chunks_mut(2).zip(samples.chunks(2)) {
+        let mean = pair.iter().map(|sample| f32::from(*sample)).sum::<f32>() / 2.0 * gain;
+        for channel in total {
+            *channel += mean;
+        }
+    }
+}
+
 static FAKE_MUTE: AtomicBool = AtomicBool::new(false);
 static FAKE_DEAF: AtomicBool = AtomicBool::new(false);
 
@@ -78,6 +130,12 @@ fn shown_voice_state(
 ) -> (bool, bool) {
     let deaf = deafened || fake_deaf;
     (muted || deaf || fake_mute, deaf)
+}
+
+/// `user` when it is a Discord user's id (digits), as a person's menu is
+/// given it; Matrix ids and anything else give none.
+pub fn discord_user(user: &str) -> Option<&str> {
+    (!user.is_empty() && user.bytes().all(|byte| byte.is_ascii_digit())).then_some(user)
 }
 
 /// A tag a plugin draws after a message's author: its words, a crown in
@@ -145,6 +203,31 @@ pub trait Hooks: Sync {
 
     /// 5. One of this plugin's menu rows was chosen for `message`.
     fn pick(&self, _action: &str, _message: &ChatMessage) -> Picked {
+        Picked::default()
+    }
+
+    /// 5. Rows for a person's menu (`user` is their id), as action and label.
+    fn person_menu(&self, _user: &str) -> Vec<(&'static str, &'static str)> {
+        Vec::new()
+    }
+
+    /// 5. One of this plugin's person menu rows was chosen for `user`.
+    fn person_pick(&self, _action: &str, _user: &str) -> Picked {
+        Picked::default()
+    }
+
+    /// 5. Rows for the right-click menu of a file or sticker, attachment `at`
+    /// of `message`, as action and label.
+    fn attachment_menu(
+        &self,
+        _message: &ChatMessage,
+        _at: usize,
+    ) -> Vec<(&'static str, &'static str)> {
+        Vec::new()
+    }
+
+    /// 5. One of this plugin's attachment menu rows was chosen.
+    fn attachment_pick(&self, _action: &str, _message: &ChatMessage, _at: usize) -> Picked {
         Picked::default()
     }
 }
@@ -237,27 +320,62 @@ pub fn extras(message: &ChatMessage, app: &Application) -> Vec<Tag> {
 /// 5. The plugins' rows for a message's menu: each row's key (the plugin's
 /// id and the action, as `id/action`) and its label.
 pub fn menu(message: &ChatMessage) -> Vec<(String, &'static str)> {
+    rows_of(|hooks| hooks.menu(message))
+}
+
+/// 5. What the row with `key` does for `message`; nothing once its plugin
+/// is out.
+pub fn pick(key: &str, message: &ChatMessage) -> Picked {
+    pick_with(key, |hooks, action| hooks.pick(action, message))
+}
+
+/// 5. The plugins' rows for a person's menu, keyed as [`menu`]'s are.
+pub fn person_menu(user: &str) -> Vec<(String, &'static str)> {
+    rows_of(|hooks| hooks.person_menu(user))
+}
+
+/// 5. What the person menu's row with `key` does for `user`.
+pub fn person_pick(key: &str, user: &str) -> Picked {
+    pick_with(key, |hooks, action| hooks.person_pick(action, user))
+}
+
+/// 5. The plugins' rows for the menu of attachment `at` of `message`, keyed
+/// as [`menu`]'s are.
+pub fn attachment_menu(message: &ChatMessage, at: usize) -> Vec<(String, &'static str)> {
+    rows_of(|hooks| hooks.attachment_menu(message, at))
+}
+
+/// 5. What the attachment menu's row with `key` does.
+pub fn attachment_pick(key: &str, message: &ChatMessage, at: usize) -> Picked {
+    pick_with(key, |hooks, action| {
+        hooks.attachment_pick(action, message, at)
+    })
+}
+
+/// The rows each plugged plugin gives, keyed `id/action`.
+fn rows_of(
+    rows: impl Fn(&'static dyn Hooks) -> Vec<(&'static str, &'static str)>,
+) -> Vec<(String, &'static str)> {
     plugged()
-        .iter()
+        .into_iter()
         .flat_map(|hooks| {
-            hooks
-                .menu(message)
+            rows(hooks)
                 .into_iter()
                 .map(|(action, label)| (format!("{}/{action}", hooks.id()), label))
         })
         .collect()
 }
 
-/// 5. What the row with `key` does for `message`; nothing once its plugin
-/// is out.
-pub fn pick(key: &str, message: &ChatMessage) -> Picked {
+/// What the plugin a row's `key` names does for its action; nothing once
+/// the plugin is out.
+fn pick_with(key: &str, pick: impl FnOnce(&'static dyn Hooks, &str) -> Picked) -> Picked {
     let Some((id, action)) = key.split_once('/') else {
         return Picked::default();
     };
     plugged()
         .into_iter()
         .find(|hooks| hooks.id() == id)
-        .map_or_else(Picked::default, |hooks| hooks.pick(action, message))
+        .map_or_else(Picked::default, |hooks| pick(hooks, action))
 }
 
 #[cfg(test)]
@@ -347,6 +465,21 @@ mod tests {
         assert!(pick("gone/raw", &bot).copy.is_none());
         plug(&Tap, false);
         assert!(pick("tap/raw", &bot).copy.is_none());
+    }
+
+    #[test]
+    fn force_mono_plays_the_mean_of_both_sides_in_both() {
+        let mut sum = [0f32; 4];
+        // Left 1000, right -200: the mean is 400, doubled by a gain of 2.
+        add_mono(&mut sum, &[1000, -200, 10, 30], 2.0);
+        assert_eq!(sum, [800.0, 800.0, 40.0, 40.0]);
+        // A second voice adds on, and a frame that stops short leaves the rest.
+        add_mono(&mut sum, &[100, 100], 1.0);
+        assert_eq!(sum, [900.0, 900.0, 40.0, 40.0]);
+        set_mono(true);
+        assert!(mono());
+        set_mono(false);
+        assert!(!mono());
     }
 
     #[test]

@@ -932,7 +932,25 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
         tint(Tab::Emoji),
         opens(Tab::Emoji),
     )));
-    let line = row![lift(plus), field, emoji]
+    // HaloCord's counter takes a slot of its own, empty when off, so the
+    // field and the buttons keep their places.
+    let counter: Element<'a, Message> = crate::halocord::count_words(
+        &ctx.layout.halocord,
+        &ctx.composer.draft.text(),
+        ctx.app.discord_nitro(),
+    )
+    .map_or_else(
+        || Space::new().into(),
+        |(words, level)| {
+            lift(
+                text(words)
+                    .size(12)
+                    .color(crate::halocord::count_color(level, theme.muted))
+                    .into(),
+            )
+        },
+    );
+    let line = row![lift(plus), field, counter, emoji]
         .spacing(6)
         .align_y(Alignment::End)
         .padding(Padding::ZERO.left(10).right(8));

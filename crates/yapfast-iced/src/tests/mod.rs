@@ -21,6 +21,17 @@ use crate::{
 };
 
 /// The preview at the window's own size, its data in a folder of its own.
+/// Opening a window unplugs the off-by-default plugins, for every test at once.
+/// A test that plugs one in holds the write side, so none opens under it.
+static PLUGINS_OPENING: std::sync::RwLock<()> = std::sync::RwLock::new(());
+
+/// Held by a test while a plugin it switched on is in use.
+fn plugin_alone() -> std::sync::RwLockWriteGuard<'static, ()> {
+    PLUGINS_OPENING
+        .write()
+        .unwrap_or_else(|held| held.into_inner())
+}
+
 fn preview() -> (App, tempfile::TempDir) {
     let folder = tempfile::tempdir_in(local()).expect("test folder");
     (start(&folder, true), folder)
@@ -35,7 +46,12 @@ fn start(folder: &tempfile::TempDir, preview: bool) -> App {
     if preview {
         client.dispatch(Action::Preview);
     }
-    let mut app = App::new(client, (1120, 760)).0;
+    let mut app = {
+        let _opening = PLUGINS_OPENING
+            .read()
+            .unwrap_or_else(|held| held.into_inner());
+        App::new(client, (1120, 760)).0
+    };
     // As the window opens, in front.
     app.shell.window = Some(iced::window::Id::unique());
     app.shell.focused = true;
@@ -353,6 +369,10 @@ mod cards;
 mod channel_settings;
 mod dialogs;
 mod editor;
+mod halocord_button_pictures;
+mod halocord_buttons;
+mod halocord_menu_pictures;
+mod halocord_pictures;
 mod header;
 mod link_dialogs;
 mod media;

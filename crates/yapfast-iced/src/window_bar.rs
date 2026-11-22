@@ -84,6 +84,8 @@ pub enum Event {
     InboxScrolled(crate::sync::Scroll),
     CloseInbox,
     Help,
+    /// A button a HaloCord plugin added (`docs/halocord.md`).
+    Halo(crate::halocord::Press),
     /// The bar pressed, the pointer moved on it, the button let go.
     Press,
     Moved(Point),
@@ -258,6 +260,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             crate::browser::open(HELP);
             Task::none()
         }
+        Event::Halo(press) => crate::halocord::press(app, press),
         Event::Press => {
             app.bar_drag.armed = Some(None);
             Task::none()
@@ -442,30 +445,38 @@ pub fn window_bar(app: &App) -> Option<Element<'_, Message>> {
     .align_y(Alignment::Center);
     let mut right = row![].align_y(Alignment::Center);
     if workspace {
+        let mut tools = row![].spacing(4).padding(iced::Padding {
+            right: 11.5,
+            ..iced::Padding::ZERO
+        });
+        for (icon, label, press) in crate::halocord::presses(&app.layout.halocord) {
+            tools = tools.push(bar_button(
+                app,
+                icon,
+                label,
+                Some(Event::Halo(press)),
+                false,
+                BarSize::Tool,
+            ));
+        }
         right = right.push(
-            row![
-                bar_button(
+            tools
+                .push(bar_button(
                     app,
                     Icon::Inbox,
                     "Inbox",
                     Some(Event::Inbox),
                     app.inbox.is_some(),
-                    BarSize::Tool
-                ),
-                bar_button(
+                    BarSize::Tool,
+                ))
+                .push(bar_button(
                     app,
                     Icon::Help,
                     "Help",
                     Some(Event::Help),
                     false,
-                    BarSize::Tool
-                ),
-            ]
-            .spacing(4)
-            .padding(iced::Padding {
-                right: 11.5,
-                ..iced::Padding::ZERO
-            }),
+                    BarSize::Tool,
+                )),
         );
     }
     let maximized = app.shell.maximized;

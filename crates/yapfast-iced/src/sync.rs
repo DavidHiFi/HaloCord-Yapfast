@@ -484,6 +484,7 @@ impl App {
             }
             None => Vec::new(),
         };
+        crate::halocord::add_member_count(&self.layout.halocord, &mut self.roster.lines);
         self.roster.made = members.is_some().then_some(made);
         self.roster.members = members;
         self.roster.shown = Some(Instant::now());

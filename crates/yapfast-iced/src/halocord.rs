@@ -38,6 +38,17 @@ pub const STEREO: &str = "stereo-loader";
 pub const FAKE_MUTE: &str = "fake-mute";
 pub const FAKE_DEAFEN: &str = "fake-deafen";
 pub const USER_AREA: &str = "user-area";
+pub const RESTART: &str = "restart-button";
+pub const READ_ALL: &str = "read-all-button";
+pub const COUNTER: &str = "character-counter";
+pub const NEW_USER: &str = "new-user-tag";
+pub const CLOSE_DMS: &str = "close-all-dms";
+pub const MEMBER_COUNT: &str = "member-count";
+pub const VOLUME_BOOSTER: &str = "volume-booster";
+pub const FORCE_MONO: &str = "force-mono";
+pub const CLICK_TO_UNMUTE: &str = "click-to-unmute";
+pub const VOICE_COUNT: &str = "voice-count";
+pub const USER_VOICE_SHOW: &str = "user-voice-show";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -218,7 +229,266 @@ pub static PLUGINS: &[Plugin] = &[
         apply: |_, _| {},
         hooks: None,
     },
+    Plugin {
+        id: "copy-user-mention",
+        name: "Copy mention",
+        about: "Adds Copy mention to someone's right-click menu. It copies the text that pings them when you send it.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_user_mention::CopyUserMention),
+    },
+    Plugin {
+        id: "copy-media-link",
+        name: "Copy file link",
+        about: "Adds Copy file link to a file's right-click menu. It copies the web address of the file.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_media_link::CopyMediaLink),
+    },
+    Plugin {
+        id: "copy-sticker-links",
+        name: "Copy sticker link",
+        about: "Adds Copy sticker link to a sticker's right-click menu. It copies the web address of the sticker.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_sticker_link::CopyStickerLink),
+    },
+    Plugin {
+        id: "quick-mention",
+        name: "Quick mention",
+        about: "Adds Mention to a message's right-click menu. It puts the sender's name in your message box.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::quick_mention::QuickMention),
+    },
+    Plugin {
+        id: "copy-user-urls",
+        name: "Copy profile link",
+        about: "Adds Copy profile link to someone's right-click menu. It copies the web link to their profile.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: Some(&engine::copy_user_url::CopyUserUrl),
+    },
+    Plugin {
+        id: RESTART,
+        name: "Restart button",
+        about: "A button in the top bar (beside Settings when the bar is the system's) that closes Yapfast and starts it again the way it was started.",
+        on_at_first: true,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: READ_ALL,
+        name: "Read all button",
+        about: "A button in the top bar (beside Settings when the bar is the system's) that marks every server and message you have unread as read, in one press.",
+        on_at_first: true,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: COUNTER,
+        name: "Character counter",
+        about: "Shows how many letters you have typed beside the message box, like 1,234 / 2,000. It turns amber near the limit and red over it. The limit is 4,000 with Nitro.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: NEW_USER,
+        name: "New account tag",
+        about: "A small amber NEW tag by the names of people whose Discord account is only a few days old, to help you spot throwaway accounts.",
+        on_at_first: false,
+        settings: &[Setting {
+            key: "days",
+            heading: "NEW MEANS UNDER",
+            note: "How old an account may be and still get the tag.",
+            kind: Kind::Choice {
+                names: &["7 days", "14 days", "30 days"],
+                values: &engine::new_user::DAYS,
+                unless_changed: engine::new_user::DEFAULT_DAYS,
+            },
+        }],
+        apply: |kept, plugin| {
+            engine::new_user::set_days(kept.value(plugin, &plugin.settings[0]));
+        },
+        hooks: Some(&engine::new_user::NewUsers),
+    },
+    Plugin {
+        id: CLOSE_DMS,
+        name: "Close all DMs",
+        about: "A small X beside Direct Messages that closes every one-to-one conversation in the list at once. Group chats stay. The messages aren't deleted, and a new message from someone opens theirs again.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: MEMBER_COUNT,
+        name: "Member count",
+        about: "Shows how many people are online and how many have joined, in a line at the top of the member list.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: VOLUME_BOOSTER,
+        name: "Volume booster",
+        about: "Lets a person's volume and a stream's volume go past 200%, up to the most you pick.",
+        on_at_first: true,
+        settings: &[Setting {
+            key: "cap",
+            heading: "MOST VOLUME",
+            note: "How far the sliders in someone's voice menu go. 200% is where Yapfast stops on its own.",
+            kind: Kind::Choice {
+                names: &["200%", "400%", "600%", "800%", "1000%"],
+                values: &engine::VOLUME_CAPS,
+                unless_changed: 1000,
+            },
+        }],
+        apply: |kept, plugin| {
+            let on = kept.on(plugin);
+            engine::set_volume_cap(on.then(|| kept.value(plugin, &plugin.settings[0])));
+        },
+        hooks: None,
+    },
+    Plugin {
+        id: FORCE_MONO,
+        name: "Force mono",
+        about: "Plays everyone's voice the same in both ears, for one-sided headphones or a single speaker.",
+        on_at_first: false,
+        settings: &[],
+        apply: |kept, plugin| engine::set_mono(kept.on(plugin)),
+        hooks: None,
+    },
+    Plugin {
+        id: CLICK_TO_UNMUTE,
+        name: "Click to unmute",
+        about: "Shows a mark beside someone you've muted for yourself in a voice channel. Click it to unmute them.",
+        on_at_first: true,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: USER_VOICE_SHOW,
+        name: "User voice show",
+        about: "Marks a member in the member list while they are in a voice channel, and says which one.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: VOICE_COUNT,
+        name: "Voice count",
+        about: "Shows how many people are in each voice channel, at the end of its row in the channel list.",
+        on_at_first: false,
+        settings: &[off(
+            "empty",
+            "Show empty channels",
+            "Write 0 beside a voice channel nobody is in.",
+        )],
+        apply: |_, _| {},
+        hooks: None,
+    },
 ];
+
+/// The voice channel `user` is in, by the rooms' lists of who is in them.
+pub fn voice_room_of<'a>(
+    rooms: &'a [std::sync::Arc<yapfast_core::chat::ChatRoom>],
+    user: &str,
+) -> Option<&'a str> {
+    rooms
+        .iter()
+        .find(|room| room.voice && room.people.iter().any(|person| person.id == user))
+        .map(|room| room.name.as_str())
+}
+
+/// The mark on a member's row while they're in a voice channel (User voice
+/// show), saying which one when it's pointed at.
+pub fn in_voice_mark<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message>> {
+    if !cx.layout.halocord.is(USER_VOICE_SHOW) {
+        return None;
+    }
+    let channel = voice_room_of(&cx.state.rooms, user)?;
+    let theme = cx.look.theme;
+    Some(
+        iced::widget::tooltip(
+            cx.look.glyph(Icon::Volume, 14, theme.muted),
+            crate::controls::tip(theme, format!("In {channel}")),
+            iced::widget::tooltip::Position::Top,
+        )
+        .gap(6)
+        .into(),
+    )
+}
+
+/// How many people are in a voice channel, for the end of its row, while
+/// Voice count is on (an empty one only when the plugin's setting says so).
+pub fn voice_count<'a>(cx: Ctx<'a>, people: usize) -> Option<Element<'a, Message>> {
+    let kept = &cx.layout.halocord;
+    let plugin = place(VOICE_COUNT).map(|at| &PLUGINS[at])?;
+    if !kept.on(plugin) || (people == 0 && !kept.flag(plugin, &plugin.settings[0])) {
+        return None;
+    }
+    let theme = cx.look.theme;
+    Some(
+        text(people.to_string())
+            .size(12)
+            .font(BOLD)
+            .color(theme.muted)
+            .into(),
+    )
+}
+
+/// The mark beside someone in a voice channel who is muted for this account,
+/// while Click to unmute is on; a click on it unmutes them.
+pub fn unmute_mark<'a>(
+    cx: crate::ctx::Ctx<'a>,
+    person: &yapfast_core::chat::VoicePerson,
+    live: Option<&yapfast_core::voice::Participant>,
+) -> Option<Element<'a, Message>> {
+    if !cx.layout.halocord.is(CLICK_TO_UNMUTE) {
+        return None;
+    }
+    // Volumes are kept by the network id, which the call knows them by.
+    let key = live.map_or_else(|| person.id.clone(), |live| live.person.clone());
+    if !yapfast_core::volume::muted(&key) {
+        return None;
+    }
+    let theme = cx.look.theme;
+    let mark = cx.look.glyph(Icon::VolumeOff, 16, theme.danger);
+    let area = iced::widget::mouse_area(mark)
+        .on_press(Message::Call(crate::call::Event::Unmute(key)))
+        .interaction(iced::mouse::Interaction::Pointer);
+    Some(
+        iced::widget::tooltip(
+            area,
+            crate::controls::tip(theme, "Muted for you. Click to unmute"),
+            iced::widget::tooltip::Position::Top,
+        )
+        .gap(4)
+        .into(),
+    )
+}
+
+/// Unmutes `person` for this account, as their voice menu's Mute box does,
+/// and keeps it (Click to unmute).
+pub fn unmute(app: &mut App, person: &str) {
+    yapfast_core::volume::mute(person, false);
+    let people = &mut app.layout.voice.muted_people;
+    people.remove(person);
+    crate::layout::store(app.client.root(), "muted_people", &*people);
+}
 
 /// Tells the core what Fake mute and Fake deafen do; both plugins say it.
 fn tell_voice(kept: &Kept, _: &Plugin) {
@@ -493,8 +763,19 @@ pub fn changed(layout: &mut Layout, client: &mut Client, change: Change) -> bool
                 .get(*plugin)
                 .is_some_and(|found| found.id == FAKE_MUTE || found.id == FAKE_DEAFEN)
     );
+    let booster = matches!(
+        &change,
+        Change::Switch { plugin, .. } | Change::Choose { plugin, .. }
+            if PLUGINS
+                .get(*plugin)
+                .is_some_and(|found| found.id == VOLUME_BOOSTER)
+    );
     layout.halocord.change(change);
     crate::layout::store(client.root(), "halocord", &layout.halocord);
+    if booster {
+        // People's saved volumes play within the new most.
+        layout.voice.apply();
+    }
     // Devices is the call's way of sending its voice state once more.
     let resend = voice && client.state().voice.active();
     if resend {
@@ -523,7 +804,17 @@ pub fn tag<'a>(ctx: Ctx<'a>, tag: Tag) -> Element<'a, Message> {
 
 /// 5. HaloCord's plugins' rows for a message's menu, before Delete.
 pub fn menu_rows(message: &ChatMessage) -> Vec<MenuRow> {
-    let mut rows: Vec<MenuRow> = engine::menu(message)
+    keyed(engine::menu(message))
+}
+
+/// 5. HaloCord's plugins' rows for a person's menu, after its own.
+pub fn person_rows(user: &str) -> Vec<MenuRow> {
+    keyed(engine::person_menu(user))
+}
+
+/// Menu rows from the engine's keys and labels, the first set apart.
+fn keyed(rows: Vec<(String, &'static str)>) -> Vec<MenuRow> {
+    let mut rows: Vec<MenuRow> = rows
         .into_iter()
         .map(|(key, label)| MenuRow::plain(MenuAct::Plugin, label).key(key))
         .collect();
@@ -533,17 +824,239 @@ pub fn menu_rows(message: &ChatMessage) -> Vec<MenuRow> {
     rows
 }
 
+/// 5. A plugin's menu row was chosen: in a person's menu (`place` is the
+/// person) it's theirs, else it's for the message `item`.
+pub fn chosen(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Task<Message> {
+    if let Some((key, at)) = key.split_once('#') {
+        let Some(message) = app.client.state().message(item).cloned() else {
+            return Task::none();
+        };
+        let at = at.parse().unwrap_or(usize::MAX);
+        return done(app, engine::attachment_pick(key, &message, at));
+    }
+    match place {
+        Some(user) => done(app, engine::person_pick(key, user)),
+        None => pick(app, key, item),
+    }
+}
+
+/// 5. HaloCord's plugins' rows for the menu of attachment `at` of `message`.
+/// Each key carries the attachment's place after a `#`.
+pub fn attachment_rows(message: &ChatMessage, at: usize) -> Vec<MenuRow> {
+    let mut rows = keyed(engine::attachment_menu(message, at));
+    for row in &mut rows {
+        row.key = format!("{}#{at}", row.key);
+    }
+    rows
+}
+
+/// 5. Opens the menu of attachment `at` of message `item` at the pointer,
+/// when plugins give it rows.
+pub fn attachment_menu(app: &mut App, item: &str, at: usize) -> Task<Message> {
+    let Some(message) = app.client.state().message(item) else {
+        return Task::none();
+    };
+    let mut rows = attachment_rows(message, at);
+    let Some(first) = rows.first_mut() else {
+        return Task::none();
+    };
+    first.separated = false;
+    app.win.menu = Some(crate::menus::Menu {
+        item: Some(item.to_owned()),
+        ..crate::menus::Menu::new(app.pressed.get(), rows)
+    });
+    iced::widget::operation::focus(crate::app::NOBODY)
+}
+
 /// 5. A plugin's menu row was chosen for the message `item`.
 pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
     let Some(message) = app.client.state().message(item).cloned() else {
         return Task::none();
     };
-    let picked = engine::pick(key, &message);
+    done(app, engine::pick(key, &message))
+}
+
+/// What a chosen row gave: its actions, and its text to copy.
+fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
+    let mentions = picked
+        .actions
+        .iter()
+        .any(|action| matches!(action, Action::MentionPerson(_)));
     for action in picked.actions {
         app.client.dispatch(action);
     }
     let copied = picked.copy.map_or_else(Task::none, iced::clipboard::write);
-    Task::batch([app.sync(), copied])
+    // A mention changes the message box's text: it takes it in and has focus.
+    let focus = if mentions {
+        let draft = app.client.state().draft().to_owned();
+        app.composer.draft.reset(&draft);
+        app.composer.draft_known = draft;
+        iced::widget::operation::focus(crate::composer::COMPOSER)
+    } else {
+        Task::none()
+    };
+    Task::batch([app.sync(), copied, focus])
+}
+
+/// A button a plugin adds to the top bar or the user area.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Press {
+    Restart,
+    ReadAll,
+    CloseDms,
+}
+
+/// The buttons the plugins that are on add: icon, tip and what they do.
+pub fn presses(kept: &Kept) -> Vec<(Icon, &'static str, Press)> {
+    let mut buttons = Vec::new();
+    if kept.is(RESTART) {
+        buttons.push((Icon::Refresh, "Restart Yapfast", Press::Restart));
+    }
+    if kept.is(READ_ALL) {
+        buttons.push((Icon::MarkRead, "Mark everything read", Press::ReadAll));
+    }
+    buttons
+}
+
+/// What marks everything read: every server, and each conversation with
+/// something unread. The core drops those with nothing to mark.
+pub(crate) fn read_all_actions(state: &yapfast_core::application::AppState) -> Vec<Action> {
+    let servers = state.servers.iter().map(|server| server.id.clone());
+    let chats = state
+        .rooms
+        .iter()
+        .filter(|room| room.direct && (room.unread > 0 || room.mentions > 0))
+        .map(|room| room.id.clone());
+    servers.chain(chats).map(Action::MarkRead).collect()
+}
+
+/// How full the message box is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Fill {
+    Fine,
+    Near,
+    Over,
+}
+
+/// `1234` as `1,234`.
+fn thousands(n: usize) -> String {
+    let digits = n.to_string();
+    let mut out = String::new();
+    for (at, digit) in digits.chars().enumerate() {
+        if at > 0 && (digits.len() - at) % 3 == 0 {
+            out.push(',');
+        }
+        out.push(digit);
+    }
+    out
+}
+
+/// The counter's words and how full the box is, for a draft of `used`
+/// letters under `limit`. Amber from nine tenths of the limit.
+pub fn counter_words(used: usize, limit: usize) -> (String, Fill) {
+    let fill = if used > limit {
+        Fill::Over
+    } else if used * 10 >= limit * 9 {
+        Fill::Near
+    } else {
+        Fill::Fine
+    };
+    (format!("{} / {}", thousands(used), thousands(limit)), fill)
+}
+
+/// What the counter shows for `draft`: nothing when it's off or the box is
+/// empty.
+pub fn count_words(kept: &Kept, draft: &str, nitro: bool) -> Option<(String, Fill)> {
+    if !kept.is(COUNTER) || draft.is_empty() {
+        return None;
+    }
+    Some(counter_words(
+        draft.chars().count(),
+        if nitro { 4000 } else { 2000 },
+    ))
+}
+
+/// The counter's ink: `quiet` until near the limit.
+pub fn count_color(fill: Fill, quiet: iced::Color) -> iced::Color {
+    match fill {
+        Fill::Fine => quiet,
+        Fill::Near => hex(0xf0b232),
+        Fill::Over => hex(0xf23f42),
+    }
+}
+
+/// The people in a member list's group headings (`Online \u{2014} 12`), as
+/// (online, all): everyone but the group called Offline is online.
+pub fn member_totals(lines: &[crate::looks::MemberLine]) -> (usize, usize) {
+    let (mut online, mut all) = (0, 0);
+    for line in lines {
+        let crate::looks::MemberLine::Heading { text, .. } = line else {
+            continue;
+        };
+        let Some((name, count)) = text.rsplit_once(" \u{2014} ") else {
+            continue;
+        };
+        let Ok(count) = count.trim().parse::<usize>() else {
+            continue;
+        };
+        all += count;
+        if !name.trim().eq_ignore_ascii_case("offline") {
+            online += count;
+        }
+    }
+    (online, all)
+}
+
+/// Puts the count's line first in a member list, when its plugin is on and
+/// there are people to count.
+pub fn add_member_count(kept: &Kept, lines: &mut Vec<crate::looks::MemberLine>) {
+    if !kept.is(MEMBER_COUNT) {
+        return;
+    }
+    let (online, all) = member_totals(lines);
+    if all == 0 {
+        return;
+    }
+    lines.insert(
+        0,
+        crate::looks::MemberLine::Heading {
+            text: format!(
+                "{} online \u{b7} {} members",
+                thousands(online),
+                thousands(all)
+            ),
+            icon: None,
+        },
+    );
+}
+
+/// What closes every conversation in the list: a close for each direct
+/// one. The core drops the groups and anything that can't be closed.
+pub(crate) fn close_dm_actions(state: &yapfast_core::application::AppState) -> Vec<Action> {
+    state
+        .rooms
+        .iter()
+        .filter(|room| room.direct)
+        .map(|room| Action::CloseDm(room.id.clone()))
+        .collect()
+}
+
+/// A plugin's button was pressed.
+pub fn press(app: &mut App, press: Press) -> Task<Message> {
+    match press {
+        Press::Restart => app.requests.push(crate::ctx::Request::Restart),
+        Press::CloseDms => {
+            for action in close_dm_actions(app.client.state()) {
+                app.client.dispatch(action);
+            }
+        }
+        Press::ReadAll => {
+            for action in read_all_actions(app.client.state()) {
+                app.client.dispatch(action);
+            }
+        }
+    }
+    app.sync()
 }
 
 #[cfg(test)]

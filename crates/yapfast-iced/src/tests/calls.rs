@@ -344,6 +344,76 @@ fn someones_tile_right_clicked_sets_their_volume_and_keeps_it() {
     assert!(stored().is_empty());
 }
 
+/// HaloCord's Volume booster: on from the start, someone's slider goes to
+/// 1000% and plays that loud, and it's kept; off, it stops at 200% again,
+/// and the volume kept plays once it's back.
+#[test]
+fn the_volume_booster_takes_someones_slider_past_200() {
+    use crate::halocord::{Change, VOLUME_BOOSTER, changed, place};
+    use yapfast_core::volume::{self, Kind};
+    let (mut app, folder, room) = in_call();
+    super::change(&mut app, |state| {
+        let mut carol = state.voice.participants[0].clone();
+        carol.id = "preview-carol".into();
+        carol.person = "carol".into();
+        carol.user = "Carol".into();
+        carol.local = false;
+        state.voice.participants.push(carol);
+    });
+    assert!(app.layout.halocord.is(VOLUME_BOOSTER), "on at first");
+    let _ = crate::call::update(
+        &mut app,
+        Event::Person(room, "carol".into(), Point::new(400.0, 300.0)),
+    );
+    let _ = crate::call::update(&mut app, Event::Volume(false, 600, true));
+    assert!(shows(&app, "600%"), "the slider goes that far");
+    assert!(
+        volume::get(Kind::Voice, "carol") > 5.0,
+        "and plays that loud"
+    );
+    let stored = || crate::layout::Layout::read(folder.path()).voice.volumes;
+    let kept = *stored().get("carol").expect("kept");
+    assert!((kept - volume::from_slider(600.0)).abs() < 1e-3);
+    // The most it goes to is a choice of the plugin's.
+    let plugin = place(VOLUME_BOOSTER).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 0,
+            choice: 1,
+        },
+    );
+    assert_eq!(yapfast_core::halocord::volume_cap(), 400);
+    assert!((volume::get(Kind::Voice, "carol") - volume::from_slider(400.0)).abs() < 1e-3);
+    // Off, Yapfast's own 200% is the most, and what was kept stays kept.
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert_eq!(yapfast_core::halocord::volume_cap(), 200);
+    assert_eq!(volume::get(Kind::Voice, "carol"), volume::MAX);
+    assert_eq!(stored().get("carol"), Some(&kept));
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 0,
+            choice: 4,
+        },
+    );
+    assert!((volume::get(Kind::Voice, "carol") - kept).abs() < 1e-3);
+    volume::set(Kind::Voice, "carol", 1.0);
+}
+
 #[test]
 fn the_signal_opens_the_connections_details_with_their_tabs() {
     use crate::call::{LinkEvent, LinkTab};
@@ -636,4 +706,169 @@ fn someones_voice_menu_keeps_the_cores_order_with_an_icon_on_each_row() {
     for row in &menu.rows {
         assert!(row.icon.is_some(), "{} has its icon", row.label);
     }
+}
+
+/// HaloCord's Force mono: off at first, switched on it tells the core to
+/// play every voice the same in both ears, and off again it stops.
+#[test]
+fn force_mono_starts_off_and_switches_the_core() {
+    use crate::halocord::{Change, FORCE_MONO, changed, place};
+    let (mut app, _folder) = super::preview();
+    assert!(!app.layout.halocord.is(FORCE_MONO), "off at first");
+    let mut set = |on| {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Switch {
+                plugin: place(FORCE_MONO).unwrap(),
+                on,
+            },
+        );
+        app.layout.halocord.is(FORCE_MONO)
+    };
+    assert!(set(true));
+    assert!(yapfast_core::halocord::mono());
+    assert!(!set(false));
+    assert!(!yapfast_core::halocord::mono());
+}
+
+/// HaloCord's Click to unmute: someone muted for this account gets a mark in
+/// the voice list while the plugin is on, and a click on it unmutes them
+/// and keeps that; off, no mark.
+#[test]
+fn click_to_unmute_marks_the_muted_and_unmutes_on_a_click() {
+    use crate::halocord::{CLICK_TO_UNMUTE, Change, changed, place, unmute_mark};
+    let (mut app, folder) = super::preview();
+    let dana = yapfast_core::chat::VoicePerson {
+        id: "unmute-dana".into(),
+        name: "Dana".into(),
+        ..Default::default()
+    };
+    assert!(app.layout.halocord.is(CLICK_TO_UNMUTE), "on at first");
+    assert!(unmute_mark(app.ctx(), &dana, None).is_none(), "not muted");
+    // Muted from her menu's box, as it does.
+    yapfast_core::volume::mute("unmute-dana", true);
+    app.layout.voice.muted_people.insert("unmute-dana".into());
+    assert!(unmute_mark(app.ctx(), &dana, None).is_some(), "the mark");
+    let _ = app.update(crate::app::Message::Call(Event::Unmute(
+        "unmute-dana".into(),
+    )));
+    assert!(!yapfast_core::volume::muted("unmute-dana"));
+    assert!(!app.layout.voice.muted_people.contains("unmute-dana"));
+    crate::layout::flush(folder.path());
+    let kept = std::fs::read_to_string(folder.path().join("layout.json")).expect("the layout");
+    assert!(!kept.contains("unmute-dana"), "kept unmuted");
+    // Switched off, the mark goes even for someone muted.
+    yapfast_core::volume::mute("unmute-dana", true);
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(CLICK_TO_UNMUTE).unwrap(),
+            on: false,
+        },
+    );
+    assert!(unmute_mark(app.ctx(), &dana, None).is_none(), "plugin off");
+    yapfast_core::volume::mute("unmute-dana", false);
+}
+
+/// HaloCord's Voice count: off at first; on, a voice channel's row ends in
+/// how many people are in it, and an empty one stays bare unless its
+/// setting is on.
+#[test]
+fn voice_count_writes_how_many_are_in_a_voice_channel() {
+    use crate::halocord::{Change, VOICE_COUNT, changed, place};
+    let (mut app, _folder) = super::preview();
+    let crowd = |count: usize| {
+        (0..count)
+            .map(|at| yapfast_core::chat::VoicePerson {
+                id: format!("crowd-{at}"),
+                name: format!("Crowd {at}"),
+                ..Default::default()
+            })
+            .collect::<Vec<_>>()
+    };
+    let put = |app: &mut App, count| {
+        super::change(app, |state| {
+            let lounge = state
+                .rooms
+                .iter_mut()
+                .find(|room| room.id == "lounge")
+                .expect("the preview's Lounge");
+            std::sync::Arc::make_mut(lounge).people = crowd(count);
+        });
+    };
+    let switch = |app: &mut App, on| {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Switch {
+                plugin: place(VOICE_COUNT).unwrap(),
+                on,
+            },
+        );
+    };
+    put(&mut app, 7);
+    assert!(!app.layout.halocord.is(VOICE_COUNT), "off at first");
+    assert!(!super::shows(&app, "7"), "no count while off");
+    switch(&mut app, true);
+    assert!(super::shows(&app, "7"), "seven in the Lounge");
+    put(&mut app, 0);
+    assert!(!super::shows(&app, "0"), "an empty channel stays bare");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin: place(VOICE_COUNT).unwrap(),
+            setting: 0,
+            on: true,
+        },
+    );
+    assert!(super::shows(&app, "0"), "0 beside an empty one when asked");
+}
+
+/// HaloCord's User voice show: off at first; on, a member who is in a voice
+/// channel gets a mark that names it, and one who isn't gets none.
+#[test]
+fn user_voice_show_marks_members_who_are_in_a_voice_channel() {
+    use crate::halocord::{Change, USER_VOICE_SHOW, changed, in_voice_mark, place, voice_room_of};
+    let (mut app, _folder) = super::preview();
+    super::change(&mut app, |state| {
+        let lounge = state
+            .rooms
+            .iter_mut()
+            .find(|room| room.id == "lounge")
+            .expect("the preview's Lounge");
+        std::sync::Arc::make_mut(lounge).people = vec![yapfast_core::chat::VoicePerson {
+            id: "voice-vera".into(),
+            name: "Vera".into(),
+            ..Default::default()
+        }];
+    });
+    let lounge = app
+        .client
+        .state()
+        .rooms
+        .iter()
+        .find(|room| room.id == "lounge")
+        .expect("Lounge")
+        .name
+        .clone();
+    assert_eq!(
+        voice_room_of(&app.client.state().rooms, "voice-vera"),
+        Some(lounge.as_str())
+    );
+    assert_eq!(voice_room_of(&app.client.state().rooms, "nobody"), None);
+    assert!(!app.layout.halocord.is(USER_VOICE_SHOW), "off at first");
+    assert!(in_voice_mark(app.ctx(), "voice-vera").is_none(), "off");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(USER_VOICE_SHOW).unwrap(),
+            on: true,
+        },
+    );
+    assert!(in_voice_mark(app.ctx(), "voice-vera").is_some(), "in voice");
+    assert!(in_voice_mark(app.ctx(), "nobody").is_none(), "not in voice");
 }

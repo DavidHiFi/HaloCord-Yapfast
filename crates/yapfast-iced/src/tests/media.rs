@@ -158,6 +158,142 @@ fn apply(app: &mut crate::app::App, messages: Vec<crate::app::Message>) {
     }
 }
 
+/// A file with an address, `notes.txt`, placed `placement`.
+fn file_at(placement: Placement) -> Attachment {
+    Attachment {
+        image: false,
+        dimensions: None,
+        ..picture_at("notes.txt", 0, placement, false)
+    }
+}
+
+#[test]
+fn a_files_right_click_has_the_plugins_rows_only_while_a_plugin_gives_them() {
+    use crate::{
+        halocord::{Change, changed, place},
+        menus::MenuAct,
+    };
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    only(
+        &mut app,
+        ChatMessage {
+            attachments: vec![file_at(Placement::Message)],
+            ..Default::default()
+        },
+    );
+    let at = bounds_of(&app, "notes.txt").center();
+    // No plugin: nothing opens.
+    let menu = clicked(&app, at, iced::mouse::Button::Right);
+    apply(&mut app, menu);
+    assert!(app.win.menu.is_none());
+    let plugin = place("copy-media-link").expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let menu = clicked(&app, at, iced::mouse::Button::Right);
+    apply(&mut app, menu);
+    let shown = app.win.menu.as_ref().expect("the file's menu");
+    assert_eq!(shown.rows.len(), 1);
+    let row = &shown.rows[0];
+    assert_eq!(row.label, "Copy file link");
+    assert_eq!(row.act, MenuAct::Plugin);
+    assert_eq!(row.key, "copy-media-link/copy#0");
+    let _ = app.update(crate::app::Message::Menu(crate::menus::Event::Choose(0)));
+    assert!(app.win.menu.is_none(), "choosing it closes the menu");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}
+
+#[test]
+fn a_stickers_right_click_has_the_plugins_rows_only_while_a_plugin_gives_them() {
+    use crate::halocord::{Change, changed, place};
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    only(
+        &mut app,
+        ChatMessage {
+            body: "Wave".into(),
+            attachments: vec![picture_at("wave.png", 120, Placement::Sticker, false)],
+            ..Default::default()
+        },
+    );
+    // The sticker sits under the message's text.
+    let body = bounds_of(&app, "Wave");
+    let at = iced::Point::new(body.x + 60.0, body.y + body.height + 64.0);
+    let menu = clicked(&app, at, iced::mouse::Button::Right);
+    apply(&mut app, menu);
+    let gives = |app: &crate::app::App| {
+        app.win.menu.as_ref().is_some_and(|menu| {
+            menu.rows
+                .iter()
+                .any(|row| row.key == "copy-sticker-links/copy#0")
+        })
+    };
+    assert!(!gives(&app));
+    let _ = app.update(crate::app::Message::Menu(crate::menus::Event::Close));
+    let plugin = place("copy-sticker-links").expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let menu = clicked(&app, at, iced::mouse::Button::Right);
+    apply(&mut app, menu);
+    assert!(gives(&app), "the sticker's menu");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}
+
+#[test]
+fn a_messages_menu_has_mention_only_for_someone_elses_discord_message() {
+    use crate::halocord::{Change, changed, place};
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let plugin = place("quick-mention").expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let has_row = |app: &mut crate::app::App, sender: &str| {
+        only(
+            app,
+            ChatMessage {
+                body: "Hello there".into(),
+                sender: sender.into(),
+                ..Default::default()
+            },
+        );
+        let at = bounds_of(app, "Hello there").center();
+        let menu = clicked(app, at, iced::mouse::Button::Right);
+        apply(app, menu);
+        let found = app.win.menu.as_ref().is_some_and(|menu| {
+            menu.rows
+                .iter()
+                .any(|row| row.key == "quick-mention/mention" && row.label == "Mention")
+        });
+        let _ = app.update(crate::app::Message::Menu(crate::menus::Event::Close));
+        found
+    };
+    assert!(has_row(&mut app, "discord:42"));
+    assert!(!has_row(&mut app, "@sam:matrix.org"));
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert!(!has_row(&mut app, "discord:42"));
+}
+
 /// A spoiler beside a card's text: a click uncovers it, the next shows
 /// it large, and a right click opens the message's menu with its rows.
 fn a_thumbnail_uncovers_opens_and_has_its_menu(message: ChatMessage) {

@@ -31,6 +31,18 @@ whole list to carry across.
   them in or take them out, and the calls each hook below makes.
 - `crates/yapfast-core/src/halocord/staff.rs`: the staff tag plugin's hook (owner,
   admin and mod by names in chat) and its crown and role-colour switches.
+- `crates/yapfast-core/src/halocord/copy_user_mention.rs`: Copy mention in a
+  Discord user's menu.
+- `crates/yapfast-core/src/halocord/copy_media_link.rs`: Copy file link in a file's
+  menu.
+- `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link in a
+  sticker's menu.
+- `crates/yapfast-core/src/halocord/quick_mention.rs`: Mention in a message's menu
+  (puts the sender's name in the message box).
+- `crates/yapfast-core/src/halocord/copy_user_url.rs`: Copy profile link in a
+  Discord user's menu.
+- `crates/yapfast-core/src/halocord/new_user.rs`: the new account tag plugin's hook (an amber tag by
+  accounts younger than N days, read from the Discord id) and its day count.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -54,7 +66,13 @@ numbers match the port plan.
 5. Menu rows (`yapfast-iced/src/menus.rs`): `MenuAct::Plugin`; `open_menu` adds
    `halocord::menu_rows` before Delete; `carry_out` sends the row's key
    (`plugin-id/action`) to `halocord::pick`; `act` lists it with the menus' own.
-   A row's pick gives actions for the app and text to copy.
+   A row's pick gives actions for the app and text to copy. A person's menu takes
+   rows the same way (`person_menu`, `person_pick`): `open_person_menu` adds
+   `halocord::person_rows`, and `carry_out` sends a row picked in a menu with a
+   `place` to `halocord::chosen`, which routes it to the person.
+   A file's or sticker's menu takes rows too (`attachment_menu`, `attachment_pick`):
+   a right click sends `image_viewer::Event::Attachment`, `halocord::attachment_menu`
+   opens the rows, and a key ending `#<index>` goes to `halocord::attachment_pick`.
 6. Setting kinds: in HaloCord's own files only. Kept values stay plain JSON (a
    number, `true`/`false` or a string), so the stereo loader's saved bit rate reads
    as before.
@@ -78,7 +96,8 @@ Window (`yapfast-iced`):
 - `settings/mod.rs`: `Section::MochaCord`, its title, icon, group entry and page.
 - `settings/pages/mod.rs`: `mod mochacord;`, `Pref::MochaCord(Change)` and its arm.
 - `layout.rs`: the `halocord: crate::halocord::Kept` field on `Layout`.
-- `app/mod.rs`: `layout.halocord.apply();` after `layout.voice.apply();` at start.
+- `app/mod.rs`: `layout.halocord.apply();` before `layout.voice.apply();` at start (the
+  Volume booster's cap is set before people's saved volumes play).
 - `settings/mod.rs`: `Section::HaloCord`, its title ("Plugins") and icon, its group,
   and its page; Settings' own search keeps the section when `halocord::any_found`
   finds a plugin (the page narrows its list the same way).
@@ -88,12 +107,35 @@ Window (`yapfast-iced`):
 - `client.rs`: plug-in point 2, one match arm in `execute`.
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines.
+- `person_menu.rs`: plug-in point 5, `open_person_menu` adds `halocord::person_rows`
+  (two lines, `rows` is `mut`).
+- `message/attachments.rs`: plug-in point 5, `file_card` and `stickers` wrap what they draw in a
+  right click (`RightPress`, `Event::Attachment`; a few lines each).
+- `image_viewer.rs`: the `Event::Attachment` variant and its empty arm.
+- `app/screens.rs`: one arm in `image_event` calling `halocord::attachment_menu`.
 - `account.rs`: the User area plugin's options. `height(compact)` beside `HEIGHT`,
   `Event::Plugin(Change)`, and `view` reads `layout.halocord.dock()` for compact mode
   (smaller, inside the channel list), hidden dropdown arrows and the extra buttons,
   and says "Faking mute" or "Faking deafen" under the name in a call.
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
+- `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
+  (200 unless the Volume booster is on), in place of 200.
+- `call/mod.rs`: `Event::Unmute(person)` and its arm, which calls `halocord::unmute`.
+- `sidebar/voice.rs`: `voice_person` ends its marks with `halocord::unmute_mark`, a click-to-unmute
+  mark beside someone muted for this account (one `if let`).
+- `sidebar/channels.rs`: `room_row` pushes `halocord::voice_count` (the Voice count plugin's number)
+  before the badge on a voice channel's row (one `if let`).
+- `members.rs`: `member_row` pushes `halocord::in_voice_mark` after the timed-out clock (one `if let`).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
+- `window_bar.rs`: `Event::Halo(Press)` with its arm in `update` (a plugin's button
+  pressed), and the buttons `halocord::presses` lists, pushed before Inbox in
+  `window_bar`.
+- `account.rs`: the same buttons beside Settings, when the window has no title bar of
+  its own.
+- `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
+- `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
+- `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
+- `tests/mod.rs`: `mod halocord_buttons;` and `mod halocord_button_pictures;`.
 
 Kit (`yapfast-iced-kit`) and vendor:
 
@@ -113,9 +155,14 @@ Core (`yapfast-core`):
 - `application.rs`: plug-in point 1, two checks and two `after` calls.
 - `application/members.rs`: `member_standing(place, user)`, whether a member owns the
   server and what it lets them do (the staff tag reads it).
+- `volume.rs`: `most()` in place of `MAX` in `set` (`MAX`, or what the Volume booster's cap
+  allows), and `from_slider` / `to_slider` carry on in a line past 200.
 - `discord_voice.rs`: both `set_self` calls send `halocord::voice_state(muted, deafened)`.
 - `discord_text/commands.rs`: plug-in point 3, `halocord::live` in `live`.
 - `discord_audio.rs`:
+  - In `mix`, while `halocord::mono()` (Force mono), a person's voice goes through
+    `halocord::add_mono` and the loop moves on (four lines). Stream and Matrix
+    sound are left as they are.
   - `mod flat;`.
   - `Gate` takes its block size as a const generic (`Gate<const N: usize = BLOCK>`),
     so the flat microphone gates stereo blocks with the same gate.
@@ -142,8 +189,12 @@ Calls (`yapfast-discord`):
 - Core `halocord::staff::tests`: ranks, tags and options. `halocord::tests` also
   covers the fake voice state.
 - Window `tests/settings.rs`: the plugins page, fake switches, the user area's dock.
+- Window `tests/halocord_buttons.rs`: the button plugins (restart, read all, close all
+  DMs, the counter, the member count).
 - Window `halocord::tests`: point 5's rows, point 6's kinds, the stereo loader's
   saved values.
+- Window `tests/halocord_menu_pictures.rs`: ignored tests that draw each right-click
+  plugin's row into `audit/plugins/menus-<plugin>.png`.
 
 ## Candidates to offer upstream
 

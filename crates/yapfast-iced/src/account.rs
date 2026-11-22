@@ -502,6 +502,20 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             ))),
         ));
     }
+    // Plugin buttons that sit in the top bar when Yapfast draws one.
+    if !ctx.own_title_bar {
+        for (icon, label, press) in crate::halocord::presses(kept) {
+            controls = controls.push(tinted_button(
+                ctx,
+                icon,
+                label,
+                theme.text,
+                glyph(20),
+                side,
+                Some(Message::Bar(crate::window_bar::Event::Halo(press))),
+            ));
+        }
+    }
     // Offline, Reconnect before Settings.
     let state = ctx.state;
     let controls = if !state.preview && !state.online {

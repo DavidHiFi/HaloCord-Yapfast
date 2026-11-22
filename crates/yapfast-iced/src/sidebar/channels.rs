@@ -76,6 +76,25 @@ impl<'a> super::View<'a> {
                     .size(24.0, 16)
                     .below(),
             ]
+            .push(
+                self.cx
+                    .layout
+                    .halocord
+                    .is(crate::halocord::CLOSE_DMS)
+                    .then(|| {
+                        self.cx
+                            .look
+                            .icon_button(
+                                Icon::X,
+                                "Close all direct messages",
+                                Message::Bar(crate::window_bar::Event::Halo(
+                                    crate::halocord::Press::CloseDms,
+                                )),
+                            )
+                            .size(24.0, 16)
+                            .below()
+                    }),
+            )
             .spacing(4)
             .padding(Padding {
                 left: 8.0,
@@ -540,6 +559,13 @@ impl<'a> super::View<'a> {
         if let Some(started) = room.started {
             let lasted = yapfast_core::clock::lasted(started, self.cx.minute);
             face = face.push(text(lasted).size(12).color(theme.muted));
+        }
+        if let Some(count) = room
+            .voice
+            .then(|| crate::halocord::voice_count(self.cx, room.people.len()))
+            .flatten()
+        {
+            face = face.push(count);
         }
         if !room.badge.is_empty() {
             face = face.push(count_pill(theme, &room.badge, ROW_COUNT, None));
