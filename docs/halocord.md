@@ -103,6 +103,7 @@ Window (`yapfast-iced`):
   its own.
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
+- `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
 - `tests/mod.rs`: `mod halocord_buttons;`.
 
 Kit (`yapfast-iced-kit`) and vendor:

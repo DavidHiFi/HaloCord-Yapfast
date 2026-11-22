@@ -43,6 +43,7 @@ pub const READ_ALL: &str = "read-all-button";
 pub const COUNTER: &str = "character-counter";
 pub const NEW_USER: &str = "new-user-tag";
 pub const CLOSE_DMS: &str = "close-all-dms";
+pub const MEMBER_COUNT: &str = "member-count";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -274,6 +275,15 @@ pub static PLUGINS: &[Plugin] = &[
         id: CLOSE_DMS,
         name: "Close all DMs",
         about: "A small X beside Direct Messages that closes every one-to-one conversation in the list at once. Group chats stay. The messages aren't deleted, and a new message from someone opens theirs again.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
+    },
+    Plugin {
+        id: MEMBER_COUNT,
+        name: "Member count",
+        about: "Shows how many people are online and how many have joined, in a line at the top of the member list.",
         on_at_first: false,
         settings: &[],
         apply: |_, _| {},
@@ -692,6 +702,51 @@ pub fn count_color(fill: Fill, quiet: iced::Color) -> iced::Color {
         Fill::Near => hex(0xf0b232),
         Fill::Over => hex(0xf23f42),
     }
+}
+
+/// The people in a member list's group headings (`Online \u{2014} 12`), as
+/// (online, all): everyone but the group called Offline is online.
+pub fn member_totals(lines: &[crate::looks::MemberLine]) -> (usize, usize) {
+    let (mut online, mut all) = (0, 0);
+    for line in lines {
+        let crate::looks::MemberLine::Heading { text, .. } = line else {
+            continue;
+        };
+        let Some((name, count)) = text.rsplit_once(" \u{2014} ") else {
+            continue;
+        };
+        let Ok(count) = count.trim().parse::<usize>() else {
+            continue;
+        };
+        all += count;
+        if !name.trim().eq_ignore_ascii_case("offline") {
+            online += count;
+        }
+    }
+    (online, all)
+}
+
+/// Puts the count's line first in a member list, when its plugin is on and
+/// there are people to count.
+pub fn add_member_count(kept: &Kept, lines: &mut Vec<crate::looks::MemberLine>) {
+    if !kept.is(MEMBER_COUNT) {
+        return;
+    }
+    let (online, all) = member_totals(lines);
+    if all == 0 {
+        return;
+    }
+    lines.insert(
+        0,
+        crate::looks::MemberLine::Heading {
+            text: format!(
+                "{} online \u{b7} {} members",
+                thousands(online),
+                thousands(all)
+            ),
+            icon: None,
+        },
+    );
 }
 
 /// What closes every conversation in the list: a close for each direct

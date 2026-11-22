@@ -211,3 +211,34 @@ fn close_all_dms_is_off_at_first_and_closes_each_direct_chat_only() {
     let _ = app.view();
     let _ = app.update(Message::Bar(Event::Halo(Press::CloseDms)));
 }
+
+#[test]
+fn the_member_count_adds_one_line_first_counting_everyone_but_offline_as_online() {
+    use crate::{
+        halocord::{MEMBER_COUNT, add_member_count, member_totals},
+        looks::MemberLine,
+    };
+    let heading = |text: &str| MemberLine::Heading {
+        text: text.into(),
+        icon: None,
+    };
+    let mut lines = vec![
+        heading("Admins \u{2014} 2"),
+        heading("Online \u{2014} 1,200".replace(',', "").as_str()),
+        heading("Offline \u{2014} 40"),
+    ];
+    assert_eq!(member_totals(&lines), (1202, 1242));
+    let (mut app, _folder) = preview();
+    add_member_count(&app.layout.halocord, &mut lines);
+    assert_eq!(lines.len(), 3, "off at first: nothing added");
+    switch(&mut app, MEMBER_COUNT, true);
+    add_member_count(&app.layout.halocord, &mut lines);
+    assert_eq!(
+        lines[0],
+        heading("1,202 online \u{b7} 1,242 members"),
+        "first, with commas"
+    );
+    let mut none = Vec::new();
+    add_member_count(&app.layout.halocord, &mut none);
+    assert!(none.is_empty(), "nobody to count");
+}
