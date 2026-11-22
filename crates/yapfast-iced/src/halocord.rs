@@ -42,6 +42,7 @@ pub const RESTART: &str = "restart-button";
 pub const READ_ALL: &str = "read-all-button";
 pub const COUNTER: &str = "character-counter";
 pub const NEW_USER: &str = "new-user-tag";
+pub const CLOSE_DMS: &str = "close-all-dms";
 
 /// One plugin: its switch on HaloCord's page and what it does.
 pub struct Plugin {
@@ -268,6 +269,15 @@ pub static PLUGINS: &[Plugin] = &[
             engine::new_user::set_days(kept.value(plugin, &plugin.settings[0]));
         },
         hooks: Some(&engine::new_user::NewUsers),
+    },
+    Plugin {
+        id: CLOSE_DMS,
+        name: "Close all DMs",
+        about: "A small X beside Direct Messages that closes every one-to-one conversation in the list at once. Group chats stay. The messages aren't deleted, and a new message from someone opens theirs again.",
+        on_at_first: false,
+        settings: &[],
+        apply: |_, _| {},
+        hooks: None,
     },
 ];
 
@@ -602,6 +612,7 @@ pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
 pub enum Press {
     Restart,
     ReadAll,
+    CloseDms,
 }
 
 /// The buttons the plugins that are on add: icon, tip and what they do.
@@ -683,10 +694,26 @@ pub fn count_color(fill: Fill, quiet: iced::Color) -> iced::Color {
     }
 }
 
+/// What closes every conversation in the list: a close for each direct
+/// one. The core drops the groups and anything that can't be closed.
+pub(crate) fn close_dm_actions(state: &yapfast_core::application::AppState) -> Vec<Action> {
+    state
+        .rooms
+        .iter()
+        .filter(|room| room.direct)
+        .map(|room| Action::CloseDm(room.id.clone()))
+        .collect()
+}
+
 /// A plugin's button was pressed.
 pub fn press(app: &mut App, press: Press) -> Task<Message> {
     match press {
         Press::Restart => app.requests.push(crate::ctx::Request::Restart),
+        Press::CloseDms => {
+            for action in close_dm_actions(app.client.state()) {
+                app.client.dispatch(action);
+            }
+        }
         Press::ReadAll => {
             for action in read_all_actions(app.client.state()) {
                 app.client.dispatch(action);

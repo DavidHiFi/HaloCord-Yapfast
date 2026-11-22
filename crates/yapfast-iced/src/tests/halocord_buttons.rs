@@ -179,3 +179,35 @@ fn the_new_account_tag_is_off_at_first_and_keeps_its_days() {
     assert_eq!(app.layout.halocord.value(&PLUGINS[plugin], days), 30);
     let _ = app.view();
 }
+
+#[test]
+fn close_all_dms_is_off_at_first_and_closes_each_direct_chat_only() {
+    use crate::halocord::{CLOSE_DMS, close_dm_actions};
+    let (mut app, _folder) = preview();
+    assert!(!app.layout.halocord.is(CLOSE_DMS), "off at first");
+    let direct: Vec<String> = app
+        .client
+        .state()
+        .rooms
+        .iter()
+        .filter(|room| room.direct)
+        .map(|room| room.id.clone())
+        .collect();
+    assert!(!direct.is_empty(), "the preview has direct chats");
+    let closes: Vec<String> = close_dm_actions(app.client.state())
+        .into_iter()
+        .map(|action| {
+            let Action::CloseDm(id) = action else {
+                panic!("not a close");
+            };
+            id
+        })
+        .collect();
+    assert_eq!(
+        closes, direct,
+        "one for each direct chat, no servers' channels"
+    );
+    switch(&mut app, CLOSE_DMS, true);
+    let _ = app.view();
+    let _ = app.update(Message::Bar(Event::Halo(Press::CloseDms)));
+}
