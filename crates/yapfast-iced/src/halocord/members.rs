@@ -1,5 +1,6 @@
 //! Member list plugins: the member count line, Platform indicators, Show
-//! timeout duration, Better joined date, View icons and Show hidden things.
+//! timeout duration, Better joined date, View icons, Show hidden things and Show song
+//! name.
 
 use iced::Element;
 
@@ -7,6 +8,18 @@ use chrono::NaiveDate;
 
 use super::{Kept, Kind, Plugin, Setting, id, thousands};
 use crate::{app::Message, ctx::Ctx, pictures::Icon, style::hex};
+
+pub(super) const SHOW_SONG_NAME: Plugin = Plugin {
+    id: id::SHOW_SONG_NAME,
+    name: "Show song name",
+    about: "Someone listening to Spotify shows the song's name under their name in the member list, not \"Spotify\".",
+    on_at_first: false,
+    settings: &[],
+    apply: |kept, plugin| {
+        yapfast_core::yapfast_discord::halocord::set_song_names(kept.on(plugin));
+    },
+    hooks: None,
+};
 
 pub(super) const MEMBER_COUNT: Plugin = Plugin {
     id: id::MEMBER_COUNT,

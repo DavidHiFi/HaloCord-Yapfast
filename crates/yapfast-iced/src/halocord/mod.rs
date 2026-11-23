@@ -147,6 +147,7 @@ pub mod id {
     pub const BETTER_UPLOAD_BUTTON: &str = "better-upload-button";
     pub const NOTIFICATION_TITLE: &str = "notification-title";
     pub const SHOW_HIDDEN: &str = "show-hidden-things";
+    pub const SHOW_SONG_NAME: &str = "show-song-name";
 
 }
 
@@ -209,6 +210,7 @@ pub static PLUGINS: &[Plugin] = &[
     chat::BETTER_UPLOAD_BUTTON,
     chat::NOTIFICATION_TITLE,
     members::SHOW_HIDDEN,
+    members::SHOW_SONG_NAME,
 
 ];
 

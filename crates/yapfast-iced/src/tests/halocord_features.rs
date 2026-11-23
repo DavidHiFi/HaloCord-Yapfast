@@ -899,5 +899,45 @@ fn show_hidden_things_shows_timeouts_on_messages_and_paused_invites() {
         Change::Switch { plugin, on: false },
     );
     note_invites("halo-test-paused", false);
+}
+
+/// Show song name: Riley, listening to Spotify, shows the song under their
+/// name in the member list while it's on, and "Spotify" again once off;
+/// the list is made again on the switch, though nobody changed.
+#[test]
+fn show_song_name_names_the_song_in_the_member_list() {
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let music = yapfast_core::yapfast_discord::activity::activities(&serde_json::json!([{
+        "type": 2, "name": "Spotify", "details": "Ashes of the Damned", "state": "Kevin Sherwood",
+    }]));
+    let line = music.first().and_then(|first| first.line());
+    super::change(&mut app, |state| {
+        for members in state.members.iter_mut().flatten() {
+            for member in std::sync::Arc::make_mut(members) {
+                if member.name == "Riley" {
+                    member.activities = music.clone();
+                    member.activity = line.clone();
+
+                }
+            }
+        }
+    });
+    app.show_roster(false);
+    let song = "Ashes of the Damned";
+    assert!(!super::shows(&app, song), "off: the app's name");
+    turn_on(&mut app, id::SHOW_SONG_NAME);
+    app.show_roster(false);
+    assert!(super::shows(&app, song), "on: the song");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::SHOW_SONG_NAME).expect("the plugin"),
+            on: false,
+        },
+    );
+    app.show_roster(false);
+    assert!(!super::shows(&app, song), "off again");
 
 }

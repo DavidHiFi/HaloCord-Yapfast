@@ -137,6 +137,9 @@ pub struct LooksMadeWith {
     pub cosmetics: yapfast_core::application::Cosmetics,
     pub hide_nameplates: bool,
     pub in_server: bool,
+    /// HaloCord's Show song name (docs/halocord.md): switching it makes
+    /// the lines again.
+    pub song_names: bool,
 }
 
 impl LooksMadeWith {
@@ -147,6 +150,7 @@ impl LooksMadeWith {
             cosmetics: state.cosmetics,
             hide_nameplates: state.hide_nameplates,
             in_server: in_server(state.selected.as_deref()),
+            song_names: yapfast_core::yapfast_discord::halocord::song_names(),
         }
     }
 }

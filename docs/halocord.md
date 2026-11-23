@@ -84,7 +84,8 @@ whole list to carry across.
   file's menu (downloads it as Copy Image does; the window copies it as text).
 - `crates/yapfast-discord/src/halocord/invites.rs`: Show hidden things' record of the
   servers whose invites are paused.
-- `crates/yapfast-discord/src/halocord.rs`: Platform indicators' record of which of
+- `crates/yapfast-discord/src/halocord.rs`: Show song name's switch and `song_name`, and
+  Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
 - `crates/yapfast-discord/src/halocord/presence.rs`: Custom RPC's activity (type
   numbers, timer, pictures, buttons), Animated status's lines, the outside
@@ -371,6 +372,10 @@ Window (`yapfast-iced`):
   clock (Show hidden things).
 - `rail.rs`: a server's name when pointed at goes through `halocord::server_tip` (Show hidden
   things: Invites paused).
+- `activity.rs` (`yapfast-discord`): `subline` names the song with `halocord::song_name` in
+  place of the app's name while Show song name is on; `looks.rs`: `LooksMadeWith`'s
+  `song_names`, so switching it makes the member list's lines again.
+
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
 - `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
   `self.theme_event` (it gives a task now).
