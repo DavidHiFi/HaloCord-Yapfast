@@ -263,3 +263,70 @@ fn song_link_offers_song_link_for_a_song() {
         },
     );
 }
+
+/// Song link's buttons: under a message with a song, "Song links" while
+/// the plugin is on; a press asks song.link (not run in tests) and its
+/// answer is kept by the link; the "Buttons under a song" switch off takes
+/// them away.
+#[test]
+fn song_link_buttons_ask_once_pressed_and_keep_the_answer() {
+    use yapfast_core::yapfast_discord::halocord::SongPlatform;
+
+    use crate::halocord::{Event, song_buttons};
+    let (mut app, _folder) = preview();
+    let link = "https://open.spotify.com/track/halo-test-buttons";
+    super::change(&mut app, |state| {
+        std::sync::Arc::make_mut(&mut std::sync::Arc::make_mut(&mut state.messages)[0]).body =
+            format!("hear {link}?si=abc");
+    });
+    let message = |app: &App| (*app.client.state().messages[0]).clone();
+    assert!(song_buttons(app.ctx(), &message(&app)).is_none(), "off");
+    turn_on(&mut app, id::SONG_LINK);
+    assert!(
+        song_buttons(app.ctx(), &message(&app)).is_some(),
+        "Song links"
+    );
+    // Pressed: asked for the link without Spotify's share id.
+    let _ = app.update(Message::HaloCord(Event::SongLinks(link.into())));
+    assert_eq!(crate::halocord::song_buttons_known(link), None, "waiting");
+    let found = vec![
+        SongPlatform {
+            key: "spotify".into(),
+            url: link.into(),
+            native: Some("spotify:track:1".into()),
+        },
+        SongPlatform {
+            key: "deezer".into(),
+            url: "https://www.deezer.com/track/2".into(),
+            native: None,
+        },
+    ];
+    let _ = app.update(Message::HaloCord(Event::SongLinksFound(
+        link.into(),
+        Ok(found),
+    )));
+    assert_eq!(crate::halocord::song_buttons_known(link), Some(2));
+    assert!(
+        song_buttons(app.ctx(), &message(&app)).is_some(),
+        "a button each"
+    );
+    let plugin = place(id::SONG_LINK).expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 1,
+            on: false,
+        },
+    );
+    assert!(
+        song_buttons(app.ctx(), &message(&app)).is_none(),
+        "its switch off"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}

@@ -250,6 +250,10 @@ pub fn message_content<'a>(
     if let Some(failed) = crate::components::bot_failed(ctx, message) {
         content = content.push(failed);
     }
+    // HaloCord's Song link (docs/halocord.md): its buttons.
+    if let Some(songs) = crate::halocord::song_buttons(ctx, message) {
+        content = content.push(container(songs).padding(Padding::ZERO.top(4)));
+    }
     if let Some(thread) = &message.thread {
         content = content.push(thread_chip(ctx, thread));
     }

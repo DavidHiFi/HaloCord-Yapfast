@@ -4,7 +4,7 @@
 use iced::Task;
 use yapfast_core::{application::Action, chat::ChatMessage, halocord as engine};
 
-use super::{Kind, Plugin, Setting, id};
+use super::{Kind, Plugin, Setting, id, off};
 use crate::{
     app::{App, Message},
     menus::{MenuAct, MenuRow},
@@ -189,15 +189,30 @@ pub(super) const SONG_LINK: Plugin = Plugin {
     name: "Song link",
     about: "\"Open on song.link\" in the menu of a message with a Spotify or TIDAL track, an Apple Music album or song, or a YouTube Music video opens song.link's page for it, which links the song on every service.",
     on_at_first: false,
-    settings: &[Setting {
-        key: "country",
-        heading: "Country",
-        note: "Two letters, for the services' links in that country. Empty, song.link goes by where you are.",
-        kind: Kind::Text {
-            placeholder: "US",
-            unless_changed: "",
+    settings: &[
+        Setting {
+            key: "country",
+            heading: "Country",
+            note: "Two letters, for the services' links in that country. Empty, song.link goes by where you are.",
+            kind: Kind::Text {
+                placeholder: "US",
+                unless_changed: "",
+            },
         },
-    }],
+        Setting {
+            key: "buttons",
+            heading: "Buttons under a song",
+            note: "\"Song links\" under a message with a song asks song.link where it is, then shows a button for each service.",
+            kind: Kind::Switch {
+                unless_changed: true,
+            },
+        },
+        off(
+            "apps",
+            "Open in the apps",
+            "A service's button opens its desktop app, where song.link knows its address.",
+        ),
+    ],
     apply: |_, _| {},
     hooks: None,
 };
@@ -262,7 +277,7 @@ fn percent_encode(text: &str, into: &mut String) {
 }
 
 /// `link` without Spotify's `si`, which names who shared it.
-fn without_share_id(link: &str) -> String {
+pub(super) fn without_share_id(link: &str) -> String {
     let spotify = ["https://open.spotify.com/", "https://play.spotify.com/"]
         .iter()
         .any(|start| link.starts_with(start));

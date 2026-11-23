@@ -49,6 +49,9 @@ whole list to carry across.
   menu.
 - `crates/yapfast-core/src/halocord/copy_file_contents.rs`: Copy file text in a text
   file's menu (downloads it as Copy Image does; the window copies it as text).
+- `crates/yapfast-discord/src/halocord/song_link.rs`: Song link's buttons ask song.link's
+  public API (`api.song.link/v1-alpha.1/links`) where a song is, only when pressed.
+- `crates/yapfast-iced/src/halocord/song_buttons.rs`: the buttons, and song.link's answers.
 - `crates/yapfast-discord/src/halocord.rs`: Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
 - `crates/yapfast-iced-kit/icons/halo-desktop.svg`, `halo-phone.svg`, `halo-web.svg`:
@@ -159,6 +162,8 @@ Window (`yapfast-iced`):
   the change handler, which calls `halocord::changed` (keeps it under `halocord`,
   and sends the voice state again when a fake mute or deafen switch changes in a call).
 - `client.rs`: plug-in point 2, one match arm in `execute`.
+- `message/mod.rs`: after the cards, `halocord::song_buttons` (Song link's buttons under a
+  song).
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines; `open_menu`
   adds `halocord::message_rows` (the engine's rows, then Find reply's and Song link's).
