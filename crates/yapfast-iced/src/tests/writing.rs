@@ -803,3 +803,40 @@ fn send_timestamps_sends_a_written_time_as_a_timestamp() {
         .unwrap_or_else(|| panic!("a timestamp, not {body}"));
     assert!(seconds.parse::<i64>().is_ok(), "{body}");
 }
+
+/// Auto zipper: its switch and its extensions reach the upload's step, so a
+/// listed file goes up as a ZIP of it only while the plugin is on.
+#[test]
+fn auto_zipper_zips_the_listed_files_while_on() {
+    use crate::halocord::{Change, changed, id, place};
+    use yapfast_core::halocord::auto_zipper::zipped;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let name = |file: &str| zipped(file.to_owned(), b"bytes".to_vec()).0;
+    assert_eq!(name("art.psd"), "art.psd", "off at first");
+    let plugin = place(id::AUTO_ZIPPER).expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    assert_eq!(name("art.psd"), "art.psd.zip", "listed unless changed");
+    assert_eq!(name("notes.txt"), "notes.txt");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Type {
+            plugin,
+            setting: 0,
+            text: ".txt".into(),
+        },
+    );
+    assert_eq!(name("notes.txt"), "notes.txt.zip", "the list as typed");
+    assert_eq!(name("art.psd"), "art.psd");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert_eq!(name("notes.txt"), "notes.txt", "off again");
+}
