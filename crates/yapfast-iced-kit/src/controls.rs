@@ -284,8 +284,9 @@ pub fn field<'a, M: Clone + 'a>(
         .style(field_style(theme, theme.sunken, enabled))
 }
 
-/// A single-line field's look on `ground`: ringed in the accent while it
-/// has the keys, its text greyed while not `enabled`.
+/// A single-line field's look on `ground`: ringed in the theme's focus
+/// colour (HaloCord's role; the accent unless a theme sets it) while it has
+/// the keys, its text greyed while not `enabled`.
 pub fn field_style(
     theme: &Theme,
     ground: Color,
@@ -295,7 +296,7 @@ pub fn field_style(
         theme.text,
         theme.muted,
         theme.faint,
-        theme.accent,
+        theme.focus,
         theme.selection,
     );
     move |_, status| text_input::Style {

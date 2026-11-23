@@ -36,7 +36,7 @@ function Step([string]$name, [string[]]$cargoArgs) {
 
 if ($Log) { Remove-Item $Log -ErrorAction SilentlyContinue }
 if ($Fix) { Step 'format' @('fmt', '--all') } else { Step 'format' @('fmt', '--all', '--', '--check') }
-Step 'lints' @('clippy', '-p', 'yapfast-core', '-p', 'yapfast-discord', '-p', 'yapfast-iced', '--tests', '--message-format=short')
+Step 'lints' @('clippy', '-p', 'yapfast-core', '-p', 'yapfast-discord', '-p', 'yapfast-iced', '--all-targets', '--message-format=short')
 Step 'core tests' @('test', '-p', 'yapfast-core', '--lib', 'halocord')
 Step 'window tests' @('test', '-p', 'yapfast-iced', '--lib', 'halocord')
 

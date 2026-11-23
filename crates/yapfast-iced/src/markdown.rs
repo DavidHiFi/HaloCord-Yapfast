@@ -770,7 +770,7 @@ impl<'c> crate::ctx::Ctx<'c> {
         }
         if run.code {
             piece = piece
-                .background(theme.panel)
+                .background(theme.code)
                 .border(crate::style::round(3))
                 .padding(Padding::from([0, 2]));
         }
@@ -862,7 +862,7 @@ impl<'c> crate::ctx::Ctx<'c> {
                 .spot(self.link_spot)
                 .link_menu(|link| Message::Timeline(crate::timeline::Event::RowLink(link)));
             let shown: Element<'c, Message> = if part.shape == Shape::Code {
-                let (ground, line) = (theme.panel, theme.line);
+                let (ground, line) = (theme.code, theme.line);
                 container(piece)
                     .padding(size / 2.0)
                     .width(Length::Fill)
