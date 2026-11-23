@@ -577,25 +577,38 @@ fn a_menus_keys_pass_over_greyed_rows_and_clicks_on_them_do_nothing() {
 /// The member list's menu opened on `user` with the Lounge's chat open,
 /// where Dave, server muted, and Alice are in the call.
 fn lounge_member_menu(user: &str) -> (App, tempfile::TempDir) {
+    let (mut app, folder) = lounge_chat();
+    open_member_menu(&mut app, user);
+    (app, folder)
+}
+
+/// The Lounge's chat open, with no menu yet.
+fn lounge_chat() -> (App, tempfile::TempDir) {
     let (mut app, folder) = super::preview();
     app.client.app = member_server(&["30"]);
     app.client.app.state.selected = Some("discord:10:12".into());
     let _ = app.sync();
+    (app, folder)
+}
+
+/// The member list's menu opened on `user`.
+fn open_member_menu(app: &mut App, user: &str) {
     let _ = crate::person_menu::open_person_menu(
-        &mut app,
+        app,
         user,
         Point::new(300.0, 200.0),
         crate::person_menu::CONTEXT_MENU,
     );
-    (app, folder)
 }
 
 #[test]
 fn copy_mention_joins_a_discord_users_menu_when_its_plugin_is_on() {
     use crate::halocord::{Change, changed, place};
     use crate::menus::MenuAct;
-    let (mut app, _folder) = lounge_member_menu("4");
+    let (mut app, _folder) = lounge_chat();
+    // Held before the menu opens, so no other test's plugin shows in it.
     let _alone = super::plugin_alone();
+    open_member_menu(&mut app, "4");
     assert!(!labels(&app).contains(&"Copy mention".to_owned()));
     let plugin = place("copy-user-mention").expect("the plugin");
     changed(
@@ -627,8 +640,10 @@ fn copy_mention_joins_a_discord_users_menu_when_its_plugin_is_on() {
 fn copy_profile_link_joins_a_discord_users_menu_when_its_plugin_is_on() {
     use crate::halocord::{Change, changed, place};
     use crate::menus::MenuAct;
-    let (mut app, _folder) = lounge_member_menu("4");
+    let (mut app, _folder) = lounge_chat();
+    // Held before the menu opens, so no other test's plugin shows in it.
     let _alone = super::plugin_alone();
+    open_member_menu(&mut app, "4");
     assert!(!labels(&app).contains(&"Copy profile link".to_owned()));
     let plugin = place("copy-user-urls").expect("the plugin");
     changed(
@@ -658,8 +673,10 @@ fn copy_profile_link_joins_a_discord_users_menu_when_its_plugin_is_on() {
 
 #[test]
 fn a_members_menu_beside_a_voice_channel_ticks_and_changes_the_calls_rows() {
-    let (mut app, _folder) = lounge_member_menu("4");
+    let (mut app, _folder) = lounge_chat();
+    // Held before the menu opens, so no other test's plugin shows in it.
     let _alone = super::plugin_alone();
+    open_member_menu(&mut app, "4");
     let shown = rows(&app);
     let row = |label: &str| {
         shown

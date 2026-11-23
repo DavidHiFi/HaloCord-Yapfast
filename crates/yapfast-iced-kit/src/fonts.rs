@@ -767,7 +767,13 @@ mod tests {
     #[test]
     fn a_character_no_font_has_gets_the_systems_font_once() {
         crate::testing::install_fonts();
-        let Some((file, _)) = char_fonts(&['𝔟']).into_iter().next() else {
+        // The first listed font that really has it, as the loader skips the rest.
+        let Some((file, _)) = char_fonts(&['𝔟']).into_iter().find(|(file, index)| {
+            std::fs::read(file).is_ok_and(|data| {
+                ttf_parser::Face::parse(&data, *index)
+                    .is_ok_and(|face| face.glyph_index('𝔟').is_some())
+            })
+        }) else {
             eprintln!("no system font has 𝔟; nothing to test");
             return;
         };

@@ -96,6 +96,101 @@ fn scaled(radius: border::Radius) -> border::Radius {
     }
 }
 
+/// The look every theme but Bonfire draws with: 2 px edges, a hover edge
+/// halfway between the theme's two edge colours (blue and mauve on
+/// MochaCord; iced draws a border in one colour, so the blend stands in
+/// for a gradient), the second edge colour while pressed, and floating
+/// surfaces on the theme's solid frost. Bonfire keeps Discord's measured
+/// 1 px look.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Rice {
+    pub hover: Color,
+    pub press: Color,
+    pub rest: Color,
+    pub ground: Color,
+    pub shadow: Color,
+    pub dim: Color,
+}
+
+thread_local! {
+    /// The shown theme's [`Rice`], set where the window takes a theme.
+    /// Per thread, since the window's update and draw share one and each
+    /// test has its own.
+    static RICE: std::cell::Cell<Option<Rice>> = const { std::cell::Cell::new(None) };
+}
+
+/// `theme`'s [`Rice`]: none on Bonfire or a theme made from it.
+pub fn rice_of(theme: &Theme) -> Option<Rice> {
+    let mix = |a: f32, b: f32| (a + b) / 2.0;
+    let (from, to) = (theme.edge_from, theme.edge_to);
+    (!theme.bonfire).then(|| Rice {
+        hover: Color::from_rgba(
+            mix(from.r, to.r),
+            mix(from.g, to.g),
+            mix(from.b, to.b),
+            mix(from.a, to.a),
+        ),
+        press: to,
+        rest: theme.edge,
+        ground: theme.frost_solid,
+        shadow: theme.shadow,
+        dim: theme.dim,
+    })
+}
+
+/// Draws with `theme`'s look from now on.
+pub fn set_rice(theme: &Theme) {
+    RICE.with(|rice| rice.set(rice_of(theme)));
+}
+
+/// The look the shown theme draws with, if it isn't Bonfire.
+pub fn rice() -> Option<Rice> {
+    RICE.with(std::cell::Cell::get)
+}
+
+/// An edge's width: 2 px with the rice look, else 1.
+pub fn edge_width() -> f32 {
+    if rice().is_some() { 2.0 } else { 1.0 }
+}
+
+/// A hover or pressed frame in the rice look, `radius` round; none on
+/// Bonfire or at rest.
+pub fn lit_edge(lit: bool, pressed: bool, radius: impl Into<border::Radius>) -> Border {
+    match rice() {
+        Some(rice) if lit || pressed => Border {
+            color: if pressed { rice.press } else { rice.hover },
+            width: 2.0,
+            radius: scaled(radius.into()),
+        },
+        _ => round(radius),
+    }
+}
+
+/// The soft shadow under a floating surface in the rice look.
+pub fn soft_shadow(rice: Rice) -> iced::Shadow {
+    iced::Shadow {
+        color: rice.shadow,
+        offset: iced::Vector::new(0.0, 6.0),
+        blur_radius: 20.0,
+    }
+}
+
+/// A floating surface in the rice look: a menu, a tooltip, a dialog. The
+/// solid frost (opaque, as Yapfast has no blur behind a pop-up yet) in a
+/// 2 px `edge`, `radius` round, over the soft shadow.
+pub fn floating(rice: Rice, edge: Color, radius: f32) -> container::Style {
+    container::Style {
+        background: Some(rice.ground.into()),
+        border: Border {
+            color: edge,
+            width: 2.0,
+            radius: scaled(radius.into()),
+        },
+        shadow: soft_shadow(rice),
+        ..Default::default()
+    }
+}
+
 /// A container filled with `color`, its corners rounded by `radius`.
 pub fn rounded(color: Color, radius: impl Into<border::Radius>) -> container::Style {
     container::Style {
@@ -105,11 +200,12 @@ pub fn rounded(color: Color, radius: impl Into<border::Radius>) -> container::St
     }
 }
 
-/// A 1 px outline in `color`, its corners rounded by `radius`.
+/// An outline in `color` ([`edge_width`] wide), its corners rounded by
+/// `radius`.
 pub fn edge(color: Color, radius: impl Into<border::Radius>) -> Border {
     Border {
         color,
-        width: 1.0,
+        width: edge_width(),
         radius: scaled(radius.into()),
     }
 }
@@ -180,13 +276,14 @@ pub fn raised_shadow() -> iced::Shadow {
     }
 }
 
-/// A raised panel: `ground` in a 1 px `edge` with `radius` corners, over
-/// the raised shadow, as menus, suggestions, the picker and cards are.
+/// A raised panel: `ground` in an `edge` with `radius` corners, over
+/// the raised shadow (the soft one in the rice look), as menus,
+/// suggestions, the picker and cards are.
 pub fn panel(ground: Color, edge: Color, radius: f32) -> container::Style {
     container::Style {
         background: Some(ground.into()),
         border: self::edge(edge, radius),
-        shadow: raised_shadow(),
+        shadow: rice().map_or_else(raised_shadow, soft_shadow),
         ..Default::default()
     }
 }
@@ -216,5 +313,35 @@ pub fn scrollbar(theme: &Theme) -> crate::widgets::Scroller {
         crate::widgets::Scroller::DARK
     } else {
         crate::widgets::Scroller::LIGHT
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn bonfire_keeps_its_look_and_other_themes_get_the_rice() {
+        let mut bonfire = Theme::new("bonfire", true);
+        bonfire.bonfire = true;
+        set_rice(&bonfire);
+        assert_eq!(rice(), None);
+        assert_eq!(edge(Color::WHITE, 4).width, 1.0);
+        assert_eq!(lit_edge(true, false, 4).width, 0.0);
+        let mut mocha = Theme::new("mochacord", true);
+        mocha.edge_from = hex(0x89b4fa);
+        mocha.edge_to = hex(0xcba6f7);
+        set_rice(&mocha);
+        let rice = rice().expect("the rice look");
+        assert_eq!(rice.press, hex(0xcba6f7));
+        let [r, g, b, _] = rice.hover.into_rgba8();
+        assert_eq!((r, g), (0xaa, 0xad), "halfway from blue to mauve");
+        assert!((0xf8..=0xf9).contains(&b));
+        assert_eq!(edge(Color::WHITE, 4).width, 2.0);
+        assert_eq!(lit_edge(false, false, 4).width, 0.0, "nothing at rest");
+        assert_eq!(lit_edge(true, false, 4).color, rice.hover);
+        assert_eq!(lit_edge(true, true, 4).color, rice.press);
+        assert_eq!(floating(rice, Color::WHITE, 8.0).border.width, 2.0);
+        set_rice(&bonfire);
     }
 }
