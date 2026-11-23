@@ -74,13 +74,33 @@ impl<M: Clone> Hooks<M> for Watch<M> {
 /// pointer is on something the child shows can be pressed (a link, a
 /// button) or a layer over it took the press. The child gets both
 /// presses as ever, so a double press on text still selects a word.
+/// Made with [`DoublePress::presses`], it says each such press instead,
+/// for a caller that counts them itself.
 pub struct DoublePress<M> {
-    on_double: M,
+    on_double: Option<M>,
+    on_press: Option<M>,
 }
 
 impl<M: Clone> DoublePress<M> {
     pub fn new<'a>(child: impl Into<Element<'a, M>>, on_double: M) -> Wrap<'a, Self, M> {
-        Wrap::new(child, Self { on_double })
+        Wrap::new(
+            child,
+            Self {
+                on_double: Some(on_double),
+                on_press: None,
+            },
+        )
+    }
+
+    /// What each left press over it says, on the same terms.
+    pub fn presses<'a>(child: impl Into<Element<'a, M>>, on_press: M) -> Wrap<'a, Self, M> {
+        Wrap::new(
+            child,
+            Self {
+                on_double: None,
+                on_press: Some(on_press),
+            },
+        )
     }
 }
 
@@ -114,10 +134,15 @@ impl<M: Clone> Hooks<M> for DoublePress<M> {
             state.last = None;
             return;
         }
+        if let Some(press) = &self.on_press {
+            shell.publish(press.clone());
+        }
         let click = mouse::Click::new(position, mouse::Button::Left, state.last);
         state.last = Some(click);
-        if click.kind() == mouse::click::Kind::Double {
-            shell.publish(self.on_double.clone());
+        if click.kind() == mouse::click::Kind::Double
+            && let Some(double) = &self.on_double
+        {
+            shell.publish(double.clone());
         }
     }
 }

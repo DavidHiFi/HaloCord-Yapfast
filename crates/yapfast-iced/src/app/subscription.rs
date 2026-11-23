@@ -60,6 +60,9 @@ impl App {
             crate::window_bar::history_keys(),
             Self::shell_subscription(),
         ];
+        // HaloCord's Message click actions: Backspace held, while a
+        // Backspace click is set.
+        subscriptions.extend(crate::halocord::click_keys(self));
         // A look at the releases every six hours while the check is on.
         if self.layout.prefs.check_for_updates {
             subscriptions.push(

@@ -33,6 +33,7 @@ pub mod backup;
 mod buttons;
 mod chat;
 pub mod deck;
+mod clicks;
 mod fake_dialog;
 mod kept;
 mod members;
@@ -47,6 +48,7 @@ pub use areas::{Area, area};
 pub use buttons::{Press, press, presses, start_button};
 use chat::thousands;
 pub use chat::{count_color, count_words, double_click, tag};
+pub use clicks::{Clicks, click_keys, click_row};
 pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
@@ -71,6 +73,8 @@ pub use buttons::Dock;
 pub(crate) use buttons::{close_dm_actions, read_all_actions};
 #[cfg(test)]
 pub use chat::{Fill, counter_words};
+#[cfg(test)]
+pub use clicks::presses_so_far;
 #[cfg(test)]
 pub use members::member_totals;
 #[cfg(test)]
@@ -221,6 +225,12 @@ pub enum Event {
     /// Quick mention's hover-bar button: this Discord user, mentioned in
     /// the composer.
     Mention(String),
+    /// Message click actions, while it counts presses: a press on a
+    /// message's row (with what its double-click does), a double click's
+    /// wait run out, and Backspace held or let go.
+    Press(String, Option<crate::menus::MenuAct>),
+    DoubleClickDue(String, u64, Option<crate::menus::MenuAct>),
+    Backspace(bool),
 }
 
 /// Carries out a plugin's message.
@@ -240,6 +250,11 @@ pub fn update(app: &mut crate::app::App, event: Event) -> iced::Task<crate::app:
                 },
             );
         }
+        Event::Press(item, double) => return clicks::press(app, item, double),
+        Event::DoubleClickDue(item, press, double) => {
+            return clicks::double_click_due(app, &item, press, double);
+        }
+        Event::Backspace(held) => clicks::backspace(app, held),
     }
     iced::Task::none()
 }

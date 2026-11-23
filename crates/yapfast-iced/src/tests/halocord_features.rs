@@ -174,3 +174,214 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Message click actions' added clicks: nothing unless set, so the plugin
+/// works as before; a Backspace click set to Delete deletes your own message,
+/// without asking, and not someone else's; a triple click set to React
+/// reacts; and with it set, two real presses wait for a third before
+/// replying as the double-click does.
+#[test]
+fn message_click_actions_triple_and_backspace_clicks() {
+    use std::sync::Arc;
+    use yapfast_core::{application::Compose, chat::ChatMessage};
+
+    use crate::{
+        halocord::{Event, presses_so_far},
+        menus::MenuAct,
+    };
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let press = |app: &mut App, item: &str| {
+        let _ = app.update(Message::HaloCord(Event::Press(item.into(), None)));
+    };
+    let backspace_click = |app: &mut App, item: &str| {
+        let _ = app.update(Message::HaloCord(Event::Backspace(true)));
+        press(app, item);
+        let _ = app.update(Message::HaloCord(Event::Backspace(false)));
+    };
+    // The preview's own messages first, which its reactions and deletions
+    // change: someone else's to react to, and one of this account's.
+    let (theirs, mine) = {
+        let messages = &app.client.state().messages;
+        let find = |own: bool| {
+            messages
+                .iter()
+                .find(|message| {
+                    message.own == own
+                        && !message.deleted
+                        && if own {
+                            message.can_delete
+                        } else {
+                            message.can_react && message.reactions.is_empty()
+                        }
+                })
+                .map(|message| message.item.clone())
+                .expect("a sample message")
+        };
+        (find(false), find(true))
+    };
+    let deleted = |app: &App, item: &str| {
+        app.client
+            .state()
+            .message(item)
+            .is_some_and(|message| message.deleted)
+    };
+    backspace_click(&mut app, &mine);
+    assert!(!deleted(&app, &mine), "off at first");
+
+    turn_on(&mut app, id::CLICK_ACTIONS);
+    let plugin = place(id::CLICK_ACTIONS).expect("the plugin");
+    backspace_click(&mut app, &mine);
+    assert!(!deleted(&app, &mine), "nothing unless set: as before");
+    // A Backspace click on your own messages set to Delete.
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 3,
+            choice: 1,
+        },
+    );
+    backspace_click(&mut app, &mine);
+    assert!(deleted(&app, &mine), "your own, once set");
+    assert!(
+        app.client.state().confirm_delete.is_none(),
+        "without asking"
+    );
+    // A triple click set to React.
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 1,
+            choice: 4,
+        },
+    );
+    for _ in 0..3 {
+        press(&mut app, &theirs);
+    }
+    assert!(
+        app.client.state().message(&theirs).is_some_and(|message| {
+            message.reactions.iter().any(|it| it.key == "💀" && it.mine)
+        }),
+        "💀 on their message"
+    );
+
+    // Then real presses, on messages of the test's own.
+    let said = |item: &str, body: &str, own: bool| ChatMessage {
+        id: item.into(),
+        item: item.into(),
+        author: if own { "You" } else { "Sam" }.into(),
+        sender: if own {
+            "@you:preview.local"
+        } else {
+            "@sam:preview.local"
+        }
+        .into(),
+        body: body.into(),
+        own,
+        timestamp: 1_700_000_000,
+        can_reply: true,
+        can_react: true,
+        can_edit: own,
+        // As if this account had Manage Messages.
+        can_delete: true,
+        ..Default::default()
+    };
+    super::change(&mut app, |state| {
+        state.messages = Arc::new(vec![
+            Arc::new(said("c0", "A message from Sam", false)),
+            Arc::new(said("c1", "One of mine", true)),
+        ]);
+    });
+    super::interact(&mut app, |ui| {
+        ui.click("A message from Sam").expect("the message");
+        ui.click("A message from Sam").expect("the message");
+    });
+    assert!(app.client.state().compose().is_none(), "waits for a third");
+    let due = |press| {
+        Message::HaloCord(Event::DoubleClickDue(
+            "c0".into(),
+            press,
+            Some(MenuAct::Reply),
+        ))
+    };
+    let _ = app.update(due(0));
+    assert!(app.client.state().compose().is_none(), "not that wait");
+    let _ = app.update(due(presses_so_far(&app)));
+    assert!(
+        matches!(
+            app.client.state().compose(),
+            Some(Compose::Reply { item, .. }) if item == "c0"
+        ),
+        "replying to Sam"
+    );
+    // Clicks in the field of a message being edited are the field's: the
+    // row's presses ignore what the field took.
+    let _ = app.update(Message::Menu(crate::menus::Event::Act(
+        MenuAct::Edit,
+        "c1".into(),
+        iced::Point::ORIGIN,
+    )));
+    assert_eq!(app.composer.editing.as_deref(), Some("c1"));
+    let counted = presses_so_far(&app);
+    super::interact(&mut app, |ui| {
+        ui.click(iced::widget::Id::new(crate::composer::EDIT))
+            .expect("the edit field");
+        ui.click(iced::widget::Id::new(crate::composer::EDIT))
+            .expect("the edit field");
+    });
+    assert_eq!(
+        presses_so_far(&app),
+        counted,
+        "no presses counted while editing"
+    );
+    assert_eq!(app.composer.editing.as_deref(), Some("c1"), "still editing");
+    // Someone else's message, even with leave to delete it: not unless set.
+    backspace_click(&mut app, "c0");
+    assert!(!deleted(&app, "c0"), "others' only if set");
+    // Not in DMs: the double-click does nothing in a DM once set.
+    let dm = app
+        .client
+        .state()
+        .rooms
+        .iter()
+        .find(|room| room.direct)
+        .map(|room| room.id.clone())
+        .expect("a DM");
+    app.client
+        .dispatch(yapfast_core::application::Action::OpenChat(dm));
+    let _ = app.sync();
+    let rows = app.client.state().messages.len();
+    let row = (0..rows)
+        .find(|&row| {
+            app.ctx()
+                .row_message(row)
+                .is_some_and(|message| !message.own && !message.deleted && message.can_reply)
+        })
+        .expect("a message in the DM");
+    assert!(
+        crate::halocord::double_click(app.ctx(), row).is_some(),
+        "the double-click in a DM, as ever"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 7,
+            on: true,
+        },
+    );
+    assert!(
+        crate::halocord::double_click(app.ctx(), row).is_none(),
+        "not in DMs, once set"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}

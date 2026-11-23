@@ -293,10 +293,16 @@ Window (`yapfast-iced`):
 - `rail.rs`: `folder_face` draws the open face while Plain folder icon is on.
 - `header.rs`: `header_buttons` pushes `halocord::start_button` (Jump to start)
   before the search field (one `if let`).
-- `timeline/view.rs`: `timeline_row` wraps the row in the kit's `DoublePress` when
-  `halocord::double_click` has a message for it (Message click actions).
+- `timeline/view.rs`: `timeline_row` hands the row to `halocord::click_row` (Message click
+  actions), which wraps it in the kit's `DoublePress`: with `halocord::double_click`'s
+  message, or, while a triple or Backspace click is set, saying each press.
 - `rail.rs`: a server tile's tooltip name goes through `halocord::tip_member_count` (Member
   count's "· 1,234 members", one line).
+- `app/subscription.rs`: `subscription` adds `halocord::click_keys` (Backspace held and let
+  go, while a Backspace click is set).
+- `app/mod.rs`: the `halocord_clicks` field (Message click actions' presses counted so far).
+- Kit `widgets/pointer.rs`: `DoublePress::presses`, which says each press on the same
+  terms as a double press.
 - `sync.rs`: `make_lists` drops friend requests from the DM home's count and the count
   beside Friends while No pending count is on (one `if` each).
 - Core `application/places.rs`: `open_invite` starts a new link with
