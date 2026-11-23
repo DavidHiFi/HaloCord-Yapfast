@@ -830,5 +830,74 @@ fn notification_title_names_whom_a_reply_replies_to() {
         },
     );
     assert_eq!(author("Sam".into(), lena), "Sam");
+}
+
+/// Show hidden things: while on, a timed out member's messages get the
+/// clock by their name, and a server whose invites are paused says so in
+/// its name in the server list; each has its own switch, and neither shows
+/// while the plugin is off.
+#[test]
+fn show_hidden_things_shows_timeouts_on_messages_and_paused_invites() {
+    use std::borrow::Cow;
+
+    use crate::halocord::{message_timeout, server_tip};
+    use yapfast_core::yapfast_discord::halocord::note_invites;
+    let (mut app, _folder) = preview();
+    // The preview's first member, as a Discord message names its sender.
+    let person = match &app.client.state().members {
+        Some(Ok(members)) => members[0].id.clone(),
+        _ => panic!("the preview's members"),
+    };
+    let sender = yapfast_core::discord::sender_id(&person);
+    let until = yapfast_core::clock::now_ms() + 3_600_000;
+    super::change(&mut app, |state| {
+        if let Some(Ok(members)) = &mut state.members {
+            for member in std::sync::Arc::make_mut(members) {
+                if member.id == person {
+                    member.timed_out_until = Some(until);
+                }
+            }
+        }
+    });
+    note_invites("halo-test-paused", true);
+    let tip = |app: &App| {
+        server_tip(app.ctx(), "discord:halo-test-paused", Cow::Borrowed("Test")).into_owned()
+    };
+    let clock = |app: &App| message_timeout(app.ctx(), &sender).is_some();
+    assert!(!clock(&app), "off: no clock on messages");
+    assert_eq!(tip(&app), "Test");
+    turn_on(&mut app, id::SHOW_HIDDEN);
+    assert!(clock(&app), "on: the clock");
+    assert_eq!(tip(&app), "Test · Invites paused");
+    assert_eq!(
+        server_tip(
+            app.ctx(),
+            "discord:halo-test-running",
+            Cow::Borrowed("Other")
+        ),
+        "Other"
+    );
+    let plugin = place(id::SHOW_HIDDEN).expect("the plugin");
+    for setting in [0, 1] {
+
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting,
+                on: false,
+            },
+        );
+    }
+    assert!(!clock(&app), "its switch off");
+    assert_eq!(tip(&app), "Test");
+
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    note_invites("halo-test-paused", false);
 
 }

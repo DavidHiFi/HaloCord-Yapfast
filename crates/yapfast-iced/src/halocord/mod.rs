@@ -61,7 +61,7 @@ pub use members::{
     Place, add_member_count, dm_marks, exact_day, full_picture, name_marks, platform_marks,
     timeout_clock, timeout_note, tip_member_count,
 };
-pub use members::{role_press, zoom_size, zoomable};
+pub use members::{message_timeout, role_press, server_tip, zoom_size, zoomable};
 pub use menus::{
     attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, search_result,
     sticker_tile,
@@ -146,6 +146,8 @@ pub mod id {
     pub const KEEP_CHANNEL: &str = "keep-current-channel";
     pub const BETTER_UPLOAD_BUTTON: &str = "better-upload-button";
     pub const NOTIFICATION_TITLE: &str = "notification-title";
+    pub const SHOW_HIDDEN: &str = "show-hidden-things";
+
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -206,6 +208,8 @@ pub static PLUGINS: &[Plugin] = &[
     servers::KEEP_CHANNEL,
     chat::BETTER_UPLOAD_BUTTON,
     chat::NOTIFICATION_TITLE,
+    members::SHOW_HIDDEN,
+
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

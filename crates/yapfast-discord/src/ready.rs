@@ -1414,6 +1414,8 @@ pub fn server(guild: &Value) -> Option<Server> {
             .flatten()
             .any(|feature| feature.as_str() == Some(name))
     };
+    // HaloCord's Show hidden things (docs/halocord.md).
+    crate::halocord::note_invites(&id, has("INVITES_DISABLED"));
     let premium_tier = guild["premium_tier"]
         .as_u64()
         .or_else(|| guild["properties"]["premium_tier"].as_u64())

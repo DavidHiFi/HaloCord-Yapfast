@@ -721,6 +721,9 @@ fn author_line<'a>(
     {
         line = line.push(marks);
     }
+    if let Some(clock) = crate::halocord::message_timeout(ctx, &message.sender) {
+        line = line.push(clock);
+    }
     let time = Piece::new(
         vec![span(sent_time(ctx, index, message))],
         index,

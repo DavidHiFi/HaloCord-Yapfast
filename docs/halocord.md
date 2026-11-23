@@ -82,6 +82,8 @@ whole list to carry across.
   menu.
 - `crates/yapfast-core/src/halocord/copy_file_contents.rs`: Copy file text in a text
   file's menu (downloads it as Copy Image does; the window copies it as text).
+- `crates/yapfast-discord/src/halocord/invites.rs`: Show hidden things' record of the
+  servers whose invites are paused.
 - `crates/yapfast-discord/src/halocord.rs`: Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
 - `crates/yapfast-discord/src/halocord/presence.rs`: Custom RPC's activity (type
@@ -365,6 +367,10 @@ Window (`yapfast-iced`):
   `composer_box` wraps the + in `halocord::upload_button`, whose right click sends the new
   `Event::PlusMenu`, with its arm.
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
+- `message/mod.rs`: after the plugins' tags by an author's name, `halocord::message_timeout`'s
+  clock (Show hidden things).
+- `rail.rs`: a server's name when pointed at goes through `halocord::server_tip` (Show hidden
+  things: Invites paused).
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
 - `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
   `self.theme_event` (it gives a task now).
@@ -462,6 +468,9 @@ Discord (`yapfast-discord`):
   voice state.
 - `api.rs`: `external_assets`, the call that gives an outside picture's `mp:`
   key (Custom RPC).
+- `ready.rs`: `server` notes whether invites are paused with `halocord::note_invites`
+  (Show hidden things; one line).
+
 
 Calls (`yapfast-discord`):
 

@@ -849,6 +849,9 @@ impl<'a> View<'a> {
             Cow::Borrowed(item.name.as_str())
         };
         let name = crate::halocord::tip_member_count(self.cx, &item.id, name);
+        // HaloCord's Show hidden things (docs/halocord.md): invites paused.
+        let name = crate::halocord::server_tip(self.cx, &item.id, name);
+
         // Who is in which voice channel, made only under the pointer.
         let tip = if pointed && !item.busy.0.is_empty() {
             self.voice_card(name, &item.busy.0)
