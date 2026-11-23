@@ -1,6 +1,7 @@
-//! MochaCord's page: the look's options, each applied at once where it can
-//! be and kept in `layout.json` under `mochacord`. The options and their
-//! rules are [`crate::mochacord`].
+//! MochaCord's options, in the dialog the Themes page opens from the
+//! MochaCord tile's cog. Each is applied at once where it can be and kept in
+//! `layout.json` under `mochacord`. The options and their rules are
+//! [`crate::mochacord`].
 
 use iced::Element;
 
@@ -46,7 +47,7 @@ fn font_choices() -> Vec<form::Choice<'static>> {
 }
 
 impl<'a> Page<'a> {
-    pub(in crate::settings) fn mochacord_page(self) -> Element<'a, Message> {
+    pub(in crate::settings) fn mochacord_options(self) -> Vec<Element<'a, Message>> {
         let theme = self.cx.look.theme;
         let kept = &self.cx.layout.mochacord;
         let change = |change| pref(Pref::MochaCord(change));
@@ -66,12 +67,7 @@ impl<'a> Page<'a> {
             .iter()
             .position(|family| *family == kept.font)
             .unwrap_or(0);
-        let page = vec![
-            form::title(theme, "MochaCord"),
-            form::note(
-                theme,
-                "How this copy of Yapfast looks. Pick the MochaCord theme in Appearance to see it whole; these options work with any theme.",
-            ),
+        vec![
             form::group(vec![
                 form::switch(
                     "Glass window",
@@ -125,7 +121,6 @@ impl<'a> Page<'a> {
                     "A font that isn't installed falls back to Yapfast's own. Font changes show after a restart.",
                 ),
             ]),
-        ];
-        form::page(page)
+        ]
     }
 }

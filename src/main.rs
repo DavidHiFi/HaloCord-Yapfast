@@ -383,6 +383,7 @@ fn launch(
             build: {
                 let build = build_info::current();
                 yapfast_iced::Build {
+                    halocord: build_info::halocord_line(),
                     headline: build.headline(),
                     channel: build.channel().label().to_owned(),
                     details: build.details(),

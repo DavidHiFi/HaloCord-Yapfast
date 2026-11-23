@@ -14,12 +14,18 @@
 //! - `buttons.rs`: the user area and the top bar's buttons.
 //! - `members.rs`: the member list's count and platform marks, timeouts
 //!   and a profile's exact dates and full size pictures.
-//! - `theme_files.rs`: Appearance's Save to file and Load from file (not a
-//!   plugin).
+//! - `theme_files.rs`: the Themes page's Save to file and Load from file (not
+//!   a plugin).
+//! - `areas.rs`: which part of Discord each plugin works on, for the chips
+//!   on the Plugins page.
+//! - `backup.rs`: Backup & Restore's file of the plugins, the look and the
+//!   person's own themes (not a plugin).
 //!
 //! Adding a plugin: its id in [`id`], one `const` in its area's file, and its
 //! place in [`PLUGINS`]. `docs/halocord.md` has the template.
 
+mod areas;
+pub mod backup;
 mod buttons;
 mod chat;
 mod kept;
@@ -29,6 +35,7 @@ mod servers;
 pub mod theme_files;
 mod voice;
 
+pub use areas::{Area, area};
 pub use buttons::{Press, press, presses, start_button};
 use chat::thousands;
 pub use chat::{count_color, count_words, double_click, tag};

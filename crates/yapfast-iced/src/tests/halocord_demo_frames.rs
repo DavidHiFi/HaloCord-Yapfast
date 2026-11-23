@@ -95,7 +95,7 @@ fn halocord_demo_frames() {
     let mut reel = Reel::new();
     reel.frame(&app, "window");
 
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     let _ = app.sync();
     reel.frame(&app, "plugins-page");
     for (query, ids) in [
@@ -183,7 +183,7 @@ fn halocord_demo4_frames() {
     let _ = app.sync();
     reel.frame(&app, "window");
 
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     let _ = app.sync();
     for (query, id) in [
         ("platform", crate::halocord::PLATFORMS),

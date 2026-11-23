@@ -17,14 +17,22 @@ whole list to carry across.
     each area, what each tells the core, the hooks it plugs in while it's on, and
     what the window draws for it. `menus.rs` is the window's side of plug-in
     point 5 (`menu_rows`, `pick`).
-- `crates/yapfast-iced/src/settings/pages/halocord.rs`: the HaloCord settings page,
-  drawn from `PLUGINS`.
+- `crates/yapfast-iced/src/settings/pages/halocord.rs`: Settings' HaloCord group: the
+  overview, the Plugins page (filter, All/On/Off, area chips and the plugins as
+  cards drawn from `PLUGINS`), the plugin and MochaCord dialogs, and Backup &
+  Restore's page and buttons.
+- `crates/yapfast-iced/src/settings/pages/halocord_themes.rs`: the Themes page: the
+  theme tiles, the editor's page, the MochaCord tile's cog.
+- `crates/yapfast-iced/src/halocord/areas.rs`: which area each plugin belongs to, for
+  the chips (a table by id, so `Plugin` has no area field).
+- `crates/yapfast-iced/src/halocord/backup.rs`: Backup & Restore's file: the plugins,
+  MochaCord's options, the person's own themes and the theme chosen.
 - `crates/yapfast-iced/src/mochacord.rs`: MochaCord's look: what `layout.json` keeps
   under `mochacord` (glass on and strength, accent gradient, corner roundness, font
   and weight, and the one-time switch flag), applying it, the glass fills' alpha
   (`glass`, `Dock`), the first-start switch to the theme, and the Windows backdrop
   (direct `dwmapi` calls, so no new dependency).
-- `crates/yapfast-iced/src/settings/pages/mochacord.rs`: the MochaCord settings page.
+- `crates/yapfast-iced/src/settings/pages/mochacord.rs`: MochaCord's options, drawn in the dialog the Themes page opens.
 - `crates/yapfast-iced/src/halocord/theme_files.rs`: Appearance's Save to file and
   Load from file (a theme as the JSON `layout.json` keeps it in).
 - `crates/yapfast-core/src/halocord/themes.rs`: HaloCord's themes (Catppuccin
@@ -143,14 +151,15 @@ Window (`yapfast-iced`):
 - `shell.rs`: `transparent` in `window_settings`; `mochacord::frame(window)` in
   `opened`; `mochacord::set_in_front` in `focus_changed`.
 - `rail.rs`: `HOME_ROOM` above the home tile, and `logo_tile` (the riced icon).
-- `settings/mod.rs`: `Section::MochaCord`, its title, icon, group entry and page.
 - `settings/pages/mod.rs`: `mod mochacord;`, `Pref::MochaCord(Change)` and its arm.
 - `layout.rs`: the `halocord: crate::halocord::Kept` field on `Layout`.
 - `app/mod.rs`: `layout.halocord.apply();` before `layout.voice.apply();` at start (the
   Volume booster's cap is set before people's saved volumes play).
-- `settings/mod.rs`: `Section::HaloCord`, its title ("Plugins") and icon, its group,
-  and its page; Settings' own search keeps the section when `halocord::any_found`
-  finds a plugin (the page narrows its list the same way).
+- `settings/mod.rs`: the HaloCord group (`Section::HaloCord`, `Plugins`, `Themes`,
+  `Backup`) with their titles, icons and pages, the `halo` field and
+  `Event::HaloCord`, the dialog stacked over the page, Escape closing a dialog first,
+  and the search (`section_found`): a plugin by `halocord::any_found`, a theme by name,
+  MochaCord's option words.
 - `settings/pages/mod.rs`: `mod halocord;`, `Pref::HaloCord(Change)`, and its arm in
   the change handler, which calls `halocord::changed` (keeps it under `halocord`,
   and sends the voice state again when a fake mute or deafen switch changes in a call).
@@ -234,8 +243,14 @@ Window (`yapfast-iced`):
 - `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
   `self.theme_event` (it gives a task now).
 - `settings/appearance.rs`: `Event::SaveFile`, `LoadFile`, `FileRead`, `FileDone` and
-  their arms; `theme_event` returns a task; Load from file beside New theme, Save to
-  file beside Cancel, and `file_note` under each.
+  their arms; `theme_event` returns a task. The tiles, the editor's page and `file_note`
+  moved to the Themes page (`pages/halocord_themes.rs`); Appearance keeps a Theme row
+  with a Change button.
+- `settings/mod.rs`: `Build::halocord` and the free `build_stamp`, which wraps every line
+  inside the sidebar and shows "HaloCord for Yapfast N" above the Yapfast line. The root
+  crate fills it from `build_info::halocord_line`, which reads the `HALOCORD_BUILD`
+  number that `build.rs` passes on (the updater can set it; without it the line has no
+  number).
 - `markdown.rs`: inline code and code blocks fill with the theme's `code` role, not
   `panel`.
 - `tests/mod.rs`: `mod halocord_buttons;`, `mod halocord_button_pictures;` and

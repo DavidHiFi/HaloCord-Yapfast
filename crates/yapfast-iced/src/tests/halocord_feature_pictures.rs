@@ -94,7 +94,7 @@ fn picture_of_go_live_keybind() {
 #[ignore = "writes a picture for the owner to look at"]
 fn picture_of_new_plugins() {
     let (mut app, _folder) = mocha();
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     let _ = app.sync();
     for (query, name) in [
         ("spoilers", "Reveal all spoilers"),
@@ -168,7 +168,7 @@ fn newest_says(app: &mut App, body: &str) -> String {
 fn picture_of_build_9_plugins() {
     let (mut app, _folder) = mocha();
     turn_on(&mut app, id::INVITE_DEFAULTS);
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     for (query, name) in [
         ("invite", "Invite defaults"),
         ("pending", "No pending count"),
@@ -214,7 +214,7 @@ fn picture_of_build_10_plugins() {
     let (mut app, _folder) = mocha();
     let _alone = super::plugin_alone();
     turn_on(&mut app, id::SEND_TIMESTAMPS);
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     for (query, name) in [
         ("timestamps", "Send timestamps"),
         ("extensions", "Fix file extensions"),
@@ -292,7 +292,7 @@ fn picture_of_build_11_plugins() {
     let (mut app, _folder) = mocha();
     let _alone = super::plugin_alone();
     turn_on(&mut app, id::BETTER_JOINED_DATE);
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     for (query, name) in [
         ("joined", "Better joined date"),
         ("game activity", "Game activity button"),
@@ -335,7 +335,7 @@ fn picture_of_build_12_plugins() {
     let (mut app, _folder) = mocha();
     let _alone = super::plugin_alone();
     turn_on(&mut app, id::VIEW_ICONS);
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     let _ = app.update(Message::Settings(Event::Search("icons".into())));
     let _ = app.sync();
     assert!(shows(&app, "View icons"));
@@ -353,7 +353,7 @@ fn picture_of_build_13_plugins() {
     let _ = app.sync();
     assert!(crate::halocord::start_button(app.ctx()).is_some());
     draw(&app, "plugin-jump-to-start-bar");
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     let _ = app.update(Message::Settings(Event::Search("jump".into())));
     let _ = app.sync();
     assert!(shows(&app, "Jump to start"));
@@ -396,7 +396,7 @@ fn picture_of_build_14_plugins() {
         ),
     ] {
         turn_on(&mut app, plugin);
-        let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+        let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
         let _ = app.update(Message::Settings(Event::Search(search.into())));
         let _ = app.sync();
         assert!(shows(&app, name), "{name}");
@@ -410,7 +410,7 @@ fn picture_of_build_15_plugins() {
     let (mut app, _folder) = mocha();
     let _alone = super::plugin_alone();
     turn_on(&mut app, id::IMAGE_ZOOM);
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     let _ = app.update(Message::Settings(Event::Search("image zoom".into())));
     let _ = app.sync();
     assert!(shows(&app, "Image zoom"));

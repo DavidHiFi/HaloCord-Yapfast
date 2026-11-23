@@ -78,7 +78,7 @@ fn a_theme_chosen_in_appearance_shows_at_once_and_is_kept() {
     open(&mut app, Section::Account);
     assert!(shows(&app, "My account"));
     interact(&mut app, |ui| {
-        ui.click("Appearance").expect("the section");
+        ui.click("Themes").expect("the section");
     });
     assert!(shows(&app, "Catppuccin Latte"), "the themes' tiles");
     interact(&mut app, |ui| {
@@ -99,7 +99,7 @@ fn a_theme_chosen_in_appearance_shows_at_once_and_is_kept() {
 fn a_custom_theme_is_made_edited_and_deleted_in_appearance() {
     use crate::settings::appearance_event as theme;
     let (mut app, folder) = preview();
-    open(&mut app, Section::Appearance);
+    open(&mut app, Section::Themes);
     interact(&mut app, |ui| {
         ui.click("New theme").expect("New theme");
     });
@@ -442,7 +442,7 @@ fn keybinds_are_added_chosen_recorded_and_removed() {
 #[test]
 fn closing_settings_lets_go_of_an_edited_theme() {
     let (mut app, _folder) = preview();
-    open(&mut app, Section::Appearance);
+    open(&mut app, Section::Themes);
     interact(&mut app, |ui| {
         ui.click("New theme").expect("New theme");
     });
@@ -719,18 +719,30 @@ fn halocord_sends_stereo_at_510_unless_changed() {
     let bitrate = &loader.settings[0];
     assert!(app.layout.halocord.on(loader));
     assert_eq!(app.layout.halocord.value(loader, bitrate), 510);
-    open(&mut app, Section::HaloCord);
+    open(&mut app, Section::Plugins);
     assert!(shows(&app, "Stereo loader"));
+    assert!(
+        !shows(&app, "MICROPHONE BIT RATE"),
+        "settings are in the cog"
+    );
+    let cog = |app: &mut App, to| {
+        let _ = app.update(Message::Settings(Event::HaloCord(
+            crate::settings::HaloEvent::Plugin(to),
+        )));
+    };
+    cog(&mut app, Some(0));
     assert!(shows(&app, "MICROPHONE BIT RATE"));
     interact(&mut app, |ui| {
         ui.click("256 kbit/s").expect("the choice");
     });
+    cog(&mut app, None);
     interact(&mut app, |ui| {
         ui.click("Stereo loader").expect("the switch");
     });
+    cog(&mut app, Some(0));
     assert!(
-        !shows(&app, "MICROPHONE BIT RATE"),
-        "settings hide while off"
+        shows(&app, "MICROPHONE BIT RATE"),
+        "settings stay in the dialog while off"
     );
     let layout = stored(&folder);
     let kept = &layout["halocord"]["plugins"]["stereo-loader"];
@@ -751,7 +763,7 @@ fn the_plugins_page_lists_every_plugin() {
     for id in [FAKE_MUTE, FAKE_DEAFEN, USER_AREA, "staff-tag"] {
         assert!(place(id).is_some(), "{id}");
     }
-    open(&mut app, Section::HaloCord);
+    open(&mut app, Section::Plugins);
     // The list is longer than the page, so each plugin is found by its name
     // in the search box, the way someone looking for it would.
     let missing: Vec<_> = PLUGINS
@@ -820,13 +832,16 @@ fn the_compact_card_is_shorter() {
     assert_eq!(crate::account::height(false), crate::account::HEIGHT);
 }
 
-/// MochaCord's page: its options start as the rice has them, a change is
+/// MochaCord's dialog on the Themes page: its options start as the rice has them, a change is
 /// kept in `layout.json` under `mochacord` and read back after a restart.
 #[test]
 fn mochacord_options_are_kept_across_a_restart() {
     let (mut app, folder) = preview();
     assert_eq!(app.layout.mochacord.glass_strength, 75);
-    open(&mut app, Section::MochaCord);
+    open(&mut app, Section::Themes);
+    let _ = app.update(Message::Settings(Event::HaloCord(
+        crate::settings::HaloEvent::OpenMocha,
+    )));
     assert!(shows(&app, "Glass window"));
     assert!(shows(&app, "Corner roundness"));
     interact(&mut app, |ui| {

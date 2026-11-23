@@ -19,7 +19,12 @@ fn main() {
 /// release's packaging sets `YAPFAST_RELEASE`: every other build, such as
 /// `cargo run`, is a development build.
 fn build_info() {
-    for name in ["YAPFAST_COMMIT", "YAPFAST_COMMIT_DATE", "YAPFAST_RELEASE"] {
+    for name in [
+        "YAPFAST_COMMIT",
+        "YAPFAST_COMMIT_DATE",
+        "YAPFAST_RELEASE",
+        "HALOCORD_BUILD",
+    ] {
         println!("cargo:rerun-if-env-changed={name}");
     }
     // Only this directory's own repository counts: source unpacked inside
@@ -64,6 +69,14 @@ fn build_info() {
     }
     if let Some(date) = date.filter(|date| !date.is_empty()) {
         println!("cargo:rustc-env=YAPFAST_BUILD_DATE={date}");
+    }
+    // The HaloCord release number, when the updater names one.
+    if let Some(number) = env::var("HALOCORD_BUILD")
+        .ok()
+        .map(|number| number.trim().to_owned())
+        .filter(|number| number.chars().all(|c| c.is_ascii_digit()) && !number.is_empty())
+    {
+        println!("cargo:rustc-env=YAPFAST_BUILD_HALOCORD={number}");
     }
     if env::var_os("YAPFAST_RELEASE").is_some_and(|release| !release.is_empty()) {
         println!("cargo:rustc-env=YAPFAST_BUILD_RELEASE=1");
