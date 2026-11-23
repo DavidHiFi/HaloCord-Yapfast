@@ -273,6 +273,10 @@ Window (`yapfast-iced`):
 - `rail.rs`: `home_tile` asks `halocord::home_face` first (Home typing's dots while someone
   types in a DM), else draws the logo; `typing.rs`: `dots`, the typing line's dots on their
   own, `pub(crate)` for it.
+- `app/settle.rs`: `settle` starts with `halocord::keep_channel` (Keep current channel: the
+  conversation kept in `halocord-channel` in the app's folder opens once listed, if the plugin
+  was on as the window started and nothing else was opened first, and the one open is kept);
+  `app/mod.rs`: the `halocord_kept` field it keeps its state in.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
 - `app/message.rs`: `Message::HaloCord(halocord::Event)`, the plugins' own messages

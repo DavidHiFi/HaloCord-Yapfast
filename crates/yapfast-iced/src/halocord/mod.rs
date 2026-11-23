@@ -64,8 +64,10 @@ pub use menus::{
     sticker_tile,
 };
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
-pub use servers::{home_face, home_mentions, no_request_badge};
-pub use voice::{in_voice_mark, unmute_mark, voice_count};
+pub use servers::{
+    KeptChannel, home_face, home_mentions, keep_channel, no_request_badge,
+};
+pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
 #[cfg(test)]
@@ -138,6 +140,7 @@ pub mod id {
     pub const HOME_TYPING: &str = "home-typing";
     pub const SEARCH_MENU: &str = "full-search-context";
     pub const UNIVERSAL_MENTION: &str = "universal-mention";
+    pub const KEEP_CHANNEL: &str = "keep-current-channel";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -195,6 +198,7 @@ pub static PLUGINS: &[Plugin] = &[
     servers::HOME_TYPING,
     menus::SEARCH_MENU,
     chat::UNIVERSAL_MENTION,
+    servers::KEEP_CHANNEL,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
