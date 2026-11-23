@@ -267,6 +267,9 @@ pub fn chosen(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Task
     if let Some(task) = own_pick(app, key, item, place) {
         return task;
     }
+    if let Some(task) = search_pick(app, key, item) {
+        return task;
+    }
     match place {
         Some(user) => done(app, engine::person_pick(key, user)),
         None => pick(app, key, item),
@@ -303,7 +306,9 @@ pub fn attachment_menu(app: &mut App, item: &str, at: usize) -> Task<Message> {
 
 /// Hook 5: A plugin's menu row was chosen for the message `item`.
 pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
-    let Some(message) = app.client.state().message(item).cloned() else {
+    // A search result's message too, for Search result menu's rows.
+    let found = || search_hit(app, item).map(|hit| hit.message.clone());
+    let Some(message) = app.client.state().message(item).cloned().or_else(found) else {
         return Task::none();
     };
     done(app, engine::pick(key, &message))
@@ -329,6 +334,103 @@ fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
         Task::none()
     };
     Task::batch([app.sync(), copied, focus])
+}
+
+pub(super) const SEARCH_MENU: Plugin = Plugin {
+    id: id::SEARCH_MENU,
+    name: "Search result menu",
+    about: "A right click on a search result opens a menu for its message: Jump to message, Copy text, Copy message link, Copy message ID, and the rows other plugins add to a message's menu.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// Hook: a search result, with its menu on a right click while Search
+/// result menu is on.
+pub fn search_result<'a>(
+    cx: crate::ctx::Ctx<'a>,
+    found: iced::Element<'a, Message>,
+    room: &str,
+    item: &str,
+) -> iced::Element<'a, Message> {
+    if !cx.layout.halocord.is(id::SEARCH_MENU) {
+        return found;
+    }
+    let (room, item) = (room.to_owned(), item.to_owned());
+    crate::widgets::RightPress::new(found, move |_| {
+        Message::HaloCord(super::Event::SearchMenu(room.clone(), item.clone()))
+    })
+    .into()
+}
+
+/// The search result with message `item`, as the search found it.
+fn search_hit<'a>(app: &'a App, item: &str) -> Option<&'a yapfast_core::chat::SearchHit> {
+    app.client
+        .state()
+        .search
+        .as_ref()?
+        .results
+        .iter()
+        .find(|hit| hit.message.item == item)
+}
+
+/// A Discord message's link and id, by its room and item.
+fn search_link(room: &str, item: &str) -> Option<(String, String)> {
+    let (guild, channel) = yapfast_core::discord::parse_room(room)?;
+    let id = item.strip_prefix("d:")?;
+    Some((
+        format!("https://discord.com/channels/{guild}/{channel}/{id}"),
+        id.to_owned(),
+    ))
+}
+
+/// Opens the menu of the search result `item` of `room`, where the pointer
+/// pressed.
+pub(super) fn search_menu(app: &mut App, room: String, item: String) -> Task<Message> {
+    let Some(hit) = search_hit(app, &item) else {
+        return Task::none();
+    };
+    let message = hit.message.clone();
+    let row = |label: &'static str, icon: Icon, action: &str| {
+        MenuRow::new(MenuAct::Plugin, label, icon).key(format!("{}/{action}", id::SEARCH_MENU))
+    };
+    let mut rows = vec![
+        row("Jump to message", Icon::ArrowRight, "jump"),
+        row("Copy text", Icon::Copy, "text"),
+    ];
+    if search_link(&room, &item).is_some() {
+        rows.push(row("Copy message link", Icon::Chain, "link"));
+        rows.push(row("Copy message ID", Icon::Id, "id"));
+    }
+    rows.extend(menu_rows(&message));
+    app.win.menu = Some(crate::menus::Menu {
+        item: Some(item),
+        ..crate::menus::Menu::new(app.pressed.get(), rows)
+    });
+    iced::widget::operation::focus(crate::app::NOBODY)
+}
+
+/// What one of Search result menu's own rows does.
+fn search_pick(app: &mut App, key: &str, item: &str) -> Option<Task<Message>> {
+    let action = key.strip_prefix(id::SEARCH_MENU)?.strip_prefix('/')?;
+    let hit = search_hit(app, item)?;
+    let (room, body) = (hit.room.clone(), hit.message.body.clone());
+    Some(match action {
+        "jump" => {
+            app.client.dispatch(Action::JumpInRoom {
+                room,
+                item: item.to_owned(),
+            });
+            app.sync()
+        }
+        "text" => iced::clipboard::write(body),
+        "link" | "id" => {
+            let (link, id) = search_link(&room, item)?;
+            iced::clipboard::write(if action == "link" { link } else { id })
+        }
+        _ => Task::none(),
+    })
 }
 
 #[cfg(test)]

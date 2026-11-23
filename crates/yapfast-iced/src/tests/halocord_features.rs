@@ -174,3 +174,75 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Search result menu: with it on, a search result's right click opens a
+/// menu whose Jump to message goes to it.
+#[test]
+fn search_result_menu_jumps_to_a_found_message() {
+    use yapfast_core::{
+        application::Search,
+        chat::{ChatMessage, SearchHit},
+    };
+
+    use crate::halocord::Event;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let room = app.client.state().selected.clone().expect("a conversation");
+    let message: ChatMessage = (**app.client.state().messages.first().expect("a message")).clone();
+    let item = message.item.clone();
+    super::change(&mut app, {
+        let (room, message) = (room.clone(), message);
+        move |state| {
+            state.search = Some(Search {
+                results: vec![SearchHit {
+                    room,
+                    message,
+                    thread: None,
+                }],
+                ..Search::default()
+            });
+        }
+    });
+    let open = |app: &mut App| {
+        app.win.menu = None;
+        let _ = app.update(Message::HaloCord(Event::SearchMenu(
+            room.clone(),
+            item.clone(),
+        )));
+        app.win.menu.as_ref().map(|menu| {
+            menu.rows
+                .iter()
+                .map(|row| row.label.to_string())
+                .collect::<Vec<_>>()
+        })
+    };
+    turn_on(&mut app, id::SEARCH_MENU);
+    let labels = open(&mut app).expect("the menu");
+    assert_eq!(labels[..2], ["Jump to message", "Copy text"], "{labels:?}");
+    assert!(
+        !labels.iter().any(|label| label == "Copy message link"),
+        "not a Discord room"
+    );
+    let at = labels
+        .iter()
+        .position(|label| label == "Jump to message")
+        .unwrap();
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(at)));
+    assert_eq!(
+        app.client
+            .state()
+            .jump
+            .as_ref()
+            .map(|(jumped, _)| jumped.as_str()),
+        Some(item.as_str()),
+        "jumped to it"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::SEARCH_MENU).expect("the plugin"),
+            on: false,
+        },
+    );
+}

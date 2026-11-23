@@ -870,7 +870,13 @@ pub fn view<'a>(searching: &'a Searching, cx: Ctx<'a>) -> Option<Element<'a, Mes
             result.room.clone(),
             result.found.message.item.clone(),
         ));
-        entry = entry.push(crate::found::found_view(cx, &result.found, jump));
+        // HaloCord's Search result menu (docs/halocord.md).
+        entry = entry.push(crate::halocord::search_result(
+            cx,
+            crate::found::found_view(cx, &result.found, jump),
+            &result.room,
+            &result.found.message.item,
+        ));
         list = list.push(entry);
     }
     if blocked + ignored > 0 {

@@ -42,7 +42,7 @@ pub use members::{
     add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
 };
 pub use members::{role_press, zoom_size, zoomable};
-pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
+pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows, search_result};
 pub use servers::{home_mentions, no_request_badge};
 pub use voice::{in_voice_mark, unmute_mark, voice_count};
 
@@ -102,6 +102,7 @@ pub mod id {
     pub const COPY_PROFILE_COLORS: &str = "copy-profile-colors";
     pub const FIND_REPLY: &str = "find-reply";
     pub const IMAGE_ZOOM: &str = "image-zoom";
+    pub const SEARCH_MENU: &str = "full-search-context";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -146,6 +147,7 @@ pub static PLUGINS: &[Plugin] = &[
     menus::COPY_PROFILE_COLORS,
     menus::FIND_REPLY,
     members::IMAGE_ZOOM,
+    menus::SEARCH_MENU,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
@@ -173,12 +175,16 @@ pub fn place(id: &str) -> Option<usize> {
 pub enum Event {
     /// Click to unmute: this person, unmuted for this account.
     Unmute(String),
+    /// Search result menu: a right click on a search result, by its room
+    /// and item.
+    SearchMenu(String, String),
 }
 
 /// Carries out a plugin's message.
 pub fn update(app: &mut crate::app::App, event: Event) -> iced::Task<crate::app::Message> {
     match event {
         Event::Unmute(person) => voice::unmute(app, &person),
+        Event::SearchMenu(room, item) => return menus::search_menu(app, room, item),
     }
     iced::Task::none()
 }
