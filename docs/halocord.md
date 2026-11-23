@@ -29,7 +29,8 @@ whole list to carry across.
   published, with the "Local" mark, the menu rows and `parse_when`. Never sent.
 - `crates/yapfast-core/src/halocord/message_logger.rs`: Message logger: the
   bounded log (2,000 messages) of what was deleted and the earlier wordings of
-  what was edited, and its menu row.
+  what was edited, its menu row, and the people, channels and servers its page
+  says to leave alone (`ignores_place`, from SickoHours' pull request 21).
 - `crates/yapfast-iced/src/settings/pages/halocord.rs`: Settings' HaloCord group: the
   overview, the Plugins page (filter, All/On/Off, area chips and the plugins as
   cards drawn from `PLUGINS`), the plugin and MochaCord dialogs, and Backup &
@@ -427,7 +428,7 @@ Kit (`yapfast-iced-kit`) and vendor:
   `Smooth::draw`.
 - `renderer.rs`: `want_glass`, `glass_wanted`, `glass_active`.
 - `controls.rs`: `field_style` rings a field in the theme's `focus` role; `choices_within`
-  wraps its options onto more rows when their labels don't fit one (`choices_fit`).
+  puts its options on as few even lines as hold their measured words (`choice_lines`).
 - `icons.rs`: `Icon::HaloLogo`, `HaloDesktop`, `HaloPhone`, `HaloWeb`.
 - `app/message.rs`: `Message::Deck(halocord::deck::Asked)`; `app/mod.rs`: its arm, which
   calls `halocord::deck::asked`; `app/subscription.rs`: `halocord::deck::subscription`
@@ -457,7 +458,8 @@ Core (`yapfast-core`):
   has (Member count's tooltip reads it).
 - `chat.rs`: `DiscordCommand::Republish`, the command that arm sends.
 - `discord_text/open_channel.rs`: `message_logger` calls where a message is deleted or
-  edited, `fake_dms::merge` in `publish`, and `message_logger::mark` in `render`.
+  edited (skipped for a message only you see and for a listed channel or server),
+  `fake_dms::merge` in `publish`, and `message_logger::mark` in `render`.
 - `application/members.rs`: `member_standing(place, user)`, whether a member owns the
   server and what it lets them do (the staff tag reads it).
 - `volume.rs`: `most()` in place of `MAX` in `set` (`MAX`, or what the Volume booster's cap
@@ -545,6 +547,14 @@ Yapfast's own fix for it lands (its test still passes without ours).
   hour off a preview message's time of 0 and overflowed; it saturates now.
 - The GitHub check installs the newest LLVM (`.github/workflows/halocord.yml`):
   the runner's own clang-cl is older than its Visual Studio's C++ library.
+- A row of choices too narrow for its options' words (the Stereo loader's five bit
+  rates in the Plugins page's 360 px, Messages' date formats, each about 2 px short)
+  ran its options into one another:
+  `yapfast-iced-kit/src/controls.rs` `choices_within` measures each option's words
+  (`choice_words`) and, when they don't all fit, lays them out on as few even lines
+  as hold them (`choice_lines`); a row that fits is drawn as before. It lays out
+  from `widest`, so a page narrower than that still squeezes it. Test:
+  `segmented_rows_wrap_only_when_they_dont_fit`.
 - Checked, nothing to change: yapfast#257 (code blocks drawn wrong) came from
   the old Slint window; the iced window draws them right, and the ignored test
   `code_block_picture` in `tests/halocord_fixes.rs` saves a picture to check.
@@ -563,8 +573,8 @@ Yapfast's own fix for it lands (its test still passes without ours).
   saved values, and `every_hook_is_in_the_docs`, which fails when a Yapfast file
   calls into HaloCord or MochaCord and this page doesn't name it.
 - Core `halocord::fake_dms::tests` and `halocord::message_logger::tests`: sorting,
-  saving, time words, the send path, kept deletes, edit order, the ignore switches and
-  the cap.
+  saving, time words, the send path, kept deletes, edit order, the ignore switches,
+  the ignore lists and the cap.
 - Window `tests/halocord_messages.rs`: Fake DMs and Message logger in a chat, their
   menu rows, and ignored tests that draw them into `audit/hc17/messages/`.
 - Window `tests/halocord_menu_pictures.rs`: ignored tests that draw each right-click

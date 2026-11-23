@@ -649,7 +649,7 @@ impl OpenChannel {
             {
                 self.insert_latest(message.clone());
             } else if let Some(latest) = &mut self.latest {
-                self.dirty |= change(&mut latest.messages, &self.channel, event).is_some();
+                self.dirty |= change(&mut latest.messages, &self.guild, &self.channel, event).is_some();
             }
             if let Some(latest) = &mut self.latest {
                 latest.keep_newest(KEPT_MESSAGES);
@@ -704,7 +704,7 @@ impl OpenChannel {
             }
             // Rendered with what Names has, which publishing checks.
             Live::Names => true,
-            _ => match change(&mut self.shown.messages, &self.channel, event) {
+            _ => match change(&mut self.shown.messages, &self.guild, &self.channel, event) {
                 Some(order) => {
                     self.rendered.remove(&order);
                     true
@@ -2034,19 +2034,31 @@ pub(super) fn upload_name(name: &str, spoiler: bool) -> String {
 
 const SPOILER: &str = "SPOILER_";
 
-/// Applies an edit, a deletion or a reaction in `channel` to the messages
-/// it changes; the snowflake of the one it changed, if any.
-fn change(messages: &mut BTreeMap<u64, Message>, channel: &str, event: &Live) -> Option<u64> {
+/// Applies an edit, a deletion or a reaction in `channel` of server `guild`
+/// to the messages it changes; the snowflake of the one it changed, if any.
+fn change(
+    messages: &mut BTreeMap<u64, Message>,
+    guild: &str,
+    channel: &str,
+    event: &Live,
+) -> Option<u64> {
+    // HaloCord's Message Logger leaves alone the channels and servers its
+    // page lists, and the messages only you can see.
+    let logged = |known: &Message| {
+        !known.ephemeral && !crate::halocord::message_logger::ignores_place(guild, channel)
+    };
     match event {
         Live::Updated(message) if message.channel_id == channel => {
             let known = messages.get_mut(&message.order())?;
-            crate::halocord::message_logger::edited(
-                &known.author_id,
-                known.bot,
-                &known.id,
-                &known.content,
-                &message.content,
-            );
+            if logged(known) {
+                crate::halocord::message_logger::edited(
+                    &known.author_id,
+                    known.bot,
+                    &known.id,
+                    &known.content,
+                    &message.content,
+                );
+            }
             // Updates don't always carry reactions; keep the counted ones,
             // and a poll's votes unless it carries them, and the original a
             // reply answers unless it says what became of it.
@@ -2085,7 +2097,9 @@ fn change(messages: &mut BTreeMap<u64, Message>, channel: &str, event: &Live) ->
             let order = message.parse().unwrap_or_default();
             let known = messages.get(&order)?;
             // HaloCord's Message Logger keeps it in the chat, marked deleted.
-            if crate::halocord::message_logger::keeps(&known.author_id, known.bot, &known.id) {
+            if logged(known)
+                && crate::halocord::message_logger::keeps(&known.author_id, known.bot, &known.id)
+            {
                 return Some(order);
             }
             messages.remove(&order).map(|_| order)

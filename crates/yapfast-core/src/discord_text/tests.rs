@@ -2202,3 +2202,43 @@ async fn halocord_favorite_anything_reaches_rows_already_shown() {
     crate::halocord::favorite_anything::set(false);
     assert!(!starred(&mut open), "off again");
 }
+
+#[test]
+fn the_logger_leaves_listed_channels_and_servers_and_private_answers_alone() {
+    use crate::halocord::message_logger::{self, Settings};
+    let deleted = |id: &str| Live::Deleted {
+        channel: "11".into(),
+        id: id.into(),
+    };
+    // Channel 11 of server 10: listing either lets a delete go through.
+    for (channels, servers) in [("11", ""), ("", "10")] {
+        message_logger::set(Settings {
+            on: true,
+            ignore_channels: Settings::ids(channels),
+            ignore_servers: Settings::ids(servers),
+            ..Settings::OFF
+        });
+        let mut open = OpenChannel::new("discord:10:11").unwrap();
+        open.loaded(Load::Latest, shown(page([1, 2, 3])));
+        assert!(open.live(&deleted("2")));
+        assert_eq!(ids(&open), [1, 3], "{channels:?} {servers:?}");
+    }
+    // Another server's channel list leaves this one logged.
+    message_logger::set(Settings {
+        on: true,
+        ignore_servers: Settings::ids("99"),
+        ..Settings::OFF
+    });
+    let mut open = OpenChannel::new("discord:10:11").unwrap();
+    open.loaded(Load::Latest, shown(page([1, 2, 3])));
+    open.live(&deleted("2"));
+    assert_eq!(ids(&open), [1, 2, 3]);
+    // An answer only this account sees is never kept once deleted.
+    open.live(&Live::Created(Message {
+        ephemeral: true,
+        ..message("4", None)
+    }));
+    open.live(&deleted("4"));
+    assert!(open.message(4).is_none());
+    message_logger::set(Settings::OFF);
+}
