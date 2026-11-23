@@ -39,7 +39,7 @@ pub use members::time_left;
 pub use members::{
     add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
 };
-pub use members::{role_press, zoom_size, zoomable};
+pub use members::{heading_role, role_heading, role_press, zoom_size, zoomable};
 pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
 pub use servers::{home_mentions, no_request_badge};
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};

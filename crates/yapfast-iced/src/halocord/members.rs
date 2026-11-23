@@ -8,6 +8,47 @@ use chrono::NaiveDate;
 use super::{Kept, Plugin, id, thousands};
 use crate::{app::Message, ctx::Ctx, pictures::Icon, style::hex};
 
+/// Clickable roles in the member list: the role a heading names ("Mods — 3"),
+/// by its id in the open server. Online, Offline and other groups aren't
+/// roles.
+pub fn heading_role(cx: Ctx<'_>, heading: &str) -> Option<String> {
+    let name = heading
+        .rsplit_once(" — ")
+        .filter(|(_, count)| !count.is_empty() && count.bytes().all(|byte| byte.is_ascii_digit()))
+        .map_or(heading, |(name, _)| name);
+    if matches!(name, "Online" | "Offline") {
+        return None;
+    }
+    let place = cx.state.selected.as_deref()?;
+    cx.app
+        .server_roles(place)
+        .into_iter()
+        .find(|role| role.name == name)
+        .map(|role| role.id)
+}
+
+/// Hook: a member list heading, which opens its role's card when clicked
+/// while Clickable roles is on and the heading is a role.
+pub fn role_heading<'a>(
+    cx: Ctx<'a>,
+    heading: &str,
+    line: Element<'a, Message>,
+) -> Element<'a, Message> {
+    let role = cx
+        .layout
+        .halocord
+        .is(id::CLICKABLE_ROLES)
+        .then(|| heading_role(cx, heading))
+        .flatten();
+    let Some(role) = role else {
+        return line;
+    };
+    iced::widget::mouse_area(line)
+        .on_press(Message::Info(crate::info_cards::Event::ProfileRole(role)))
+        .interaction(iced::mouse::Interaction::Pointer)
+        .into()
+}
+
 pub(super) const MEMBER_COUNT: Plugin = Plugin {
     id: id::MEMBER_COUNT,
     name: "Member count",
@@ -222,7 +263,7 @@ pub(super) const VIEW_ICONS: Plugin = Plugin {
 pub(super) const CLICKABLE_ROLES: Plugin = Plugin {
     id: id::CLICKABLE_ROLES,
     name: "Clickable roles",
-    about: "Click a role on someone's profile to see who else has it.",
+    about: "Click a role on someone's profile, or a role's heading in the member list, to see who else has it.",
     on_at_first: false,
     settings: &[],
     apply: |_, _| {},

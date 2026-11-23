@@ -177,9 +177,18 @@ impl Application {
             .profile
             .as_ref()
             .and_then(|view| view.profile.roles.iter().find(|shown| shown.id == role));
-        let color = shown.and_then(|shown| shown.color);
+        // Or as the server names it, for a role clicked elsewhere, such as
+        // HaloCord's Clickable roles in the member list (docs/halocord.md).
+        let server = self
+            .server_roles(&room)
+            .into_iter()
+            .find(|server| server.id == role);
+        let color = shown
+            .and_then(|shown| shown.color)
+            .or_else(|| server.as_ref().and_then(|server| server.color));
         let name = name
             .or_else(|| shown.map(|shown| shown.name.clone()))
+            .or_else(|| server.map(|server| server.name))
             .unwrap_or_default();
         self.state.role = Some(RoleView {
             id: role.clone(),

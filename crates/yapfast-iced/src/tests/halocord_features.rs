@@ -174,3 +174,52 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Clickable roles in the member list: a heading that names one of the
+/// server's roles ("Mods — 3") finds it, Online and Offline don't, and its
+/// card takes the role's name and colour from the server.
+#[test]
+fn clickable_roles_open_a_role_card_from_a_member_list_heading() {
+    use std::{collections::HashMap, sync::Arc};
+
+    use crate::halocord::heading_role;
+    use crate::info_cards::Event as Card;
+    let (mut app, _folder) = super::server::discord_server(0, |server, _| {
+        server.role_names = Arc::new(HashMap::from([
+            ("10".to_owned(), "@everyone".to_owned()),
+            ("20".to_owned(), "Mods".to_owned()),
+        ]));
+        server.role_colors = Arc::new(HashMap::from([("20".to_owned(), (1, 0x89B4FA))]));
+    });
+    app.client.app.state.selected = Some("discord:10:11".into());
+    let _ = app.sync();
+    assert_eq!(heading_role(app.ctx(), "Mods — 3").as_deref(), Some("20"));
+    assert_eq!(
+        heading_role(app.ctx(), "Mods").as_deref(),
+        Some("20"),
+        "no count"
+    );
+    assert_eq!(heading_role(app.ctx(), "Online — 40"), None);
+    assert_eq!(heading_role(app.ctx(), "Offline — 2"), None);
+    assert_eq!(
+        heading_role(app.ctx(), "Raiders — 1"),
+        None,
+        "not a role here"
+    );
+    turn_on(&mut app, id::CLICKABLE_ROLES);
+    let _ = app.update(Message::Info(Card::ProfileRole("20".into())));
+    let shown = app.client.state().role.clone().expect("the role's card");
+    assert_eq!(
+        (shown.name.as_str(), shown.color),
+        ("Mods", Some(0x89B4FA)),
+        "named and coloured by the server"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::CLICKABLE_ROLES).expect("the plugin"),
+            on: false,
+        },
+    );
+}
