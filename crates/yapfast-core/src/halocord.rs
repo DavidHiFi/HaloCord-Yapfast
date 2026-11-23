@@ -109,6 +109,9 @@ static FAKE_DEAF: AtomicBool = AtomicBool::new(false);
 pub fn set_fake_voice(mute: bool, deaf: bool) {
     FAKE_MUTE.store(mute, Ordering::Relaxed);
     FAKE_DEAF.store(deaf, Ordering::Relaxed);
+    // A call joined meanwhile says deafened from its first voice state.
+    #[cfg(feature = "discord")]
+    yapfast_discord::halocord::set_fake_deafen(deaf);
 }
 
 /// What the voice state sent to Discord says, from the real mute and

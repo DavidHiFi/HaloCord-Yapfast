@@ -374,3 +374,38 @@ async fn knows_when_voice_channels_calls_started() {
     assert!(snapshot.servers.iter().any(|known| known.id == guild));
     assert_eq!(asked(), serde_json::json!([guild, guild]));
 }
+
+/// Fake deafen shows from the moment a call is joined: the join's own voice
+/// state says deafened, not only the one the call sends once it connects.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "starts testing/fake_discord.ts with bun; run scripts/test-fake-discord"]
+async fn a_fake_deafen_shows_from_the_join() {
+    let Fixture {
+        _fake,
+        discord,
+        snapshot,
+        guild,
+        lounge,
+        ..
+    } = Fixture::start("a_fake_deafen_shows_from_the_join").await;
+    let me = snapshot.user_id.clone().unwrap();
+    yapfast_discord::halocord::set_fake_deafen(true);
+    let joined = discord.join(&guild, &lounge).await;
+    // Off again before anything can panic, so no other test joins deafened.
+    yapfast_discord::halocord::set_fake_deafen(false);
+    joined.unwrap();
+    let mine = |snapshot: &Snapshot| {
+        snapshot.voice.get(&lounge).and_then(|members| {
+            members
+                .iter()
+                .find(|member| member.user_id == me)
+                .map(|member| (member.muted, member.deafened))
+        })
+    };
+    let seen = snapshot_where(&discord, |snapshot| mine(snapshot).is_some()).await;
+    assert_eq!(
+        mine(&seen),
+        Some((true, true)),
+        "the join says muted and deafened"
+    );
+}

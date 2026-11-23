@@ -404,7 +404,13 @@ impl Session<'_> {
                 reply,
             } => {
                 let sent = gateway
-                    .update_voice_state(server(&guild), Some(&channel), true, false, false)
+                    .update_voice_state(
+                        server(&guild),
+                        Some(&channel),
+                        true,
+                        crate::halocord::fake_deafened(),
+                        false,
+                    )
                     .await;
                 self.join.start(guild, channel, reply);
                 sent

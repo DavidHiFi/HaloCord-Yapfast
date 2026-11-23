@@ -225,6 +225,8 @@ Discord (`yapfast-discord`):
 - `member_list.rs`: `presence` and the member list's rows call `halocord::note` with the
   presence (one line each).
 - `service/tracker.rs`: `presence` calls `halocord::note` (one line).
+- `service/session.rs`: `Request::Join` says `self_deaf` as `halocord::fake_deafened()`, so
+  a call is joined showing Fake deafen from its first voice state.
 
 Calls (`yapfast-discord`):
 

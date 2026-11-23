@@ -1,7 +1,9 @@
 //! HaloCord's Platform indicators: which of Discord's apps each person is on
 //! (desktop, phone, web) and their status on each, from the `client_status`
 //! Discord sends with a presence. The presence readers call [`note`];
-//! HaloCord's window reads [`clients`]. `docs/halocord.md` lists the hooks.
+//! HaloCord's window reads [`clients`]. Also Fake deafen's switch, so a call
+//! is joined showing deafened ([`fake_deafened`]). `docs/halocord.md` lists
+//! the hooks.
 
 use std::{
     collections::HashMap,
@@ -65,6 +67,21 @@ pub fn clients(user: &str) -> Clients {
         .ok()
         .and_then(|seen| seen.get(user).copied())
         .unwrap_or_default()
+}
+
+/// Fake deafen, as the core sets it with the rest of the fake voice state.
+static FAKE_DEAF: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Shows this account deafened from the moment it joins a call, or not.
+pub fn set_fake_deafen(on: bool) {
+    FAKE_DEAF.store(on, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Whether a join should say deafened: Fake deafen is on. A join otherwise
+/// says muted and undeafened until the call's own voice state follows, and
+/// others would see the account undeafened meanwhile.
+pub fn fake_deafened() -> bool {
+    FAKE_DEAF.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 #[cfg(test)]
