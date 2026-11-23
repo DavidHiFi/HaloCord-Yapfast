@@ -341,3 +341,25 @@ fn picture_of_build_12_plugins() {
     assert!(shows(&app, "View icons"));
     draw(&app, "plugin-icons");
 }
+
+#[test]
+#[ignore = "writes pictures for a person to look at"]
+fn picture_of_build_13_plugins() {
+    let (mut app, _folder) = mocha();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::JUMP_TO_START);
+    turn_on(&mut app, id::CLICK_ACTIONS);
+    // The channel's top bar with the button.
+    let _ = app.sync();
+    assert!(crate::halocord::start_button(app.ctx()).is_some());
+    draw(&app, "plugin-jump-to-start-bar");
+    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Search("jump".into())));
+    let _ = app.sync();
+    assert!(shows(&app, "Jump to start"));
+    draw(&app, "plugin-jump-to-start");
+    let _ = app.update(Message::Settings(Event::Search("click actions".into())));
+    let _ = app.sync();
+    assert!(shows(&app, "Message click actions"));
+    draw(&app, "plugin-click-actions");
+}

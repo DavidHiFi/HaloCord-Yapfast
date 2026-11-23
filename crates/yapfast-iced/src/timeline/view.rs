@@ -17,7 +17,7 @@ use crate::{
     fonts::{BOLD, MEDIUM, SEMIBOLD},
     pictures::{Face, Icon},
     style::{corners, rounded, scrollbar},
-    widgets::{Corner, RightPress, Rows, Settle, Watch},
+    widgets::{Corner, DoublePress, RightPress, Rows, Settle, Watch},
 };
 
 use super::{
@@ -242,6 +242,11 @@ pub fn timeline_row<'a>(ctx: crate::ctx::Ctx<'a>, index: usize) -> Element<'a, M
         let origin = iced::Vector::new(lane.left, lane.top);
         Message::Timeline(Event::RowMenu(item.clone(), at + origin))
     });
+    // HaloCord's Message click actions: a double-click replies or edits.
+    let content: Element<'a, Message> = match crate::halocord::double_click(ctx, index) {
+        Some(double) => DoublePress::new(content, double).into(),
+        None => content.into(),
+    };
     whole = whole.push(
         mouse_area(content)
             .on_enter(Message::Timeline(Event::PointRow(look.item.clone(), true)))

@@ -29,9 +29,9 @@ mod servers;
 pub mod theme_files;
 mod voice;
 
-pub use buttons::{Press, press, presses};
+pub use buttons::{Press, press, presses, start_button};
 use chat::thousands;
-pub use chat::{count_color, count_words, tag};
+pub use chat::{count_color, count_words, double_click, tag};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 #[cfg(test)]
@@ -92,6 +92,8 @@ pub mod id {
     pub const FIX_FILE_EXTENSIONS: &str = "fix-file-extensions";
     pub const BETTER_JOINED_DATE: &str = "better-joined-date";
     pub const VIEW_ICONS: &str = "view-icons";
+    pub const JUMP_TO_START: &str = "jump-to-start";
+    pub const CLICK_ACTIONS: &str = "message-click-actions";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -129,6 +131,8 @@ pub static PLUGINS: &[Plugin] = &[
     chat::FIX_FILE_EXTENSIONS,
     members::BETTER_JOINED_DATE,
     members::VIEW_ICONS,
+    buttons::JUMP_TO_START,
+    chat::CLICK_ACTIONS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

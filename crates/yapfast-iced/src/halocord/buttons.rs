@@ -1,5 +1,5 @@
 //! Button plugins: the user area's look and buttons, and the top bar's
-//! Restart and Read all, and Close all DMs.
+//! Restart and Read all, Close all DMs, and Jump to start.
 
 use iced::Task;
 use yapfast_core::application::Action;
@@ -86,6 +86,16 @@ pub(super) const CLOSE_DMS: Plugin = Plugin {
     hooks: None,
 };
 
+pub(super) const JUMP_TO_START: Plugin = Plugin {
+    id: id::JUMP_TO_START,
+    name: "Jump to start",
+    about: "A button in the channel's top bar that jumps to the first message of the channel or DM you're in.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
 /// How the user area looks and which buttons it has, from its plugin.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Dock {
@@ -132,6 +142,7 @@ pub enum Press {
     Restart,
     ReadAll,
     CloseDms,
+    JumpStart,
 }
 
 /// The buttons the plugins that are on add: icon, tip and what they do.
@@ -144,6 +155,27 @@ pub fn presses(kept: &Kept) -> Vec<(Icon, &'static str, Press)> {
         buttons.push((Icon::MarkRead, "Mark everything read", Press::ReadAll));
     }
     buttons
+}
+
+/// Jump to start's button in the channel's top bar: icon, tip and what it
+/// does, over a Discord channel or DM's messages (and the preview's).
+pub fn start_button(cx: crate::ctx::Ctx<'_>) -> Option<(Icon, &'static str, Message)> {
+    let discord = cx
+        .state
+        .selected
+        .as_deref()
+        .and_then(yapfast_core::discord::parse_room)
+        .is_some();
+    let shows = cx.layout.halocord.is(id::JUMP_TO_START)
+        && cx.state.shows_text()
+        && (cx.state.preview || discord);
+    shows.then(|| {
+        (
+            Icon::ChevronUp,
+            "Jump to start",
+            Message::Bar(crate::window_bar::Event::Halo(Press::JumpStart)),
+        )
+    })
 }
 
 /// What marks everything read: every server, and each conversation with
@@ -178,6 +210,7 @@ pub fn press(app: &mut App, press: Press) -> Task<Message> {
                 app.client.dispatch(action);
             }
         }
+        Press::JumpStart => app.client.dispatch(Action::JumpToStart),
         Press::ReadAll => {
             for action in read_all_actions(app.client.state()) {
                 app.client.dispatch(action);

@@ -1,4 +1,5 @@
-//! Unread messages: the new divider, what marks a channel read, and highlighted replies.
+//! Unread messages: the new divider, what marks a channel read, and highlighted replies;
+//! and the jump to a channel's start.
 
 use super::*;
 
@@ -47,6 +48,34 @@ fn discord_messages(ids: impl IntoIterator<Item = u64>, own: &[u64]) -> Vec<Chat
     ids.into_iter()
         .map(|id| message(&format!("d:{id}"), own.contains(&id)))
         .collect()
+}
+
+#[test]
+#[cfg(feature = "discord")]
+fn jump_to_start_loads_the_channels_first_messages_and_shows_the_first() {
+    let general = "discord:10:21";
+    let mut app = connected();
+    app.apply(unread_channel(false, 0));
+    app.dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
+    app.dispatch(Action::SelectRoom(general.into()));
+    app.apply(window(general, chat::Direction::Latest, true));
+    app.apply(Event::Timeline {
+        room: general.into(),
+        messages: timeline(discord_messages(200..=249, &[])),
+    });
+    // The messages around the channel's own id: none is older.
+    let effects = app.dispatch(Action::JumpToStart);
+    assert!(matches!(
+        effects.as_slice(),
+        [Effect::Backend(Command::Around { room, item })] if room == general && item == "d:21"
+    ));
+    app.apply(window(general, chat::Direction::Around, false));
+    app.apply(Event::Timeline {
+        room: general.into(),
+        messages: timeline(discord_messages(30..=60, &[])),
+    });
+    assert_eq!(app.state.jump, Some(("d:30".into(), 0)), "the first shows");
+    assert!(app.state.notice.is_none(), "not a missing message");
 }
 
 #[test]
