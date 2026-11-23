@@ -60,6 +60,10 @@ whole list to carry across.
   Discord user's menu.
 - `crates/yapfast-core/src/halocord/new_user.rs`: the new account tag plugin's hook (an amber tag by
   accounts younger than N days, read from the Discord id) and its day count.
+- `crates/yapfast-core/src/halocord/send_timestamps.rs`: Send timestamps (a written
+  `<t:13:30>` goes up as a Discord timestamp) and its tests.
+- `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
+  `.jfif` photo goes up as `.jpg`) and its tests.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -184,6 +188,10 @@ Window (`yapfast-iced`):
   beside Friends while No pending count is on (one `if` each).
 - Core `application/places.rs`: `open_invite` starts a new link with
   `halocord::first_invite()` (Invite defaults) in place of 7 days and no limit.
+- Core `application/compose.rs`: `outgoing_body` runs the text through
+  `halocord::send_timestamps::wire` first (Send timestamps).
+- Core `discord_text/open_channel.rs`: `upload_name` runs the name through
+  `halocord::fix_file_extensions::name` first (Fix file extensions).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
 - `tests/calls.rs`, `tests/media.rs`, `tests/menus.rs`, `tests/navigation.rs`,
   `tests/writing.rs`: tests of the Volume booster, the copy rows, the buttons beside

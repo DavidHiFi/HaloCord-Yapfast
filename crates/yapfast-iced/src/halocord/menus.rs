@@ -8,6 +8,7 @@ use super::{Plugin, id};
 use crate::{
     app::{App, Message},
     menus::{MenuAct, MenuRow},
+    pictures::Icon,
 };
 
 pub(super) const COPY_MENTION: Plugin = Plugin {
@@ -90,12 +91,23 @@ pub fn person_rows(user: &str) -> Vec<MenuRow> {
 fn keyed(rows: Vec<(String, &'static str)>) -> Vec<MenuRow> {
     let mut rows: Vec<MenuRow> = rows
         .into_iter()
-        .map(|(key, label)| MenuRow::plain(MenuAct::Plugin, label).key(key))
+        .map(|(key, label)| MenuRow::new(MenuAct::Plugin, label, icon_of(&key)).key(key))
         .collect();
     if let Some(first) = rows.first_mut() {
         first.separated = true;
     }
     rows
+}
+
+/// The icon by a plugin's row, from the plugin its `key` names, as every
+/// other row in Yapfast's menus has one.
+fn icon_of(key: &str) -> Icon {
+    match key.split_once('/').map_or(key, |(plugin, _)| plugin) {
+        id::COPY_MENTION | id::QUICK_MENTION => Icon::AtSign,
+        id::COPY_PROFILE_LINK | id::COPY_MEDIA_LINK => Icon::Link,
+        id::COPY_STICKER_LINK => Icon::Sticker,
+        _ => Icon::Copy,
+    }
 }
 
 /// Hook 5: A plugin's menu row was chosen: in a person's menu (`place` is the

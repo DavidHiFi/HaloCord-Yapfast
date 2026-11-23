@@ -205,6 +205,11 @@ impl Application {
         } else {
             std::borrow::Cow::Borrowed(text)
         };
+        // HaloCord's Send timestamps.
+        let text = match crate::halocord::send_timestamps::wire(&text) {
+            std::borrow::Cow::Owned(wired) => std::borrow::Cow::Owned(wired),
+            std::borrow::Cow::Borrowed(_) => text,
+        };
         if self.state.preview {
             return text.into_owned();
         }

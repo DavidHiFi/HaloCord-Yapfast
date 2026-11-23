@@ -8,7 +8,8 @@
 //!
 //! - `kept.rs`: what a plugin is, its settings, and what is kept of them.
 //! - `voice.rs`: voice plugins and the voice marks in the lists.
-//! - `chat.rs`: tags by names and the character counter.
+//! - `chat.rs`: tags by names, the character counter and what a message
+//!   or file goes up as.
 //! - `menus.rs`: right-click menu rows and what a pick does.
 //! - `buttons.rs`: the user area and the top bar's buttons.
 //! - `members.rs`: the member list's count and platform marks.
@@ -84,6 +85,8 @@ pub mod id {
     pub const INVITE_DEFAULTS: &str = "invite-defaults";
     pub const NO_PENDING_COUNT: &str = "no-pending-count";
     pub const SHOW_TIMEOUT: &str = "show-timeout-duration";
+    pub const SEND_TIMESTAMPS: &str = "send-timestamps";
+    pub const FIX_FILE_EXTENSIONS: &str = "fix-file-extensions";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -117,6 +120,8 @@ pub static PLUGINS: &[Plugin] = &[
     servers::INVITE_DEFAULTS,
     servers::NO_PENDING_COUNT,
     members::SHOW_TIMEOUT,
+    chat::SEND_TIMESTAMPS,
+    chat::FIX_FILE_EXTENSIONS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

@@ -375,6 +375,7 @@ fn the_volume_booster_takes_someones_slider_past_200() {
     let kept = *stored().get("carol").expect("kept");
     assert!((kept - volume::from_slider(600.0)).abs() < 1e-3);
     // The most it goes to is a choice of the plugin's.
+    let _alone = super::plugin_alone();
     let plugin = place(VOLUME_BOOSTER).unwrap();
     changed(
         &mut app.layout,
@@ -714,6 +715,7 @@ fn someones_voice_menu_keeps_the_cores_order_with_an_icon_on_each_row() {
 fn force_mono_starts_off_and_switches_the_core() {
     use crate::halocord::{Change, FORCE_MONO, changed, place};
     let (mut app, _folder) = super::preview();
+    let _alone = super::plugin_alone();
     assert!(!app.layout.halocord.is(FORCE_MONO), "off at first");
     let mut set = |on| {
         changed(
