@@ -564,7 +564,13 @@ impl OpenChannel {
             return None;
         }
         let newest = &self.latest.as_ref().unwrap_or(&self.shown).messages;
-        let kept = || newest.values().filter(|message| !message.ephemeral);
+        // A deleted message the Message Logger holds back isn't live: kept on
+        // disk, it would come back as one after a restart.
+        let kept = || {
+            newest.values().filter(|message| {
+                !message.ephemeral && !crate::halocord::message_logger::is_deleted(&message.id)
+            })
+        };
         let skip = kept()
             .count()
             .saturating_sub(yapfast_discord::cache::CHANNEL_MESSAGES);

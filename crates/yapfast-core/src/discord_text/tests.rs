@@ -2112,3 +2112,23 @@ async fn an_apps_answer_says_who_used_which_command() {
     };
     assert!(found(&discord, server, &quoting).used.is_none());
 }
+
+#[test]
+fn a_deleted_message_the_logger_keeps_is_not_saved_to_disk() {
+    use crate::halocord::message_logger::{self, Settings};
+    message_logger::set(Settings {
+        on: true,
+        ..Settings::OFF
+    });
+    let mut open = OpenChannel::new("discord:10:11").unwrap();
+    open.loaded(Load::Latest, shown(page([1, 2, 3])));
+    assert!(open.live(&Live::Deleted {
+        channel: "11".into(),
+        id: "2".into()
+    }));
+    assert!(open.shown.messages.contains_key(&2), "kept in the chat");
+    let (_, saved) = open.take_changes().expect("changed");
+    let saved: Vec<_> = saved.iter().map(|message| message.id.as_str()).collect();
+    assert_eq!(saved, ["1", "3"]);
+    message_logger::set(Settings::OFF);
+}
