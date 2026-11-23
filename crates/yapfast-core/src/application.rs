@@ -1284,8 +1284,14 @@ impl AppState {
     /// found by name and those who wrote lately, then its roles and groups. This
     /// account isn't one of them.
     pub fn mention_candidates(&self) -> Vec<Candidate> {
+        self.marked_mention_candidates().0
+    }
+
+    /// [`Self::mention_candidates`], and where among them are the people
+    /// HaloCord's Universal mention adds (docs/halocord.md).
+    fn marked_mention_candidates(&self) -> (Vec<Candidate>, std::ops::Range<usize>) {
         let Some(room) = self.selected.as_deref() else {
-            return vec![];
+            return (vec![], 0..0);
         };
         let on_discord = Network::of(room) == Network::Discord;
         let mut seen: HashSet<String> = [&self.discord_user, &self.account]
@@ -1344,9 +1350,11 @@ impl AppState {
             });
         }
         // HaloCord's Universal mention (docs/halocord.md).
+        let added = candidates.len();
         if on_discord {
             crate::halocord::universal_mention::add(self, &mut seen, &mut candidates);
         }
+        let added = added..candidates.len();
         candidates.extend(self.mention_groups.iter().map(|group| Candidate {
             name: group.name.clone(),
             username: None,
@@ -1357,7 +1365,7 @@ impl AppState {
             channel: group.channel,
             voice: group.voice,
         }));
-        candidates
+        (candidates, added)
     }
 
     /// What the word being typed may mean: for `@`, people, best first, then
@@ -1366,20 +1374,32 @@ impl AppState {
         let Some((sigil, query)) = &self.mention_query else {
             return vec![];
         };
-        let (groups, people): (Vec<Candidate>, Vec<Candidate>) = self
-            .mention_candidates()
+        let (candidates, added) = self.marked_mention_candidates();
+        let (groups, people): (Vec<_>, Vec<_>) = candidates
             .into_iter()
-            .filter(|candidate| candidate.sigil() == *sigil)
-            .partition(|candidate| candidate.group);
+            .enumerate()
+            .filter(|(_, candidate)| candidate.sigil() == *sigil)
+            .partition(|(_, candidate)| candidate.group);
+        let groups: Vec<Candidate> = groups.into_iter().map(|(_, group)| group).collect();
         if *sigil == '#' {
             return mention::matching(&groups, query, MENTION_SUGGESTIONS)
                 .into_iter()
                 .cloned()
                 .collect();
         }
-        let people = mention::matching(&people, query, MENTION_SUGGESTIONS);
+        // The conversation's own people first, then HaloCord's Universal
+        // mention's (docs/halocord.md), each best first.
+        let (extra, own): (Vec<_>, Vec<_>) =
+            people.into_iter().partition(|(at, _)| added.contains(at));
+        let people = |found: Vec<(usize, Candidate)>| -> Vec<Candidate> {
+            found.into_iter().map(|(_, person)| person).collect()
+        };
+        let (own, extra) = (people(own), people(extra));
+        let mut found = mention::matching(&own, query, MENTION_SUGGESTIONS);
+        let room = MENTION_SUGGESTIONS - found.len();
+        found.extend(mention::matching(&extra, query, room));
         let groups = mention::matching(&groups, query, MENTION_GROUPS);
-        people.into_iter().chain(groups).cloned().collect()
+        found.into_iter().chain(groups).cloned().collect()
     }
 
     /// Text, or files to go with it.

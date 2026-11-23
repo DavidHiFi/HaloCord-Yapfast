@@ -216,7 +216,9 @@ Window (`yapfast-iced`):
   the item sought is the channel's own id (Jump to start).
 - Core `application/tests/unread.rs`: the Jump to start test.
 - Core `application.rs`: `mention_candidates` adds `halocord::universal_mention::add`'s people
-  on Discord, before the groups (Universal mention).
+  on Discord, before the groups (Universal mention), through `marked_mention_candidates`,
+  which says where they are; `mention_suggestions` offers the conversation's own people
+  first, then them.
 - Core `application/compose.rs`: `outgoing_body` runs the text through
   `halocord::send_timestamps::wire` first (Send timestamps).
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
@@ -226,7 +228,8 @@ Window (`yapfast-iced`):
   `tests/writing.rs`: tests of the Volume booster, the copy rows, the buttons beside
   Settings and Show timeout duration, in Yapfast's own test files.
 - Core `application/tests/servers.rs`: the invite test's Invite defaults lines.
-- Core `application/tests/mentions.rs`: `halocord_universal_mention_suggests_the_people_of_dms`.
+- Core `application/tests/mentions.rs`: `halocord_universal_mention_suggests_the_people_of_dms`,
+  `halocord_universal_mention_ranks_the_conversations_people_first`.
 - `window_bar.rs`: `Event::Halo(Press)` with its arm in `update` (a plugin's button
   pressed), and the buttons `halocord::presses` lists, pushed before Inbox in
   `window_bar`.

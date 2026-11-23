@@ -304,3 +304,39 @@ fn halocord_universal_mention_suggests_the_people_of_dms() {
     assert!(names(&state).is_empty(), "Matrix");
     universal_mention::set(false);
 }
+
+/// Universal mention's people come after the conversation's own: one of
+/// the channel's members is never pushed out of the suggestions by DMs
+/// that match better.
+#[test]
+fn halocord_universal_mention_ranks_the_conversations_people_first() {
+    use crate::{halocord::universal_mention, network::Network};
+    let dm = |at: usize| ChatRoom {
+        network: Network::Discord,
+        direct: true,
+        person: Some(format!("5{at}")),
+        ..preview_room(&format!("discord:@me:{at}"), &format!("Al {at}"), true, 2)
+    };
+    let mut state = AppState {
+        rooms: (0..crate::application::MENTION_SUGGESTIONS)
+            .map(|at| Arc::new(dm(at)))
+            .collect(),
+        selected: Some("discord:10:11".into()),
+        mention_query: Some(('@', "al".into())),
+        ..AppState::default()
+    };
+    // A member of the channel whose name matches the query less well
+    // (a later word) than every DM's.
+    state.found_members = vec![member("70", "Sam Alder")];
+    universal_mention::set(true);
+    let shown: Vec<String> = state
+        .mention_suggestions()
+        .into_iter()
+        .filter(|candidate| !candidate.group)
+        .map(|candidate| candidate.name)
+        .collect();
+    universal_mention::set(false);
+    assert_eq!(shown.len(), crate::application::MENTION_SUGGESTIONS);
+    assert_eq!(shown[0], "Sam Alder", "the channel's member first");
+    assert_eq!(shown[1], "Al 0", "then the DMs");
+}
