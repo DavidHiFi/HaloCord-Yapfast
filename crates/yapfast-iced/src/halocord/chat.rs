@@ -81,16 +81,28 @@ pub(super) const NEW_USER: Plugin = Plugin {
     name: "New account tag",
     about: "A small amber NEW tag by the names of people whose Discord account is only a few days old, to help you spot throwaway accounts.",
     on_at_first: false,
-    settings: &[Setting {
-        key: "days",
-        heading: "NEW MEANS UNDER",
-        note: "How old an account may be and still get the tag.",
-        kind: Kind::Choice {
-            names: &["7 days", "14 days", "30 days"],
-            values: &engine::new_user::DAYS,
-            unless_changed: engine::new_user::DEFAULT_DAYS,
+    settings: &[
+        Setting {
+            key: "days",
+            heading: "NEW MEANS UNDER",
+            note: "How old an account may be and still get the tag.",
+            kind: Kind::Choice {
+                names: &["7 days", "14 days", "30 days"],
+                values: &engine::new_user::DAYS,
+                unless_changed: engine::new_user::DEFAULT_DAYS,
+            },
         },
-    }],
+        off(
+            "member_list",
+            "In the member list",
+            "The tag by new accounts' names in the member list.",
+        ),
+        off(
+            "profiles",
+            "On profiles",
+            "The tag after the username on a new account's profile.",
+        ),
+    ],
     apply: |kept, plugin| {
         engine::new_user::set_days(kept.value(plugin, &plugin.settings[0]));
     },
@@ -194,6 +206,39 @@ pub(super) fn staff_mark<'a>(
         return None;
     }
     Some(tag(ctx, found))
+}
+
+/// New account tag by `user`'s name outside chat, while its switch for
+/// `place` is on, saying how old the account is on pointing.
+pub(super) fn new_account_mark<'a>(
+    ctx: Ctx<'a>,
+    user: &str,
+    place: super::Place,
+) -> Option<Element<'a, Message>> {
+    let kept = &ctx.layout.halocord;
+    let setting = match place {
+        super::Place::MemberList => 1,
+        super::Place::Profile => 2,
+        _ => return None,
+    };
+    if !kept.on(&NEW_USER) || !kept.flag(&NEW_USER, &NEW_USER.settings[setting]) {
+        return None;
+    }
+    let days = engine::new_user::new_for_days(user, yapfast_core::clock::now_ms())?;
+    let said = match days {
+        0 => "Account created today".to_owned(),
+        1 => "Account created 1 day ago".to_owned(),
+        days => format!("Account created {days} days ago"),
+    };
+    Some(
+        iced::widget::tooltip(
+            tag(ctx, engine::new_user::TAG),
+            crate::controls::tip(ctx.look.theme, said),
+            iced::widget::tooltip::Position::Top,
+        )
+        .gap(6)
+        .into(),
+    )
 }
 
 /// How full the message box is.

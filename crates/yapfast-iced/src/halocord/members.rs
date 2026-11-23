@@ -135,6 +135,7 @@ pub fn name_marks<'a>(cx: Ctx<'a>, user: &str, place: Place) -> Option<Element<'
     };
     let marks: Vec<Element<'a, Message>> = super::chat::staff_mark(cx, user, place)
         .into_iter()
+        .chain(super::chat::new_account_mark(cx, user, place))
         .chain(voice)
         .chain(place_platforms(cx, user, place))
         .collect();

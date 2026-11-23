@@ -100,7 +100,8 @@ whole list to carry across.
 - `crates/yapfast-core/src/halocord/copy_user_url.rs`: Copy profile link in a
   Discord user's menu.
 - `crates/yapfast-core/src/halocord/new_user.rs`: the new account tag plugin's hook (an amber tag by
-  accounts younger than N days, read from the Discord id) and its day count.
+  accounts younger than N days, read from the Discord id), its day count, and
+  `new_for_days`, for the tag in the member list and on profiles.
 - `crates/yapfast-core/src/halocord/send_timestamps.rs`: Send timestamps (a written
   `<t:13:30>` goes up as a Discord timestamp) and its tests.
 - `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
@@ -270,7 +271,8 @@ Window (`yapfast-iced`):
   before the badge on a voice channel's row (one `if let`).
 - `members.rs`: `member_row` draws the timed-out clock with `halocord::timeout_clock` (Show
   timeout duration's time left on pointing), pushes `halocord::in_voice_mark` after it, then
-  `halocord::name_marks` with `Place::MemberList` (Staff tag's admins and mods), then
+  `halocord::name_marks` with `Place::MemberList` (Staff tag's admins and mods,
+  New account tag), then
   `halocord::platform_marks` (one `if let` each).
 - `sidebar/dms.rs` (a DM's row, after its tags, through `halocord::dm_marks` by the room),
   `message/mod.rs` (`author_line`, after the

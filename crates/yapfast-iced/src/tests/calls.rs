@@ -1079,3 +1079,46 @@ fn staff_tag_shows_in_each_place_switched_on() {
         "the owner elsewhere"
     );
 }
+
+/// New account tag outside chat: its switches for the member list and
+/// profiles, off at first, put the tag by an account younger than its days,
+/// and not by an old one.
+#[test]
+fn new_account_tag_shows_in_the_member_list_and_on_profiles() {
+    use crate::halocord::{Change, NEW_USER, Place, changed, name_marks, place};
+    let (mut app, _folder) = super::preview();
+    // A Discord id made two days ago, and one from 2015.
+    let made = yapfast_core::clock::now_ms() - 2 * 86_400_000 - 1_420_070_400_000;
+    let young = (made << 22).to_string();
+    let old = "100000000000000000";
+    let plugin = place(NEW_USER).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    for at in [Place::MemberList, Place::Profile] {
+        assert!(
+            name_marks(app.ctx(), &young, at).is_none(),
+            "{at:?} off at first"
+        );
+    }
+    for setting in [1, 2] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting,
+                on: true,
+            },
+        );
+    }
+    for at in [Place::MemberList, Place::Profile] {
+        assert!(name_marks(app.ctx(), &young, at).is_some(), "{at:?}");
+        assert!(
+            name_marks(app.ctx(), old, at).is_none(),
+            "an old account: {at:?}"
+        );
+    }
+}
