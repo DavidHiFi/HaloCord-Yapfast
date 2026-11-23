@@ -552,7 +552,10 @@ impl Application {
                 }));
             }
         }
-        if let [target] = forwarding.chosen.as_slice() {
+        // HaloCord's Better forwards may stay where it is (docs/halocord.md).
+        if let [target] = forwarding.chosen.as_slice()
+            && !crate::halocord::better_forwards::stays()
+        {
             effects.extend(self.dispatch(Action::OpenChat(target.clone())));
         }
         forwarding.note = note;

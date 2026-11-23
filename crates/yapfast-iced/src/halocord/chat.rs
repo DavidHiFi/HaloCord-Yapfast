@@ -460,6 +460,17 @@ pub(super) const AUTO_ZIPPER: Plugin = Plugin {
                 .then(|| kept.text(plugin, &plugin.settings[0])),
         );
     },
+    },
+    hooks: None,
+};
+
+pub(super) const BETTER_FORWARDS: Plugin = Plugin {
+    id: id::BETTER_FORWARDS,
+    name: "Better forwards",
+    about: "Forwarding a message to one conversation leaves you where you are, rather than opening the conversation it went to.",
+    on_at_first: false,
+    settings: &[],
+    apply: |kept, plugin| engine::better_forwards::set(kept.on(plugin)),
     hooks: None,
 };
 

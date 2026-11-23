@@ -110,6 +110,8 @@ whole list to carry across.
   up with an embed fixer's site in its place) and its tests.
 - `crates/yapfast-core/src/halocord/auto_zipper.rs`: Auto zipper (a listed file goes up
   as a stored ZIP of it, made in memory) and its tests.
+- `crates/yapfast-core/src/halocord/better_forwards.rs`: Better forwards' switch (a forward
+  to one conversation stays where it is).
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -311,6 +313,8 @@ Window (`yapfast-iced`):
   `jump_to_start` and `start_item`; `seek` shows a channel's first message when
   the item sought is the channel's own id (Jump to start).
 - Core `application/tests/unread.rs`: the Jump to start test.
+- Core `application/messages.rs`: `forward` opens the one conversation forwarded to unless
+  `halocord::better_forwards::stays()` (Better forwards).
 - Core `application/compose.rs`: `outgoing_body` runs the text through
   `halocord::send_timestamps::wire` first (Send timestamps), then
   `halocord::embedded_urls::wire` (Embedded URLs).
