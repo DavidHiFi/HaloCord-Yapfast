@@ -174,3 +174,56 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Better upload button: with the plugin on, a click on the message box's
+/// plus opens the file picker (no menu), and a right click opens its menu,
+/// Upload a File first; off, a click opens the menu as Yapfast's does.
+#[test]
+fn better_upload_button_clicks_upload_and_right_clicks_open_the_menu() {
+    use iced::{Point, mouse};
+    let (mut app, _folder) = preview();
+    // A Discord DM, where polls start, so the + has its menu, and where
+    // files can go: the preview takes none, so out of preview, signed in.
+    super::change(&mut app, |state| {
+        state.preview = false;
+        state.account = Some("1".into());
+        state.discord_online = true;
+        let open = state.selected.clone();
+        for room in &mut state.rooms {
+            if Some(&room.id) == open.as_ref() {
+                let room = std::sync::Arc::make_mut(room);
+                room.network = yapfast_core::network::Network::Discord;
+                room.direct = true;
+            }
+        }
+    });
+    let plus = Point::new(
+        crate::conversation::chat_left(&app)
+            + crate::composer::GUTTER
+            + crate::composer::BUTTON_INSET
+            + 13.0,
+        crate::composer::composer_top(&app) + crate::composer::HEIGHT / 2.0,
+    );
+    let press = |app: &mut App, button| {
+        super::interact(app, |ui| {
+            ui.point_at(plus);
+            ui.simulate([
+                iced::Event::Mouse(mouse::Event::ButtonPressed(button)),
+                iced::Event::Mouse(mouse::Event::ButtonReleased(button)),
+            ]);
+        });
+    };
+    let first_row = |app: &App| app.win.menu.as_ref().map(|menu| menu.rows[0].label.clone());
+    // Off: a click opens the menu; a right click does nothing.
+    press(&mut app, mouse::Button::Left);
+    assert_eq!(first_row(&app).as_deref(), Some("Upload a File"));
+    app.win.menu = None;
+    press(&mut app, mouse::Button::Right);
+    assert!(app.win.menu.is_none(), "no menu on a right click while off");
+    // On: a click goes to the file picker, a right click opens the menu.
+    turn_on(&mut app, id::BETTER_UPLOAD_BUTTON);
+    press(&mut app, mouse::Button::Left);
+    assert!(app.win.menu.is_none(), "a click uploads, no menu");
+    press(&mut app, mouse::Button::Right);
+    assert_eq!(first_row(&app).as_deref(), Some("Upload a File"));
+}

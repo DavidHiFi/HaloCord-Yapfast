@@ -249,3 +249,34 @@ pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     apply: |kept, plugin| engine::fix_file_extensions::set(kept.on(plugin)),
     hooks: None,
 };
+
+pub(super) const BETTER_UPLOAD_BUTTON: Plugin = Plugin {
+    id: id::BETTER_UPLOAD_BUTTON,
+    name: "Better upload button",
+    about: "A click on the message box's + opens the file picker straight away; a right click opens its menu (Upload a File, Create Thread, Create Poll).",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// Better upload button: whether a click on the message box's + opens the
+/// file picker, not its menu.
+pub fn uploads_first(kept: &Kept) -> bool {
+    kept.is(id::BETTER_UPLOAD_BUTTON)
+}
+
+/// Better upload button: the message box's +, which gives `menu` on a right
+/// click while the plugin is on and the + has a menu.
+pub fn upload_button<'a>(
+    cx: Ctx<'a>,
+    plus: Element<'a, Message>,
+    menu: Option<Message>,
+) -> Element<'a, Message> {
+    match menu {
+        Some(menu) if uploads_first(&cx.layout.halocord) => {
+            iced::widget::mouse_area(plus).on_right_press(menu).into()
+        }
+        _ => plus,
+    }
+}
