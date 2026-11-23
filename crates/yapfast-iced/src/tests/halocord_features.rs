@@ -120,6 +120,9 @@ fn plain_folder_icon_starts_off() {
 fn invite_defaults_pick_what_a_new_link_starts_with() {
     use yapfast_core::halocord::first_invite;
     let (mut app, _folder) = preview();
+    // The invite defaults live in the core for every window: held so no
+    // other test's window, opening, sets them back while this one reads them.
+    let _alone = super::plugin_alone();
     turn_on(&mut app, id::INVITE_DEFAULTS);
     assert_eq!(first_invite(), Some((0, 0)), "never runs out, no limit");
     let plugin = place(id::INVITE_DEFAULTS).expect("the plugin");
