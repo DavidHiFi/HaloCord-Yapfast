@@ -1060,7 +1060,11 @@ pub(super) fn member_since<'a>(
         if !plain {
             line = line.push(ctx.look.glyph(Icon::Discord, 16, ink));
         }
-        line = line.push(text(created.as_str()).size(14).color(ink));
+        line = line.push(crate::halocord::exact_day(
+            ctx,
+            text(created.as_str()).size(14).color(ink),
+            created,
+        ));
     }
     if profile.created.is_some() && profile.joined.is_some() {
         line = line.push(text("\u{2022}").size(14).color(ink));
@@ -1085,9 +1089,11 @@ pub(super) fn member_since<'a>(
                 .into()
             }
         };
-        line = line
-            .push(icon)
-            .push(text(joined.as_str()).size(14).color(ink));
+        line = line.push(icon).push(crate::halocord::exact_day(
+            ctx,
+            text(joined.as_str()).size(14).color(ink),
+            joined,
+        ));
     }
     line.into()
 }

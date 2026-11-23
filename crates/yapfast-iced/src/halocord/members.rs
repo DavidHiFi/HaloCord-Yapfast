@@ -1,7 +1,9 @@
-//! Member list plugins: the member count line, Platform indicators and
-//! Show timeout duration.
+//! Member list plugins: the member count line, Platform indicators, Show
+//! timeout duration and Better joined date.
 
 use iced::Element;
+
+use chrono::NaiveDate;
 
 use super::{Kept, Plugin, id, thousands};
 use crate::{app::Message, ctx::Ctx, pictures::Icon, style::hex};
@@ -159,4 +161,77 @@ pub fn add_member_count(kept: &Kept, lines: &mut Vec<crate::looks::MemberLine>) 
             icon: None,
         },
     );
+}
+
+pub(super) const BETTER_JOINED_DATE: Plugin = Plugin {
+    id: id::BETTER_JOINED_DATE,
+    name: "Better joined date",
+    about: "Point at the dates on a profile, when they made their account and joined the server, to see the day of the week and how many days ago it was.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// A profile's date, `shown` as `day` (such as `Nov 5, 2026`), saying the
+/// whole date and how long ago when pointed at while Better joined date is
+/// on.
+pub fn exact_day<'a>(
+    cx: Ctx<'a>,
+    shown: impl Into<Element<'a, Message>>,
+    day: &str,
+) -> Element<'a, Message> {
+    let today = chrono::Local::now().date_naive();
+    match day_words(day, today).filter(|_| cx.layout.halocord.is(id::BETTER_JOINED_DATE)) {
+        Some(words) => iced::widget::tooltip(
+            shown,
+            crate::controls::tip(cx.look.theme, words),
+            iced::widget::tooltip::Position::Top,
+        )
+        .gap(6)
+        .into(),
+        None => shown.into(),
+    }
+}
+
+/// `day`, as a profile writes it, in full with how long ago it was from
+/// `today`: "Thursday, November 5, 2026, 383 days ago".
+fn day_words(day: &str, today: NaiveDate) -> Option<String> {
+    let date = NaiveDate::parse_from_str(day.trim(), "%b %d, %Y").ok()?;
+    let ago = match (today - date).num_days() {
+        ..0 => return None,
+        0 => "today".to_owned(),
+        1 => "yesterday".to_owned(),
+        days => format!("{} days ago", thousands(days as usize)),
+    };
+    Some(format!("{}, {ago}", date.format("%A, %B %-d, %Y")))
+}
+
+#[cfg(test)]
+mod day_tests {
+    use super::*;
+
+    #[test]
+    fn a_profile_date_reads_in_full_with_how_long_ago() {
+        let today = NaiveDate::from_ymd_opt(2026, 11, 23).unwrap();
+        assert_eq!(
+            day_words("Nov 5, 2025", today).as_deref(),
+            Some("Wednesday, November 5, 2025, 383 days ago")
+        );
+        assert_eq!(
+            day_words("Nov 23, 2026", today).as_deref(),
+            Some("Monday, November 23, 2026, today")
+        );
+        assert_eq!(
+            day_words("Nov 22, 2026", today).as_deref(),
+            Some("Sunday, November 22, 2026, yesterday")
+        );
+        assert_eq!(
+            day_words("May 4, 2015", today).as_deref(),
+            Some("Monday, May 4, 2015, 4,221 days ago")
+        );
+        for unread in ["", "soon", "Dec 1, 2026"] {
+            assert_eq!(day_words(unread, today), None, "{unread}");
+        }
+    }
 }

@@ -1,4 +1,4 @@
-//! Pictures of build 8, 9 and 10's features, drawn by the window in the MochaCord
+//! Pictures of build 8 to 11's features, drawn by the window in the MochaCord
 //! theme. Each test is ignored: it writes `audit/plugins/features-<name>.png`
 //! for the owner to look at. Run them with `cargo test -p yapfast-iced --lib
 //! -- --include-ignored halocord_feature_pictures`.
@@ -284,4 +284,47 @@ fn picture_of_plugin_menu_icons() {
     });
     assert!(shown, "both plugin rows, with icons");
     draw(&app, "menu-icons");
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_build_11_plugins() {
+    let (mut app, _folder) = mocha();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::BETTER_JOINED_DATE);
+    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    for (query, name) in [
+        ("joined", "Better joined date"),
+        ("game activity", "Game activity button"),
+    ] {
+        let _ = app.update(Message::Settings(Event::Search(query.into())));
+        let _ = app.sync();
+        assert!(shows(&app, name), "{name}");
+        draw(&app, &format!("plugin-{}", query.replace(' ', "-")));
+    }
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_the_game_button() {
+    let (mut app, _folder) = mocha();
+    let plugin = place(crate::halocord::USER_AREA).expect("the user area");
+    for setting in [4, 6] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting,
+                on: true,
+            },
+        );
+    }
+    super::change(&mut app, |state| {
+        state.discord_user = Some("42".into());
+        state.discord_show_game = true;
+    });
+    let _ = app.sync();
+    assert!(app.layout.halocord.dock().game);
+    draw(&app, "game-button");
 }
