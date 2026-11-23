@@ -280,6 +280,8 @@ Window (`yapfast-iced`):
   before the search field (one `if let`).
 - `timeline/view.rs`: `timeline_row` wraps the row in the kit's `DoublePress` when
   `halocord::double_click` has a message for it (Message click actions).
+- `rail.rs`: a server tile's tooltip name goes through `halocord::tip_member_count` (Member
+  count's "· 1,234 members", one line).
 - `sync.rs`: `make_lists` drops friend requests from the DM home's count and the count
   beside Friends while No pending count is on (one `if` each).
 - Core `application/places.rs`: `open_invite` starts a new link with
@@ -360,6 +362,8 @@ Core (`yapfast-core`):
   `Win32_Graphics_Gdi` feature for it.
 - `application.rs`: plug-in point 1, two checks and two `after` calls; `Action::Republish`
   (draws a chat again from what is held, for Fake DMs and Message logger).
+- `application/server.rs`: `server_member_count(place)`, how many members a Discord server
+  has (Member count's tooltip reads it).
 - `chat.rs`: `DiscordCommand::Republish`, the command that arm sends.
 - `discord_text/open_channel.rs`: `message_logger` calls where a message is deleted or
   edited, `fake_dms::merge` in `publish`, and `message_logger::mark` in `render`.

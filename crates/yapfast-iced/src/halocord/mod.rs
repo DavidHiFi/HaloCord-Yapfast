@@ -54,6 +54,7 @@ pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 pub use members::time_left;
 pub use members::{
     add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
+    tip_member_count,
 };
 pub use members::{role_press, zoom_size, zoomable};
 pub use menus::{

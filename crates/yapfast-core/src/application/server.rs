@@ -81,6 +81,21 @@ impl Application {
         Some((server, channel, snapshot.user_id.as_deref()?))
     }
 
+    /// How many members the Discord server a place is in has, as Discord last
+    /// said (HaloCord's Member count reads it for the server list's tooltips).
+    pub fn server_member_count(&self, place: &str) -> Option<u64> {
+        #[cfg(feature = "discord")]
+        {
+            self.discord_place(place)
+                .and_then(|(server, _, _)| server.member_count)
+        }
+        #[cfg(not(feature = "discord"))]
+        {
+            let _ = place;
+            None
+        }
+    }
+
     /// The user id of the owner of the Discord server a place is in, when
     /// it's known.
     pub fn server_owner(&self, place: &str) -> Option<String> {

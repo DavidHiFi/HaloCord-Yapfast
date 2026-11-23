@@ -13,7 +13,11 @@ pub(super) const MEMBER_COUNT: Plugin = Plugin {
     name: "Member count",
     about: "Shows how many people are online and how many have joined, in a line at the top of the member list.",
     on_at_first: false,
-    settings: &[],
+    settings: &[super::off(
+        "tooltip",
+        "In the server list's tooltips",
+        "Adds how many members a server has after its name when you point at it in the server list.",
+    )],
     apply: |_, _| {},
     hooks: None,
 };
@@ -138,6 +142,33 @@ pub fn member_totals(lines: &[crate::looks::MemberLine]) -> (usize, usize) {
         }
     }
     (online, all)
+}
+
+/// Member count's tooltip on a server's icon, while its switch for it is on:
+/// the name, then "· 1,234 members".
+pub fn tip_member_count<'a>(
+    cx: crate::ctx::Ctx<'_>,
+    place: &str,
+    name: std::borrow::Cow<'a, str>,
+) -> std::borrow::Cow<'a, str> {
+    let kept = &cx.layout.halocord;
+    if !kept.on(&MEMBER_COUNT) || !kept.flag(&MEMBER_COUNT, &MEMBER_COUNT.settings[0]) {
+        return name;
+    }
+    // As of sign-in: Discord's count isn't updated until the next one.
+    match cx.app.server_member_count(place) {
+        Some(total) => std::borrow::Cow::Owned(member_tip(&name, total)),
+        None => name,
+    }
+}
+
+/// A server's name with its member count after it.
+fn member_tip(name: &str, total: u64) -> String {
+    format!(
+        "{name} \u{b7} {} member{}",
+        thousands(total as usize),
+        if total == 1 { "" } else { "s" }
+    )
 }
 
 /// Puts the count's line first in a member list, when its plugin is on and
@@ -360,5 +391,16 @@ mod day_tests {
         for unread in ["", "soon", "Dec 1, 2026"] {
             assert_eq!(day_words(unread, today), None, "{unread}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_servers_tooltip_says_its_member_count() {
+        assert_eq!(member_tip("Test", 1234), "Test \u{b7} 1,234 members");
+        assert_eq!(member_tip("Test", 1), "Test \u{b7} 1 member");
     }
 }
