@@ -1010,3 +1010,26 @@ fn song_link_offers_song_link_for_a_song() {
         },
     );
 }
+
+/// Favorite anything: its switch reaches the core, which then offers still
+/// pictures and videos as favourites (the core's GIF tests show which).
+#[test]
+fn favorite_anything_switches_the_core() {
+    use yapfast_core::halocord::favorite_anything::is_on;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    assert!(!is_on(), "off at first");
+    turn_on(&mut app, id::FAVORITE_ANYTHING);
+    assert!(is_on());
+
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::FAVORITE_ANYTHING).expect("the plugin"),
+            on: false,
+        },
+    );
+    assert!(!is_on());
+
+}

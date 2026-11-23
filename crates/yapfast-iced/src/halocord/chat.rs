@@ -610,6 +610,17 @@ pub(super) const NOTIFICATION_TITLE: Plugin = Plugin {
     hooks: None,
 };
 
+pub(super) const FAVORITE_ANYTHING: Plugin = Plugin {
+    id: id::FAVORITE_ANYTHING,
+    name: "Favorite anything",
+    about: "Any picture or video in a message can be a favourite in the GIF picker, not only those that move.",
+    on_at_first: false,
+    settings: &[],
+    apply: |kept, plugin| engine::favorite_anything::set(kept.on(plugin)),
+
+    hooks: None,
+};
+
 pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     id: id::FIX_FILE_EXTENSIONS,
     name: "Fix file extensions",

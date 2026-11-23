@@ -109,6 +109,9 @@ whole list to carry across.
   `<t:13:30>` goes up as a Discord timestamp) and its tests.
 - `crates/yapfast-core/src/halocord/notification_title.rs`: Notification title (a reply's
   notification names whom it replies to).
+- `crates/yapfast-core/src/halocord/favorite_anything.rs`: Favorite anything (still
+  pictures and attached videos as favourites).
+
 - `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
   `.jfif` photo goes up as `.jpg`) and its tests.
 - `crates/yapfast-core/src/halocord/embedded_urls.rs`: Embedded URLs (a post's link goes
@@ -340,6 +343,11 @@ Window (`yapfast-iced`):
   `halocord::embedded_urls::wire` (Embedded URLs).
 - Core `discord_text/render.rs`: `notification` runs the author's name through
   `halocord::notification_title::author` (Notification title).
+- Core `discord_text/gifs.rs`: `favorite_gif` asks `halocord::favorite_anything::is_on`
+  (`favorite_gif_with`), and its test `halocord_favorite_anything_stars_stills_and_videos`.
+- `message/attachments.rs`: the GIF corner leaves out a still picture's favourite
+  (`halocord::favorite_anything::still`).
+
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
   `halocord::fix_file_extensions::name` first (Fix file extensions), and
   `start_send` runs each file's name and bytes through `halocord::auto_zipper::zipped`
