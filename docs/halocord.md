@@ -410,7 +410,9 @@ Discord (`yapfast-discord`):
   (made beside `away_changes`), a select arm that waits on `halo.due()` and sends
   the presence again, `halo.apply(&mut presence)` after `own_activity::merge` in
   `show_presence`, and `halocord::presence::identify` after the merge before the
-  gateway connects (Custom RPC, Animated status).
+  gateway connects (Custom RPC, Animated status). `Request::Join` says `self_deaf` as
+  `halocord::fake_deafened()`, so a call is joined showing Fake deafen from its first
+  voice state.
 - `api.rs`: `external_assets`, the call that gives an outside picture's `mp:`
   key (Custom RPC).
 
