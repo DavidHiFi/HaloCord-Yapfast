@@ -89,7 +89,7 @@ whole list to carry across.
   presence it sends and to say when to send again (one timer, idle while both
   are off).
 - `crates/yapfast-iced-kit/icons/halo-desktop.svg`, `halo-phone.svg`, `halo-web.svg`:
-  its three marks.
+  its marks; a console (`embedded`) takes the kit's own `gamepad.svg`.
 - `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link and Open
   sticker link (512 px, lossless where the media server takes it; not for animated Lottie
   stickers) in a sticker's menu.
