@@ -29,7 +29,8 @@ whole list to carry across.
   published, with the "Local" mark, the menu rows and `parse_when`. Never sent.
 - `crates/yapfast-core/src/halocord/message_logger.rs`: Message logger: the
   bounded log (2,000 messages) of what was deleted and the earlier wordings of
-  what was edited, and its menu row.
+  what was edited, its menu row, and the people, channels and servers its page
+  says to leave alone (`ignores_place`, from SickoHours' pull request 21).
 - `crates/yapfast-iced/src/settings/pages/halocord.rs`: Settings' HaloCord group: the
   overview, the Plugins page (filter, All/On/Off, area chips and the plugins as
   cards drawn from `PLUGINS`), the plugin and MochaCord dialogs, and Backup &
@@ -448,7 +449,8 @@ Core (`yapfast-core`):
   has (Member count's tooltip reads it).
 - `chat.rs`: `DiscordCommand::Republish`, the command that arm sends.
 - `discord_text/open_channel.rs`: `message_logger` calls where a message is deleted or
-  edited, `fake_dms::merge` in `publish`, and `message_logger::mark` in `render`.
+  edited (skipped for a message only you see and for a listed channel or server),
+  `fake_dms::merge` in `publish`, and `message_logger::mark` in `render`.
 - `application/members.rs`: `member_standing(place, user)`, whether a member owns the
   server and what it lets them do (the staff tag reads it).
 - `volume.rs`: `most()` in place of `MAX` in `set` (`MAX`, or what the Volume booster's cap
@@ -561,8 +563,8 @@ Yapfast's own fix for it lands (its test still passes without ours).
   saved values, and `every_hook_is_in_the_docs`, which fails when a Yapfast file
   calls into HaloCord or MochaCord and this page doesn't name it.
 - Core `halocord::fake_dms::tests` and `halocord::message_logger::tests`: sorting,
-  saving, time words, the send path, kept deletes, edit order, the ignore switches and
-  the cap.
+  saving, time words, the send path, kept deletes, edit order, the ignore switches,
+  the ignore lists and the cap.
 - Window `tests/halocord_messages.rs`: Fake DMs and Message logger in a chat, their
   menu rows, and ignored tests that draw them into `audit/hc17/messages/`.
 - Window `tests/halocord_menu_pictures.rs`: ignored tests that draw each right-click

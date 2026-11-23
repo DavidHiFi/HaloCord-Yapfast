@@ -34,6 +34,19 @@ const fn on_switch(key: &'static str, heading: &'static str, note: &'static str)
     }
 }
 
+/// A Message logger list of Discord ids to leave alone.
+const fn ids(key: &'static str, heading: &'static str) -> Setting {
+    Setting {
+        key,
+        heading,
+        note: "Discord ids, separated by commas.",
+        kind: Kind::Text {
+            placeholder: "",
+            unless_changed: "",
+        },
+    }
+}
+
 pub(super) const FAKE_DMS: Plugin = Plugin {
     id: id::FAKE_DMS,
     name: "Fake DMs",
@@ -82,9 +95,14 @@ pub(super) const MESSAGE_LOGGER: Plugin = Plugin {
             "Collapse deleted messages",
             "Fold a deleted message to one line until you press Show it.",
         ),
+        ids("ignore_people", "IGNORE PEOPLE"),
+        ids("ignore_channels", "IGNORE CHANNELS"),
+        ids("ignore_servers", "IGNORE SERVERS"),
     ],
     apply: |kept, plugin| {
         let flag = |at: usize| kept.flag(plugin, &plugin.settings[at]);
+        let ids =
+            |at: usize| message_logger::Settings::ids(kept.text(plugin, &plugin.settings[at]));
         message_logger::set(message_logger::Settings {
             on: kept.on(plugin),
             ignore_bots: flag(0),
@@ -92,6 +110,9 @@ pub(super) const MESSAGE_LOGGER: Plugin = Plugin {
             keep_deleted: flag(2),
             keep_edits: flag(3),
             collapse: flag(4),
+            ignore_people: ids(5),
+            ignore_channels: ids(6),
+            ignore_servers: ids(7),
         });
     },
     hooks: Some(&message_logger::MessageLogger),

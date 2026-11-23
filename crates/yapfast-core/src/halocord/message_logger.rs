@@ -18,7 +18,7 @@ pub const CAP: usize = 2000;
 pub const MOST_EDITS: usize = 20;
 
 /// What the plugin's page says.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Settings {
     /// The plugin is on at all.
     pub on: bool,
@@ -27,6 +27,10 @@ pub struct Settings {
     pub keep_deleted: bool,
     pub keep_edits: bool,
     pub collapse: bool,
+    /// Discord ids of people, channels and servers to leave alone.
+    pub ignore_people: Vec<String>,
+    pub ignore_channels: Vec<String>,
+    pub ignore_servers: Vec<String>,
 }
 
 impl Settings {
@@ -38,10 +42,31 @@ impl Settings {
         keep_deleted: true,
         keep_edits: true,
         collapse: false,
+        ignore_people: Vec::new(),
+        ignore_channels: Vec::new(),
+        ignore_servers: Vec::new(),
     };
 
+    /// Ids from a list separated by commas, spaces or lines.
+    pub fn ids(list: &str) -> Vec<String> {
+        list.split([',', ' ', '
+'])
+            .map(str::trim)
+            .filter(|id| !id.is_empty())
+            .map(str::to_owned)
+            .collect()
+    }
+
     fn skips(&self, me: &str, author: &str, bot: bool) -> bool {
-        (self.ignore_bots && bot) || (self.ignore_own && !me.is_empty() && author == me)
+        (self.ignore_bots && bot)
+            || (self.ignore_own && !me.is_empty() && author == me)
+            || self.ignore_people.iter().any(|id| id == author)
+    }
+
+    /// Whether the page says to leave this channel, or its server, alone.
+    fn skips_place(&self, guild: &str, channel: &str) -> bool {
+        self.ignore_channels.iter().any(|id| id == channel)
+            || (!guild.is_empty() && self.ignore_servers.iter().any(|id| id == guild))
     }
 }
 
@@ -201,7 +226,13 @@ pub fn keeps_deletions() -> bool {
 
 /// What the page says now.
 pub fn settings() -> Settings {
-    held(|held| held.settings)
+    held(|held| held.settings.clone())
+}
+
+/// Whether the page says to leave the channel `channel` of server `guild`
+/// alone: nothing deleted or edited there is kept.
+pub fn ignores_place(guild: &str, channel: &str) -> bool {
+    held(|held| held.settings.skips_place(guild, channel))
 }
 
 /// Tells the logger which account is this one, for Ignore your own messages.
@@ -371,6 +402,29 @@ mod tests {
         // Without the settings, bots and your own are kept.
         assert!(log.delete(&on(), "me", "robot", true, "6"));
         assert!(log.delete(&on(), "me", "me", false, "7"));
+    }
+
+    #[test]
+    fn listed_people_channels_and_servers_are_left_alone() {
+        let mut log = Log::new(10);
+        let set = Settings {
+            ignore_people: Settings::ids("40, 41"),
+            ignore_channels: Settings::ids("50"),
+            ignore_servers: Settings::ids("60
+61"),
+            ..on()
+        };
+        assert!(!log.delete(&set, "me", "41", false, "1"));
+        log.edit(&set, "me", "40", false, "2", "a", "b");
+        assert!(log.history("2").is_empty());
+        assert!(log.delete(&set, "me", "42", false, "3"));
+        assert!(set.skips_place("1", "50") && set.skips_place("61", "9"));
+        assert!(!set.skips_place("1", "9"));
+        // A DM has no server, so an empty server id never matches.
+        assert!(!set.skips_place("", "9"));
+        assert_eq!(Settings::ids(" 1,2 
+
+3 "), ["1", "2", "3"]);
     }
 
     #[test]
