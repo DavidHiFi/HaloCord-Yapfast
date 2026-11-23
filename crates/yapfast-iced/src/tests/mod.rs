@@ -354,6 +354,15 @@ fn animated_emoji() -> Arc<yapfast_core::chat::Picture> {
     Arc::new(picture)
 }
 
+/// The window drawn once and left until what just opened has finished
+/// moving, so a picture taken next shows popups and dialogs all the way
+/// open: each starts its motion as it's first drawn.
+fn settle(app: &App) {
+    let mut ui = Simulator::with_size(Settings::default(), app.shell.frame, app.view());
+    let _ = ui.snapshot(&iced::Theme::Dark);
+    std::thread::sleep(crate::widgets::motion::open_time() + std::time::Duration::from_millis(60));
+}
+
 /// The window drawn once more, `now`: the moving pictures in view take
 /// the frame due.
 fn redraw(app: &App) {
@@ -378,9 +387,9 @@ mod halocord_fixes;
 mod halocord_menu_pictures;
 mod halocord_messages;
 mod halocord_pictures;
-mod halocord_settings_pictures;
 mod halocord_polish_pictures;
 mod halocord_presence;
+mod halocord_settings_pictures;
 mod header;
 mod link_dialogs;
 mod media;

@@ -10,8 +10,8 @@ use crate::{
     app::Message,
     controls::{choices, slider},
     form,
-    mochacord::{Change, FONTS, MOST_CORNERS, WEIGHTS},
-    settings::Page,
+    mochacord::{Change, FONTS, MOST_CORNERS, SPEEDS, WEIGHTS},
+    settings::{Drop, Event, Page},
 };
 
 /// What the weight row calls each of [`WEIGHTS`].
@@ -105,6 +105,31 @@ impl<'a> Page<'a> {
                 form::note(
                     theme,
                     "How round cards, menus and buttons are. 100% is as drawn.",
+                ),
+            ]),
+            form::group(vec![
+                form::switch(
+                    "Open and close animation",
+                    kept.motion,
+                    Some(change(Change::Motion(!kept.motion))),
+                )
+                .description(
+                    "Menus, pop-ups and dialogs fade and slide a little as they open and close.",
+                )
+                .view(self.cx.look),
+                form::heading(theme, "Animation speed"),
+                form::dropdown(
+                    SPEEDS.iter().map(|speed| (*speed).to_owned()).collect(),
+                    Some(kept.motion_speed.min(SPEEDS.len() - 1)),
+                    kept.motion && self.s.open == Some(Drop::AnimationSpeed),
+                    Message::Settings(Event::Drop(Drop::AnimationSpeed)),
+                    move |index| change(Change::MotionSpeed(index)),
+                )
+                .enabled(kept.motion)
+                .view(self.cx.look),
+                form::note(
+                    theme,
+                    "The global speed is the one all of DavidHiFi's apps share. Nothing moves while Windows' animation effects are off.",
                 ),
             ]),
             form::group(vec![

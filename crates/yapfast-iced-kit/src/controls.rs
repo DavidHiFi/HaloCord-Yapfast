@@ -1360,7 +1360,11 @@ pub fn choices_within<'a, M: Clone + 'a>(
             } else {
                 Length::Shrink
             })
-            .height(if one_row { Length::Fill } else { Length::Fixed(30.0) })
+            .height(if one_row {
+                Length::Fill
+            } else {
+                Length::Fixed(30.0)
+            })
             .on_press(on_choose(index))
             .style(move |_, status| {
                 let lit = lights(status);

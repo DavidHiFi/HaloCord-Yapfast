@@ -114,12 +114,9 @@ const SIZE: iced::Size = iced::Size::new(1120.0, 640.0);
 
 /// Where a picture goes.
 fn audit(name: &str) -> PathBuf {
-    let folder = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../audit/hc17/messages");
+    let folder = PathBuf::from(r"D:\Agent Work\yapfast\audit\hc17\messages");
     std::fs::create_dir_all(&folder).expect("the audit folder");
-    folder
-        .canonicalize()
-        .expect("the audit folder")
-        .join(format!("{name}.png"))
+    folder.join(format!("{name}.png"))
 }
 
 /// The window as drawn now, written to `name`'s picture.
@@ -130,6 +127,7 @@ fn draw(app: &App, name: &str) {
     for old in [&path, &written] {
         let _ = std::fs::remove_file(old);
     }
+    super::settle(app);
     let mut ui = Simulator::with_size(Settings::default(), SIZE, app.view());
     let _ = ui
         .snapshot(&iced::Theme::Dark)

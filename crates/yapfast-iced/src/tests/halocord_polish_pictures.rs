@@ -100,7 +100,10 @@ fn user_panel_with_the_plugin_buttons() {
     }
     switch(&mut app, crate::halocord::id::STEREO, true);
     change(&mut app, |state| state.discord_user = Some("42".into()));
-    for (wide, name) in [(300.0_f32, "user-panel-wide.png"), (220.0, "user-panel-narrow.png")] {
+    for (wide, name) in [
+        (300.0_f32, "user-panel-wide.png"),
+        (220.0, "user-panel-narrow.png"),
+    ] {
         let height = crate::account::full_height(app.ctx()) + crate::account::INSET;
         let _ = draw(
             crate::account::view(app.ctx()),
@@ -187,8 +190,16 @@ fn active_now_head_follows_the_card_round() {
         let left = 34 - 8;
         let top = 2 * (13 + 24 + 10) - 8;
         let right = picture.width() - 2 * 16 - 32;
-        let _ = zoom(&picture, (left, top, 40, 40), &name.replace(".png", "-left.png"));
-        let _ = zoom(&picture, (right, top, 40, 40), &name.replace(".png", "-right.png"));
+        let _ = zoom(
+            &picture,
+            (left, top, 40, 40),
+            &name.replace(".png", "-left.png"),
+        );
+        let _ = zoom(
+            &picture,
+            (right, top, 40, 40),
+            &name.replace(".png", "-right.png"),
+        );
     }
 }
 
@@ -207,10 +218,19 @@ fn choices_wrap_and_fit() {
         "7 days",
         "Never",
     ];
-    for (width, name) in [(520.0_f32, "choices-wide.png"), (230.0, "choices-narrow.png")] {
+    for (width, name) in [
+        (520.0_f32, "choices-wide.png"),
+        (230.0, "choices-narrow.png"),
+    ] {
         let view = iced::widget::column![
-            crate::controls::choices(&theme, &rates, 1, |index| { let _ = index; Message::Minute }),
-            crate::controls::choices(&theme, &long, 2, |index| { let _ = index; Message::Minute }),
+            crate::controls::choices(&theme, &rates, 1, |index| {
+                let _ = index;
+                Message::Minute
+            }),
+            crate::controls::choices(&theme, &long, 2, |index| {
+                let _ = index;
+                Message::Minute
+            }),
         ]
         .spacing(12)
         .padding(12)

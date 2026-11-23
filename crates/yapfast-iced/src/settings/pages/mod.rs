@@ -241,6 +241,9 @@ impl Settings {
                 }
             }
             Pref::MochaCord(change) => {
+                if self.open == Some(super::Drop::AnimationSpeed) {
+                    self.open = None;
+                }
                 cx.layout.mochacord.change(change);
                 cx.keep("mochacord", &cx.layout.mochacord);
                 cx.request(Request::Changed(Shown::Theme));

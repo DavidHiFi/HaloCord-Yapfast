@@ -11,8 +11,16 @@
 //! not. Anywhere the blur can't be had (the software renderer, the option
 //! off, Windows' transparency effects off, battery saver on) the fills are
 //! the opaque Mocha ones (`blur.rs`).
+//!
+//! Popups, menus and dialogs open and close moving, as every one of
+//! DavidHiFi's apps does: the person can turn it off or pick a speed, which
+//! starts as the speed the apps share, and it's still while Windows'
+//! animation effects are off (`motion.rs`).
 
 mod blur;
+mod motion;
+
+pub use motion::SPEEDS;
 
 use std::{
     path::Path,
@@ -68,6 +76,11 @@ pub struct Kept {
     pub font: String,
     /// The weight of regular text, 100 to 900.
     pub weight: u32,
+    /// Whether popups, menus and dialogs open and close moving.
+    pub motion: bool,
+    /// How quick they move, by its place in [`SPEEDS`]: 0 follows the
+    /// speed DavidHiFi's apps share.
+    pub motion_speed: usize,
 }
 
 impl Default for Kept {
@@ -80,6 +93,8 @@ impl Default for Kept {
             corners: 100,
             font: FONT.to_owned(),
             weight: 500,
+            motion: true,
+            motion_speed: 0,
         }
     }
 }
@@ -93,6 +108,8 @@ pub enum Change {
     Corners(u32),
     Font(String),
     Weight(u32),
+    Motion(bool),
+    MotionSpeed(usize),
     /// Every option back to how it starts.
     Reset,
 }
@@ -121,6 +138,12 @@ impl Kept {
             to: MAUVE,
             track: LANE,
         }));
+        MOTION_ON.store(self.motion, Ordering::Relaxed);
+        MOTION_SPEED.store(
+            self.motion_speed.min(SPEEDS.len() - 1) as u32,
+            Ordering::Relaxed,
+        );
+        push_motion();
     }
 
     /// Takes a change from the page.
@@ -132,6 +155,8 @@ impl Kept {
             Change::Corners(value) => self.corners = value.min(MOST_CORNERS),
             Change::Font(family) => self.font = family,
             Change::Weight(value) => self.weight = value.clamp(100, 900),
+            Change::Motion(on) => self.motion = on,
+            Change::MotionSpeed(speed) => self.motion_speed = speed.min(SPEEDS.len() - 1),
             Change::Reset => {
                 *self = Self {
                     switched: self.switched,
@@ -179,16 +204,41 @@ static STRENGTH: AtomicU32 = AtomicU32::new(75);
 /// What Windows last said about its effects: bit 0 transparency off, bit 1
 /// battery saver on. All clear until asked.
 static EFFECTS: AtomicU8 = AtomicU8::new(0);
+static MOTION_ON: AtomicBool = AtomicBool::new(true);
+static MOTION_SPEED: AtomicU32 = AtomicU32::new(0);
+/// What Windows and the shared setting last said: still, and the shared
+/// speed in percent.
+static MOTION_STILL: AtomicBool = AtomicBool::new(false);
+static SHARED_SPEED: AtomicU32 = AtomicU32::new(100);
 
-/// Asks Windows whether it blurs now (transparency effects, battery saver),
-/// at start and each time the window takes or loses the focus, which is
-/// where someone coming back from Windows' settings lands.
+/// Tells the kit how quick popups move, from the person's choice over what
+/// Windows and the shared setting last said.
+fn push_motion() {
+    let system = motion::System {
+        still: MOTION_STILL.load(Ordering::Relaxed),
+        percent: SHARED_SPEED.load(Ordering::Relaxed),
+    };
+    widgets::motion::set_speed(motion::percent(
+        MOTION_ON.load(Ordering::Relaxed),
+        MOTION_SPEED.load(Ordering::Relaxed) as usize,
+        system,
+    ));
+}
+
+/// Asks Windows whether it blurs now (transparency effects, battery saver)
+/// and whether things move (animation effects, the shared speed), at start
+/// and each time the window takes or loses the focus, which is where
+/// someone coming back from Windows' settings lands.
 pub fn refresh_effects() {
     let now = blur::effects();
     EFFECTS.store(
         u8::from(!now.transparency) | u8::from(now.battery_saver) << 1,
         Ordering::Relaxed,
     );
+    let system = motion::system();
+    MOTION_STILL.store(system.still, Ordering::Relaxed);
+    SHARED_SPEED.store(system.percent, Ordering::Relaxed);
+    push_motion();
 }
 
 fn effects_now() -> blur::Effects {
@@ -329,6 +379,9 @@ mod tests {
             (75, 100, 500)
         );
         assert_eq!(kept.font, "FiraCode Nerd Font");
+        // Popups move, at the speed DavidHiFi's apps share.
+        assert!(kept.motion);
+        assert_eq!(SPEEDS[kept.motion_speed], "Follow the global speed");
     }
 
     #[test]
@@ -340,6 +393,7 @@ mod tests {
         kept.change(Change::Corners(150));
         kept.change(Change::Font("Cascadia Code".into()));
         kept.change(Change::Weight(600));
+        kept.motion_speed = 4;
         std::fs::write(
             folder.path().join(layout::LAYOUT),
             serde_json::json!({ KEY: &kept, "zoom": 1.2 }).to_string(),

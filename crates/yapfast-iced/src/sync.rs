@@ -122,6 +122,15 @@ pub fn lists_key(state: &yapfast_core::application::AppState, theme: &str) -> u6
         yapfast_core::voice::Phase::Joining | yapfast_core::voice::Phase::Leaving
     );
     (moving, state.busy, state.online, state.trusted).hash(&mut hasher);
+    // Who the call hears, as the sidebar lists those Discord's list missed.
+    for live in state
+        .voice
+        .participants
+        .iter()
+        .filter(|live| live.connected)
+    {
+        live.id.hash(&mut hasher);
+    }
     (state.people_changes, theme).hash(&mut hasher);
     hasher.finish()
 }

@@ -29,6 +29,8 @@ const MEMBER: &str = "halocord-fake-member";
 #[derive(Default)]
 pub struct FakeDialog {
     open: bool,
+    /// Closed and still drawn going, with what it showed.
+    leaving: bool,
     who: usize,
     member: String,
     body: String,
@@ -195,7 +197,27 @@ impl FakeDialog {
         self.open
     }
 
+    /// Closes it: drawn going with what it showed, until [`Self::gone`];
+    /// at once when popups don't move.
     pub fn close(&mut self) {
+        if !self.open {
+            return;
+        }
+        if crate::widgets::motion::still() {
+            self.gone();
+            return;
+        }
+        self.open = false;
+        self.leaving = true;
+    }
+
+    /// Whether it's closed and still drawn going.
+    pub fn leaving(&self) -> bool {
+        self.leaving
+    }
+
+    /// Drawn gone: what it showed goes.
+    pub fn gone(&mut self) {
         *self = FakeDialog::default();
     }
 
@@ -271,7 +293,7 @@ fn message(event: FakeEvent) -> Message {
 
 /// The dialog, while it's open.
 pub fn view<'a>(dialog: &'a FakeDialog, cx: Ctx<'a>) -> Option<Element<'a, Message>> {
-    if !dialog.open {
+    if !dialog.open && !dialog.leaving {
         return None;
     }
     let theme = cx.look.theme;

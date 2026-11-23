@@ -184,6 +184,8 @@ pub enum Drop {
     Start,
     /// A keybind's action, by its row.
     Keybind(usize),
+    /// How quick popups move, in the MochaCord dialog.
+    AnimationSpeed,
 }
 
 /// Settings while open.
@@ -289,9 +291,10 @@ impl Settings {
         if let Some(before) = before.filter(|before| *before != section) {
             leave_new(cx, before);
         }
-        // The dialogs close with the page that opened them.
+        // The dialogs close with the page that opened them, at once.
         self.halo.plugin = None;
         self.halo.mocha = false;
+        self.halo.leaving = None;
         if before == Some(Section::Themes) && section != Section::Themes {
             self.cancel_theme(cx);
         }
@@ -353,10 +356,19 @@ impl Settings {
     /// Escape closes an open dropdown, stops recording a key, then closes
     /// Settings.
     pub fn escape(&mut self, cx: &mut Cx<'_>) {
-        if self.halo.plugin.take().is_some() {
+        // A list open in a dialog closes before the dialog does.
+        if self.open == Some(Drop::AnimationSpeed) {
+            self.open = None;
             return;
         }
-        if std::mem::take(&mut self.halo.mocha) {
+        if self.halo.plugin.is_some() {
+            let mocha = self.halo.mocha;
+            self.halo.show_dialog(None, mocha);
+            return;
+        }
+        if self.halo.mocha {
+            self.halo.show_dialog(None, false);
+            self.open = None;
             return;
         }
         if self.open.take().is_some() {
