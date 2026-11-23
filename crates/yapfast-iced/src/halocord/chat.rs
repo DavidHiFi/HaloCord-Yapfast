@@ -243,7 +243,7 @@ pub(super) const SEND_TIMESTAMPS: Plugin = Plugin {
 pub(super) const HIDE_CHAT_BUTTONS: Plugin = Plugin {
     id: id::HIDE_CHAT_BUTTONS,
     name: "Hide chat buttons",
-    about: "An arrow before the message box's buttons (gift, GIF, sticker, emoji) hides them, and shows them again.",
+    about: "An arrow before the message box's buttons (GIF, sticker, emoji) hides them, and shows them again.",
     on_at_first: false,
     settings: &[
         Setting {
@@ -261,12 +261,21 @@ pub(super) const HIDE_CHAT_BUTTONS: Plugin = Plugin {
         ),
     ],
     apply: |kept, plugin| {
-        // Each start, and each change of "Shown at first", as it says.
+        // Each start, each time it's switched on, and each change of
+        // "Shown at first", as it says; not a change of the arrow's colour.
         let shown = kept.flag(plugin, &plugin.settings[0]);
-        CHAT_BUTTONS_HIDDEN.store(!shown, std::sync::atomic::Ordering::Relaxed);
+        let now = 1 + u8::from(shown) + 2 * u8::from(kept.on(plugin));
+        let was = CHAT_BUTTONS_APPLIED.swap(now, std::sync::atomic::Ordering::Relaxed);
+        if was != now {
+            CHAT_BUTTONS_HIDDEN.store(!shown, std::sync::atomic::Ordering::Relaxed);
+        }
     },
     hooks: None,
 };
+
+/// Hide chat buttons' switch and "Shown at first" as `apply` last saw them
+/// (none yet at 0).
+static CHAT_BUTTONS_APPLIED: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
 
 /// Whether Hide chat buttons hides the message box's buttons now.
 static CHAT_BUTTONS_HIDDEN: std::sync::atomic::AtomicBool =

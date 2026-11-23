@@ -176,7 +176,8 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
 }
 
 /// Hide chat buttons: the arrow hides the message box's buttons and shows
-/// them again, and "Shown at first" off starts them hidden.
+/// them again, and "Shown at first" off starts them hidden; the arrow's
+/// colour leaves them as they are.
 #[test]
 fn hide_chat_buttons_hides_the_message_boxs_buttons_and_shows_them() {
     use crate::halocord::{Press, chat_buttons_hidden};
@@ -191,6 +192,22 @@ fn hide_chat_buttons_hides_the_message_boxs_buttons_and_shows_them() {
     let _ = app.update(arrow());
     assert!(!chat_buttons_hidden());
     let plugin = place(id::HIDE_CHAT_BUTTONS).expect("the plugin");
+    let _ = app.update(arrow());
+    let red = |app: &mut App, on| {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting: 1,
+                on,
+            },
+        );
+    };
+    red(&mut app, true);
+    assert!(chat_buttons_hidden(), "a red arrow keeps them hidden");
+    red(&mut app, false);
+    let _ = app.update(arrow());
     changed(
         &mut app.layout,
         &mut app.client,
