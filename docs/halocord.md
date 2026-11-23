@@ -335,8 +335,9 @@ Window (`yapfast-iced`):
 - `picker/gifs.rs`: `gif_pick` asks `halocord::inserts_gif` whether a GIF goes into the
   message box (GIF paste swaps Shift's meaning), in place of reading Shift itself.
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
-  It also hands its buttons to `halocord::timestamp_button` (Send timestamps' clock,
-  before them while its picker is on).
+  It also hands its buttons to `halocord::chat_buttons` (Hide chat buttons' arrow, before
+  them, or alone while they're hidden), and the result to `halocord::timestamp_button`
+  (Send timestamps' clock, before them while its picker is on).
   `composer_look` ends the timed-out line with `halocord::timeout_note` (the time left).
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.

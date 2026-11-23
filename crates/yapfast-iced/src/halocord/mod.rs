@@ -47,7 +47,7 @@ mod voice;
 pub use areas::{Area, area};
 pub use buttons::{Press, press, presses, start_button};
 use chat::thousands;
-pub use chat::{count_color, count_words, double_click, inserts_gif, tag};
+pub use chat::{chat_buttons, count_color, count_words, double_click, inserts_gif, tag};
 pub use clicks::{Clicks, click_keys, click_row};
 pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
 use kept::off;
@@ -72,7 +72,7 @@ pub use buttons::Dock;
 #[cfg(test)]
 pub(crate) use buttons::{close_dm_actions, read_all_actions};
 #[cfg(test)]
-pub use chat::{Fill, counter_words};
+pub use chat::{Fill, chat_buttons_hidden, counter_words};
 #[cfg(test)]
 pub use clicks::presses_so_far;
 #[cfg(test)]
@@ -133,6 +133,7 @@ pub mod id {
     pub const AUTO_ZIPPER: &str = "auto-zipper";
     pub const BETTER_FORWARDS: &str = "better-forwards";
     pub const GIF_PASTE: &str = "gif-paste";
+    pub const HIDE_CHAT_BUTTONS: &str = "hide-chat-buttons";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -186,6 +187,7 @@ pub static PLUGINS: &[Plugin] = &[
     chat::AUTO_ZIPPER,
     chat::BETTER_FORWARDS,
     chat::GIF_PASTE,
+    chat::HIDE_CHAT_BUTTONS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

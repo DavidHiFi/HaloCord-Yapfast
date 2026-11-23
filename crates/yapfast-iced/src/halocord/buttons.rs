@@ -143,6 +143,8 @@ pub enum Press {
     ReadAll,
     CloseDms,
     JumpStart,
+    /// Hide chat buttons' arrow by the message box.
+    ChatButtons,
 }
 
 /// The buttons the plugins that are on add: icon, tip and what they do.
@@ -211,6 +213,7 @@ pub fn press(app: &mut App, press: Press) -> Task<Message> {
             }
         }
         Press::JumpStart => app.client.dispatch(Action::JumpToStart),
+        Press::ChatButtons => super::chat::toggle_chat_buttons(),
         Press::ReadAll => {
             for action in read_all_actions(app.client.state()) {
                 app.client.dispatch(action);

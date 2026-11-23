@@ -464,3 +464,53 @@ fn gif_paste_puts_a_picked_gif_in_the_message_box() {
     );
     assert!(!inserts_gif(false), "off again");
 }
+
+/// Hide chat buttons: the arrow hides the message box's buttons and shows
+/// them again, and "Shown at first" off starts them hidden; the arrow's
+/// colour leaves them as they are.
+#[test]
+fn hide_chat_buttons_hides_the_message_boxs_buttons_and_shows_them() {
+    use crate::halocord::{Press, chat_buttons_hidden};
+    let arrow = || Message::Bar(crate::window_bar::Event::Halo(Press::ChatButtons));
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::HIDE_CHAT_BUTTONS);
+    assert!(!chat_buttons_hidden(), "shown at first");
+    let _ = app.update(arrow());
+    assert!(chat_buttons_hidden());
+    let _ = app.view();
+    let _ = app.update(arrow());
+    assert!(!chat_buttons_hidden());
+    let plugin = place(id::HIDE_CHAT_BUTTONS).expect("the plugin");
+    let _ = app.update(arrow());
+    let red = |app: &mut App, on| {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting: 1,
+                on,
+            },
+        );
+    };
+    red(&mut app, true);
+    assert!(chat_buttons_hidden(), "a red arrow keeps them hidden");
+    red(&mut app, false);
+    let _ = app.update(arrow());
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: false,
+        },
+    );
+    assert!(chat_buttons_hidden(), "hidden at first, as set");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}

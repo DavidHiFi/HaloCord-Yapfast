@@ -495,6 +495,101 @@ pub fn inserts_gif(shift: bool) -> bool {
     shift != GIF_PASTE_ON.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+pub(super) const HIDE_CHAT_BUTTONS: Plugin = Plugin {
+    id: id::HIDE_CHAT_BUTTONS,
+    name: "Hide chat buttons",
+    about: "An arrow before the message box's buttons (GIF, sticker, emoji) hides them, and shows them again.",
+    on_at_first: false,
+    settings: &[
+        Setting {
+            key: "shown",
+            heading: "Shown at first",
+            note: "Off, they start hidden each time Yapfast starts.",
+            kind: Kind::Switch {
+                unless_changed: true,
+            },
+        },
+        off(
+            "red",
+            "A red arrow while they show",
+            "So it stands out from the buttons it hides.",
+        ),
+    ],
+    apply: |kept, plugin| {
+        // Each start, each time it's switched on, and each change of
+        // "Shown at first", as it says; not a change of the arrow's colour.
+        let shown = kept.flag(plugin, &plugin.settings[0]);
+        let now = 1 + u8::from(shown) + 2 * u8::from(kept.on(plugin));
+        let was = CHAT_BUTTONS_APPLIED.swap(now, std::sync::atomic::Ordering::Relaxed);
+        if was != now {
+            CHAT_BUTTONS_HIDDEN.store(!shown, std::sync::atomic::Ordering::Relaxed);
+        }
+    },
+    hooks: None,
+};
+
+/// Hide chat buttons' switch and "Shown at first" as `apply` last saw them
+/// (none yet at 0).
+static CHAT_BUTTONS_APPLIED: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Whether Hide chat buttons hides the message box's buttons now.
+static CHAT_BUTTONS_HIDDEN: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
+
+/// Hook: the message box's buttons after Hide chat buttons' arrow, or the
+/// arrow alone while they're hidden; the buttons as they are while it's off.
+pub fn chat_buttons<'a>(
+    cx: Ctx<'a>,
+    buttons: impl Into<Element<'a, Message>>,
+) -> Element<'a, Message> {
+    let kept = &cx.layout.halocord;
+    if !kept.on(&HIDE_CHAT_BUTTONS) {
+        return buttons.into();
+    }
+    let hidden = CHAT_BUTTONS_HIDDEN.load(std::sync::atomic::Ordering::Relaxed);
+    let theme = cx.look.theme;
+    let ink = if !hidden && kept.flag(&HIDE_CHAT_BUTTONS, &HIDE_CHAT_BUTTONS.settings[1]) {
+        theme.danger
+    } else {
+        theme.secondary
+    };
+    let (icon, label) = if hidden {
+        (Icon::ChevronLeft, "Show buttons")
+    } else {
+        (Icon::ChevronRight, "Hide buttons")
+    };
+    let arrow = container(crate::composer::composer_button(
+        cx,
+        icon,
+        label,
+        20,
+        ink,
+        Some(Message::Bar(crate::window_bar::Event::Halo(
+            super::Press::ChatButtons,
+        ))),
+    ))
+    .padding(iced::Padding::ZERO.bottom(crate::composer::BUTTON_INSET));
+    if hidden {
+        arrow.into()
+    } else {
+        iced::widget::row![arrow, buttons.into()]
+            .spacing(6)
+            .align_y(Alignment::End)
+            .into()
+    }
+}
+
+/// Hide chat buttons' arrow was pressed.
+pub(super) fn toggle_chat_buttons() {
+    CHAT_BUTTONS_HIDDEN.fetch_xor(true, std::sync::atomic::Ordering::Relaxed);
+}
+
+/// Whether Hide chat buttons hides the message box's buttons now.
+#[cfg(test)]
+pub fn chat_buttons_hidden() -> bool {
+    CHAT_BUTTONS_HIDDEN.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     id: id::FIX_FILE_EXTENSIONS,
     name: "Fix file extensions",

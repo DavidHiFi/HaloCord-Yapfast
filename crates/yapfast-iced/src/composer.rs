@@ -951,6 +951,8 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
             )
         },
     );
+    // HaloCord's Hide chat buttons (docs/halocord.md).
+    let emoji = crate::halocord::chat_buttons(ctx, emoji);
     // HaloCord's Send timestamps picker, before the buttons (docs/halocord.md).
     let emoji = crate::halocord::timestamp_button(ctx, emoji);
     let line = row![lift(plus), field, counter, emoji]
