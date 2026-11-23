@@ -119,16 +119,16 @@ pub fn dialog<'a, M: Clone + 'a>(
     on_outside: M,
 ) -> Element<'a, M> {
     let (ground, edge) = (theme.raised, theme.edge);
-    let card = opaque(
-        container(body)
-            .width(width)
-            .style(move |_| container::Style {
-                background: Some(ground.into()),
-                border: crate::style::edge(edge, 12.0),
-                shadow: card_shadow(),
-                ..Default::default()
-            }),
-    );
+    let rice = crate::style::rice();
+    let card = opaque(container(body).width(width).style(move |_| match rice {
+        Some(rice) => crate::style::floating(rice, edge, 12.0),
+        None => container::Style {
+            background: Some(ground.into()),
+            border: crate::style::edge(edge, 12.0),
+            shadow: card_shadow(),
+            ..Default::default()
+        },
+    }));
     // Kept inside the window, by its padding, both ways.
     opaque(stack![
         outside(on_outside, true),
@@ -159,15 +159,17 @@ pub fn panel<'a, M: Clone + 'a>(
     height: Option<f32>,
     on_outside: M,
 ) -> Element<'a, M> {
-    let ground = theme.chat;
-    let mut card = container(body)
-        .width(width)
-        .style(move |_| crate::style::rounded(ground, 8));
+    let (ground, edge) = (theme.chat, theme.edge);
+    let rice = crate::style::rice();
+    let mut card = container(body).width(width).style(move |_| match rice {
+        Some(rice) => crate::style::floating(rice, edge, 8.0),
+        None => crate::style::rounded(ground, 8),
+    });
     if let Some(height) = height {
         card = card.height(height);
     }
     opaque(stack![
-        crate::controls::dimmed(on_outside, PANEL_DIM),
+        crate::controls::dimmed(on_outside, rice.map_or(PANEL_DIM, |rice| rice.dim)),
         container(crate::widgets::motion::grow(opaque(card))).center(Length::Fill)
     ])
 }

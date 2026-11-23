@@ -211,7 +211,8 @@ impl<'a, M: Clone + 'a> From<Action<'a, M>> for Element<'a, M> {
 }
 
 /// The style of a button with no face of its own, or `rest`, that shows
-/// `lit` under the pointer: icon buttons, menu and list rows.
+/// `lit` under the pointer: icon buttons, menu and list rows. In the rice
+/// look it's framed too, in the hover edge, the pressed one while held.
 pub fn lit_style(
     rest: Option<Color>,
     lit: Color,
@@ -223,7 +224,7 @@ pub fn lit_style(
         } else {
             rest.map(Into::into)
         },
-        border: crate::style::round(radius),
+        border: crate::style::lit_edge(lights(status), status == button::Status::Pressed, radius),
         ..Default::default()
     }
 }
@@ -299,16 +300,22 @@ pub fn field_style(
         theme.focus,
         theme.selection,
     );
+    // The rice look: a 2 px edge at rest, the focus colour's while it has
+    // the keys.
+    let rice = crate::style::rice();
     move |_, status| text_input::Style {
         background: ground.into(),
-        border: Border {
-            color: Color { a: 0.8, ..accent },
-            width: if matches!(status, text_input::Status::Focused { .. }) {
-                1.0
-            } else {
-                0.0
+        border: match (rice, matches!(status, text_input::Status::Focused { .. })) {
+            (Some(rice), focused) => Border {
+                color: if focused { accent } else { rice.rest },
+                width: 2.0,
+                radius: 6.0.into(),
             },
-            radius: 6.0.into(),
+            (None, focused) => Border {
+                color: Color { a: 0.8, ..accent },
+                width: if focused { 1.0 } else { 0.0 },
+                radius: 6.0.into(),
+            },
         },
         icon: ink,
         placeholder: if enabled { hint } else { faint },
@@ -318,9 +325,14 @@ pub fn field_style(
 }
 
 /// The window's tooltip: 32 px tall, 14 px bold on the theme's tooltip
-/// ground.
+/// ground (13 px medium in the rice look).
 pub fn tip<'a, M: Clone + 'a>(theme: &Theme, label: impl text::IntoFragment<'a>) -> Element<'a, M> {
-    container(text(label).size(14).font(BOLD).color(theme.text))
+    let (size, font) = if crate::style::rice().is_some() {
+        (13, MEDIUM)
+    } else {
+        (14, BOLD)
+    };
+    container(text(label).size(size).font(font).color(theme.text))
         .padding([0, 10])
         .height(32)
         .align_y(Alignment::Center)
@@ -332,7 +344,15 @@ pub fn tip<'a, M: Clone + 'a>(theme: &Theme, label: impl text::IntoFragment<'a>)
 /// than a label (a reaction's).
 pub fn tip_style(theme: &Theme) -> impl Fn(&iced::Theme) -> container::Style + use<> {
     let ground = theme.tooltip;
-    move |_| container::Style {
+    let (rice, edge) = (crate::style::rice(), theme.menu_line);
+    move |_| match rice {
+        Some(rice) => crate::style::floating(rice, edge, 8.0),
+        None => tip_ground(ground),
+    }
+}
+
+fn tip_ground(ground: Color) -> container::Style {
+    container::Style {
         shadow: Shadow {
             color: Color {
                 a: 0.5,
@@ -350,7 +370,9 @@ pub fn tip_style(theme: &Theme) -> impl Fn(&iced::Theme) -> container::Style + u
 /// dimmed by [`DIM`] under a dialog.
 pub fn outside<'a, M: Clone + 'a>(message: M, dim: bool) -> Element<'a, M> {
     if dim {
-        return dimmed(message, DIM);
+        // The theme's own dim in the rice look.
+        let dim = crate::style::rice().map_or(DIM, |rice| rice.dim);
+        return dimmed(message, dim);
     }
     let layer = container(Space::new())
         .width(Length::Fill)
@@ -441,7 +463,11 @@ pub fn menu_panel(theme: &Theme) -> impl Fn(&iced::Theme) -> container::Style + 
     } else {
         theme.menu_line
     };
-    move |_| crate::style::panel(ground, edge, 8.0)
+    let rice = crate::style::rice();
+    move |_| match rice {
+        Some(rice) => crate::style::floating(rice, edge, 8.0),
+        None => crate::style::panel(ground, edge, 8.0),
+    }
 }
 
 /// A box of one colour: a line between parts of the window, a bar, a dot.
@@ -650,6 +676,7 @@ impl crate::look::Look<'_> {
             (false, _) => theme.wash(0.06),
         };
         let inks = [ink(false), ink(true)];
+        let rice = crate::style::rice().is_some();
         // A disabled row: the whole of it at .45.
         let inks = if item.disabled {
             inks.map(|ink| crate::style::faded(ink, 0.45))
@@ -666,10 +693,16 @@ impl crate::look::Look<'_> {
                     Light::Pointer => lights(status),
                     Light::Lit(lit) => lit,
                 } && !matches!(status, button::Status::Disabled);
+                // The rice look: 8 px rows framed under the pointer.
+                let border = if rice {
+                    crate::style::lit_edge(on, status == button::Status::Pressed, 8)
+                } else {
+                    Border::default().rounded(4)
+                };
                 button::Style {
                     background: on.then(|| light_fill.into()),
                     text_color: inks[usize::from(on)],
-                    border: Border::default().rounded(4),
+                    border,
                     ..Default::default()
                 }
             })
