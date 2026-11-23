@@ -185,7 +185,25 @@ fn toggled(app: &mut App, action: Action) -> Task<Message> {
             app.requests.push(Request::Changed(Pref::Keybinds));
             Task::none()
         }
+        Action::ToggleGoLive => match go_live_key(app) {
+            Some(event) => crate::call::update(app, event),
+            None => Task::none(),
+        },
         Action::Unassigned | Action::PushToTalk | Action::PushToMute => Task::none(),
+    }
+}
+
+/// What a Go Live key does, as the call's Go Live button: live, it stops
+/// the stream; in a call that can share, Go Live's menu opens; otherwise
+/// nothing.
+pub(crate) fn go_live_key(app: &App) -> Option<crate::call::Event> {
+    use crate::call::{Event, Popup};
+    if app.client.state().voice.sharing.is_some() {
+        Some(Event::StopSharing)
+    } else if crate::call::stage::can_share(app.ctx()) && app.call.popup != Some(Popup::Share) {
+        Some(Event::Open(Popup::Share))
+    } else {
+        None
     }
 }
 

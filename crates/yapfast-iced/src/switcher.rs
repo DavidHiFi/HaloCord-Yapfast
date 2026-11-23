@@ -48,6 +48,8 @@ pub enum Event {
     Scrolled(f32),
     Go,
     GoTo(String),
+    /// Alt+Shift+Down, or Up: the next channel with unread messages.
+    NextUnread(bool),
     Close,
     // New message.
     OpenNewDm,
@@ -142,6 +144,11 @@ impl Quick {
             Event::GoTo(id) => {
                 cx.dispatch(Action::SwitchTo(id));
                 cx.request(Request::Focus(Focus::Default));
+            }
+            Event::NextUnread(down) => {
+                if let Some(id) = cx.state().next_unread(down) {
+                    return self.update(Event::GoTo(id), cx);
+                }
             }
             Event::Close => {
                 cx.dispatch(Action::CloseSwitcher);

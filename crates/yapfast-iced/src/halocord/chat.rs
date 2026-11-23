@@ -50,6 +50,16 @@ pub(super) const COUNTER: Plugin = Plugin {
     hooks: None,
 };
 
+pub(super) const ALWAYS_TRUST: Plugin = Plugin {
+    id: id::ALWAYS_TRUST,
+    name: "Always trust links",
+    about: "Opens a link whose words hide where it goes straight in the browser, without the \"Leaving Yapfast\" question first.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
 pub(super) const NEW_USER: Plugin = Plugin {
     id: id::NEW_USER,
     name: "New account tag",
@@ -143,3 +153,23 @@ pub fn count_color(fill: Fill, quiet: iced::Color) -> iced::Color {
         Fill::Over => hex(0xf23f42),
     }
 }
+
+pub(super) const REVEAL_SPOILERS: Plugin = Plugin {
+    id: id::REVEAL_SPOILERS,
+    name: "Reveal all spoilers",
+    about: "Clicking one spoiler in a message shows every spoiler in that message at once.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+pub(super) const PLAIN_FOLDER: Plugin = Plugin {
+    id: id::PLAIN_FOLDER,
+    name: "Plain folder icon",
+    about: "A closed server folder shows the folder icon in its colour, instead of its first four servers' icons.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};

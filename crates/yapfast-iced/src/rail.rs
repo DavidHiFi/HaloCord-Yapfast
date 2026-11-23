@@ -726,7 +726,8 @@ impl<'a> View<'a> {
     }
 
     /// A closed folder's face: its colour, with its first four servers'
-    /// icons in a square; open, the folder's own icon in its colour.
+    /// icons in a square; open, or with HaloCord's Plain folder icon, the
+    /// folder's own icon in its colour.
     fn folder_face(
         self,
         open: bool,
@@ -735,7 +736,13 @@ impl<'a> View<'a> {
         pointed: bool,
     ) -> Element<'a, Message> {
         let tint = hex(tint);
-        if open {
+        if open
+            || self
+                .cx
+                .layout
+                .halocord
+                .is(crate::halocord::id::PLAIN_FOLDER)
+        {
             return self
                 .cx
                 .look

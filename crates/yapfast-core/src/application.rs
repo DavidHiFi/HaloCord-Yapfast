@@ -1125,6 +1125,33 @@ impl AppState {
             })
     }
 
+    /// The next conversation down the list, or up it, with messages not yet
+    /// read, going round past the end, as Discord's Alt+Shift+Down and Up
+    /// go: muted ones only when they ping this account, and never the one
+    /// open.
+    pub fn next_unread(&self, down: bool) -> Option<String> {
+        let rooms: Vec<&ChatRoom> = self.scoped_rooms().filter(|room| !room.voice).collect();
+        let open = self
+            .selected
+            .as_ref()
+            .and_then(|id| rooms.iter().position(|room| &room.id == id));
+        let count = rooms.len();
+        (1..=count)
+            .map(|step| match (open, down) {
+                (Some(at), true) => (at + step) % count,
+                (Some(at), false) => (at + count - step) % count,
+                (None, true) => step - 1,
+                (None, false) => count - step,
+            })
+            .map(|at| rooms[at])
+            .find(|room| {
+                self.selected.as_ref() != Some(&room.id)
+                    && room.unread > 0
+                    && (!room.muted || room.mentions > 0)
+            })
+            .map(|room| room.id.clone())
+    }
+
     /// Who else is typing in the open conversation, as the composer says it; empty
     /// when nobody is.
     pub fn typing_line(&self) -> String {

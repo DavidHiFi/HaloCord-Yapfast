@@ -168,6 +168,8 @@ pub enum Action {
     ToggleDeafen,
     /// Switches between push to talk and voice activity.
     ToggleVoiceMode,
+    /// Opens Go Live's menu in a call, or stops the stream that's live.
+    ToggleGoLive,
     /// Does nothing, as a keybind just added; an action from a later
     /// build reads as this, so it's last.
     #[default]
@@ -177,13 +179,14 @@ pub enum Action {
 
 impl Action {
     /// The actions settings offer, in Discord's order.
-    pub const OFFERED: [Action; 6] = [
+    pub const OFFERED: [Action; 7] = [
         Action::Unassigned,
         Action::PushToTalk,
         Action::PushToMute,
         Action::ToggleMute,
         Action::ToggleDeafen,
         Action::ToggleVoiceMode,
+        Action::ToggleGoLive,
     ];
 
     /// Its name, as Discord's settings give it; the portal shows it.
@@ -195,6 +198,7 @@ impl Action {
             Action::ToggleMute => "Toggle Mute",
             Action::ToggleDeafen => "Toggle Deafen",
             Action::ToggleVoiceMode => "Toggle VAD",
+            Action::ToggleGoLive => "Toggle Go Live",
         }
     }
 
@@ -216,6 +220,9 @@ impl Action {
             }
             Action::ToggleVoiceMode => {
                 "Toggle to switch between Push To Talk and Voice Activity mode."
+            }
+            Action::ToggleGoLive => {
+                "In a call, opens Go Live to share your screen; while you're live, stops the stream."
             }
         }
     }
@@ -474,7 +481,7 @@ mod tests {
     #[test]
     fn an_action_from_a_later_build_reads_as_unassigned() {
         let binding: Binding = serde_json::from_value(serde_json::json!({
-            "id": 4, "action": "toggle_go_live", "keys": { "scancode": 47, "name": "V" }
+            "id": 4, "action": "toggle_stream_mode", "keys": { "scancode": 47, "name": "V" }
         }))
         .unwrap();
         assert_eq!(binding.action, Action::Unassigned);
