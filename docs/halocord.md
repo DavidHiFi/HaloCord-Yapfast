@@ -181,7 +181,8 @@ Window (`yapfast-iced`):
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
-- `tests/mod.rs`: `mod halocord_buttons;` and `mod halocord_button_pictures;`.
+- `tests/mod.rs`: `mod halocord_buttons;`, `mod halocord_button_pictures;` and
+  `mod halocord_fixes;`.
 
 Kit (`yapfast-iced-kit`) and vendor:
 
@@ -235,8 +236,34 @@ Calls (`yapfast-discord`):
   `take_frame` takes interleaved stereo as it is.
 - `opus.rs`: a test that the bit rate changes within what Opus takes.
 
+## Fixes to Yapfast's own bugs
+
+Each fix is one commit on `david/halocord`, with a window test in
+`tests/halocord_fixes.rs` named for the issue. On a rebase, drop a fix once
+Yapfast's own fix for it lands (its test still passes without ours).
+
+- yapfast#287, the view doesn't follow a new message from just past the last one:
+  `timeline/mod.rs` `NEAR_END` and `near_end`, used in place of `<= 2.0` in
+  `sync.rs` (`timeline_scrolled`), `edit.rs` and `timeline/scroll.rs`
+  (`scroll_to_row`); `sync.rs` goes to the end as messages change while
+  `at_end` and `from_end > 0.5`.
+- yapfast#286, a message in the DM being read makes the server bar jump:
+  `sync.rs` `make_lists` leaves the selected DM off the rail while `reads()`.
+- yapfast#263, text under the hover bar can't be selected:
+  `message/hover_bar.rs` `hover_bar` gives no bar while a drag selects
+  (unless its menu or picker is open).
+- Yapfast's own test, not the app: `tests/timeline.rs`
+  `the_history_edge_offers_earlier_messages_then_shows_them_loading` took an
+  hour off a preview message's time of 0 and overflowed; it saturates now.
+- The GitHub check installs the newest LLVM (`.github/workflows/halocord.yml`):
+  the runner's own clang-cl is older than its Visual Studio's C++ library.
+- Checked, nothing to change: yapfast#257 (code blocks drawn wrong) came from
+  the old Slint window; the iced window draws them right, and the ignored test
+  `code_block_picture` in `tests/halocord_fixes.rs` saves a picture to check.
+
 ## Tests
 
+- Window `tests/halocord_fixes.rs`: one test per fix to a Yapfast bug (above).
 - Core `halocord::tests`: points 1 to 5 through a test plugin (each test thread
   has its own plugged list, so they don't meet).
 - Core `halocord::staff::tests`: ranks, tags and options. `halocord::tests` also

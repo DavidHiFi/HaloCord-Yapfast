@@ -129,7 +129,7 @@ pub fn scroll_to_row(app: &mut App, index: usize, third: bool) -> Task<Message> 
     };
     let top = app.timeline.tops[index] - lead;
     app.timeline.from_end = (app.timeline.total_height() - app.timeline.height - top).max(0.0);
-    app.timeline.at_end = app.timeline.from_end <= 2.0;
+    app.timeline.at_end = crate::timeline::near_end(app.timeline.from_end);
     operation::scroll_to(
         TIMELINE,
         AbsoluteOffset {

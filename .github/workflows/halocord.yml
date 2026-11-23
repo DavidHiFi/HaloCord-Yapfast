@@ -25,6 +25,15 @@ jobs:
       - uses: actions/checkout@v5
       # rust-toolchain.toml pins the compiler; rustup installs it on first use.
       - run: rustup toolchain install
+      # The runner's Visual Studio has a newer C++ library than the clang-cl
+      # it ships ("expected Clang 22 or newer"); the C++ parts build with the
+      # newest LLVM instead.
+      - name: Newest LLVM
+        shell: pwsh
+        run: |
+          choco upgrade llvm -y --no-progress
+          "C:\Program Files\LLVM\bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+          & "C:\Program Files\LLVM\bin\clang-cl.exe" --version
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true

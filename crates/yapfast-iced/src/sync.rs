@@ -131,7 +131,13 @@ impl App {
     /// again, keeping each that comes out the same.
     fn make_lists(&mut self) {
         let state = self.client.state();
-        let rail = rail(state, &self.layout.open_folders);
+        let mut rail = rail(state, &self.layout.open_folders);
+        // HaloCord (yapfast#286): the DM being read, at its newest message
+        // with the window in front, is marked read as a message comes, so
+        // it isn't put on the rail for that moment.
+        if let Some(reading) = state.selected.as_deref().filter(|_| self.reads()) {
+            rail.retain(|item| !(matches!(item.kind, crate::rail::Kind::Dm) && item.id == reading));
+        }
         if self.rail.items != rail {
             self.rail.items = rail;
         }
@@ -335,6 +341,15 @@ impl App {
             // newest show at the end once they've replaced the window.
             if messages_changed && !self.client.state().detached && self.timeline.latest_due {
                 self.timeline.latest_due = false;
+                tasks.push(crate::timeline::scroll::go_to_end(self));
+            } else if messages_changed
+                && !switched
+                && !self.client.state().detached
+                && self.timeline.at_end
+                && self.timeline.from_end > 0.5
+            {
+                // HaloCord: the view was in the space under the last row, so
+                // it counts as at the end; what came is brought into view.
                 tasks.push(crate::timeline::scroll::go_to_end(self));
             }
             tasks.push(self.report());
@@ -644,7 +659,7 @@ impl App {
         self.timeline.from_end = viewport.absolute_offset().y;
         self.timeline.height = viewport.bounds().height;
         self.timeline.place.set(viewport.bounds());
-        self.timeline.at_end = self.timeline.from_end <= 2.0;
+        self.timeline.at_end = crate::timeline::near_end(self.timeline.from_end);
         let width = viewport.bounds().width;
         if (width - self.timeline.width).abs() > 1.0 {
             self.timeline.width = width;
@@ -657,7 +672,7 @@ impl App {
         // as read.
         if let Some(left_at) = self.timeline.left_at.take() {
             let back = crate::timeline::scroll::keep_reading(self, Some(left_at));
-            self.timeline.at_end = self.timeline.from_end <= 2.0;
+            self.timeline.at_end = crate::timeline::near_end(self.timeline.from_end);
             return Task::batch([back, self.report(), self.ask()]);
         }
         Task::batch([self.report(), self.ask()])
