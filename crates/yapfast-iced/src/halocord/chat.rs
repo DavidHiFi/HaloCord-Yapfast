@@ -240,6 +240,28 @@ pub(super) const SEND_TIMESTAMPS: Plugin = Plugin {
     hooks: None,
 };
 
+/// Whether GIF paste is on, which the GIF picker reads as it picks.
+static GIF_PASTE_ON: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+pub(super) const GIF_PASTE: Plugin = Plugin {
+    id: id::GIF_PASTE,
+    name: "GIF paste",
+    about: "A GIF you pick goes into the message you're writing, as its link, rather than out on its own at once. Shift and a click sends it straight away.",
+    on_at_first: false,
+    settings: &[],
+    apply: |kept, plugin| {
+        GIF_PASTE_ON.store(kept.on(plugin), std::sync::atomic::Ordering::Relaxed);
+    },
+    hooks: None,
+};
+
+/// Hook: whether a GIF picked with or without Shift goes into the message
+/// box (Yapfast's Shift and a click) rather than out at once. GIF paste swaps
+/// the two.
+pub fn inserts_gif(shift: bool) -> bool {
+    shift != GIF_PASTE_ON.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     id: id::FIX_FILE_EXTENSIONS,
     name: "Fix file extensions",
