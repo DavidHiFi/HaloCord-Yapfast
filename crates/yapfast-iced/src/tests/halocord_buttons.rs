@@ -243,3 +243,136 @@ fn the_member_count_adds_one_line_first_counting_everyone_but_offline_as_online(
     add_member_count(&app.layout.halocord, &mut none);
     assert!(none.is_empty(), "nobody to count");
 }
+
+/// Signed in to Discord, as the card shows a real account.
+fn signed_in(app: &mut crate::app::App) {
+    change(app, |state| {
+        state.discord_user = Some("42".into());
+        state.preview = false;
+        state.account = Some("sam".into());
+        state.account_name = Some("Sam".into());
+        state.discord_linked = true;
+        state.discord_online = true;
+        state.online = true;
+    });
+}
+
+/// The middle of the card's Settings cog, its last button.
+fn cog_at(app: &crate::app::App) -> iced::Point {
+    let compact = app.layout.halocord.dock().compact;
+    let right = crate::conversation::navigation(&app.layout) - crate::account::INSET;
+    // On the narrowest sidebar the card's buttons take the compact size.
+    let small = compact || app.layout.sidebar_width.is_some_and(|width| width <= 180.0);
+    let (pad, side) = match (compact, small) {
+        (true, _) => (8.0, 28.0),
+        (false, true) => (14.0, 28.0),
+        (false, false) => (14.0, 32.0),
+    };
+    iced::Point::new(
+        right - pad - side / 2.0,
+        app.shell.frame.height - crate::account::INSET - crate::account::height(compact) / 2.0,
+    )
+}
+
+/// What a click at `at` in the whole window sends.
+fn clicked_at(app: &crate::app::App, at: iced::Point) -> Vec<Message> {
+    let mut ui =
+        iced_test::Simulator::with_size(iced::Settings::default(), app.shell.frame, app.view());
+    ui.point_at(at);
+    ui.simulate(iced_test::simulator::click());
+    ui.into_messages().collect()
+}
+
+/// The card keeps its Settings cog whatever it carries: in a call with
+/// every one of the User area's buttons and the top bar's buttons beside
+/// them (the bar is the system's), compact, and on the narrowest sidebar.
+/// The buttons with no room go in a tray that "More buttons" opens over the
+/// card.
+#[test]
+fn the_settings_cog_is_always_on_the_card() {
+    use crate::halocord::USER_AREA;
+    let opens_settings = |app: &crate::app::App| {
+        clicked_at(app, cog_at(app))
+            .iter()
+            .any(|message| matches!(message, Message::Settings(crate::settings::Event::Reopen)))
+    };
+    let (mut app, _folder) = preview();
+    app.shell.own_title_bar = false;
+    signed_in(&mut app);
+    let _ = app.sync();
+    assert!(opens_settings(&app), "out of a call");
+    change(&mut app, |state| {
+        state.voice.phase = yapfast_core::voice::Phase::Connected;
+        state.voice.room = Some("!lounge:test".into());
+    });
+    let _ = app.sync();
+    assert!(opens_settings(&app), "in a call");
+    let area = place(USER_AREA).unwrap();
+    let flag = |app: &mut crate::app::App, setting, on| {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin: area,
+                setting,
+                on,
+            },
+        );
+    };
+    // Fake mute, fake deafen, stats and stereo.
+    for setting in [2, 3, 4, 5] {
+        flag(&mut app, setting, true);
+    }
+    let _ = app.sync();
+    assert!(opens_settings(&app), "with every button");
+    // The tray's button, just before the cog, opens the rest over the card.
+    let cog = cog_at(&app);
+    let more = iced::Point::new(cog.x - 32.0 - 5.0, cog.y);
+    assert!(
+        clicked_at(&app, more)
+            .iter()
+            .any(|message| matches!(message, Message::Account(crate::account::Event::More(true)))),
+        "the tray's button is beside the cog"
+    );
+    assert!(crate::halocord::card_tray(app.ctx()).is_none());
+    let _ = app.update(Message::Account(crate::account::Event::More(true)));
+    assert!(
+        crate::halocord::card_tray(app.ctx()).is_some(),
+        "the tray shows the card's other buttons"
+    );
+    let _ = app.update(Message::Account(crate::account::Event::More(false)));
+    flag(&mut app, 0, true);
+    assert!(opens_settings(&app), "compact");
+    flag(&mut app, 0, false);
+    app.layout.sidebar_width = Some(180.0);
+    assert!(opens_settings(&app), "on the narrowest sidebar");
+}
+
+/// The name keeps room beside the card's buttons on the sidebar's own
+/// width, however many buttons there are: the rest go in the tray.
+#[test]
+fn the_card_keeps_room_for_the_name() {
+    let card = crate::conversation::navigation(&Default::default()) - 2.0 * crate::account::INSET;
+    for extras in 0..12 {
+        for compact in [false, true] {
+            let fit = crate::halocord::shared(card, compact, true, extras, false);
+            assert!(fit.name_room >= 52.0, "{extras} buttons: {fit:?}");
+            assert!(fit.inline <= extras);
+            assert_eq!(fit.more, fit.inline < extras);
+        }
+    }
+    // A long name is cut with an ellipsis to its room, not dropped.
+    super::install_fonts();
+    let cut = crate::halocord::ellipsized(
+        "A rather long display name indeed",
+        15.0,
+        crate::fonts::BOLD,
+        90.0,
+    );
+    assert!(cut.ends_with('…') && cut.len() > 3, "{cut}");
+    assert!(crate::halocord::words_width(&cut, 15.0, crate::fonts::BOLD) <= 90.0);
+    assert_eq!(
+        crate::halocord::ellipsized("Sam", 15.0, crate::fonts::BOLD, 90.0),
+        "Sam"
+    );
+}

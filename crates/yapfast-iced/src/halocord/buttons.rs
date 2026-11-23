@@ -6,6 +6,7 @@ use yapfast_core::application::Action;
 
 use super::{Kept, PLUGINS, Plugin, id, off};
 use crate::{
+    account,
     app::{App, Message},
     pictures::Icon,
 };
@@ -218,4 +219,344 @@ pub fn press(app: &mut App, press: Press) -> Task<Message> {
         }
     }
     app.sync()
+}
+
+// The User area's card: which of its buttons fit beside the name, the tray
+// for the rest, and the name cut to its room (`account::view` calls these).
+
+/// The width an extra button takes on the card, the gap between the card's
+/// buttons, and the least the name keeps beside them (its padding
+/// included) before buttons go in the tray.
+const EXTRA: f32 = 32.0;
+const GAP: f32 = 5.0;
+const NAME_LEAST: f32 = 64.0;
+
+/// How the card's row is shared: how many extra buttons stay on it, whether
+/// the rest sit in the tray, and the room left for the name's words.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Fit {
+    pub inline: usize,
+    pub more: bool,
+    pub name_room: f32,
+    /// Even with every extra in the tray the card is too narrow (the
+    /// sidebar dragged to its least): its buttons take the compact size.
+    pub small: bool,
+}
+
+/// The card's width: the rail's and the sidebar's, inset, or the
+/// sidebar's alone when compact.
+fn card_width(ctx: crate::ctx::Ctx<'_>, compact: bool) -> f32 {
+    crate::conversation::navigation(ctx.layout)
+        - 2.0 * account::INSET
+        - if compact { crate::rail::WIDTH } else { 0.0 }
+}
+
+/// Shares the card's row: the avatar, the mic and the headphones with
+/// their carets, Reconnect while offline, and Settings always; then as
+/// many of the `extras` as leave the name [`NAME_LEAST`], the rest behind
+/// the tray's button.
+pub(crate) fn card_fit(
+    ctx: crate::ctx::Ctx<'_>,
+    compact: bool,
+    extras: usize,
+    reconnect: bool,
+) -> Fit {
+    let dock = ctx.layout.halocord.dock();
+    shared(
+        card_width(ctx, compact),
+        compact,
+        !dock.arrows_hidden,
+        extras,
+        reconnect,
+    )
+}
+
+pub(crate) fn shared(
+    card: f32,
+    compact: bool,
+    carets: bool,
+    extras: usize,
+    reconnect: bool,
+) -> Fit {
+    let tried = shared_at(card, compact, compact, carets, extras, reconnect);
+    if compact || tried.name_room + 12.0 >= NAME_LEAST {
+        return tried;
+    }
+    shared_at(card, compact, true, carets, extras, reconnect)
+}
+
+fn shared_at(
+    card: f32,
+    compact: bool,
+    small: bool,
+    carets: bool,
+    extras: usize,
+    reconnect: bool,
+) -> Fit {
+    let side = if small { account::COMPACT_BUTTON } else { 32.0 };
+    let caret = match (carets, small) {
+        (false, _) => 0.0,
+        (true, true) => 16.0,
+        (true, false) => 20.0,
+    };
+    let (face, right, spacing) = if compact {
+        (account::COMPACT_AVATAR + 8.0, 8.0, 3.0)
+    } else {
+        (50.0, 14.0, 5.0)
+    };
+    // The names' and the buttons' room, after the avatar and the gaps.
+    let room = card - right - face - 2.0 * spacing;
+    let controls = |inline: usize, more: bool| {
+        let items = 3 + usize::from(reconnect) + inline + usize::from(more);
+        2.0 * (side + caret)
+            + side * (1.0 + f32::from(u8::from(reconnect)) + f32::from(u8::from(more)))
+            + EXTRA * inline as f32
+            + GAP * (items - 1) as f32
+    };
+    let (inline, more) = if room - controls(extras, false) >= NAME_LEAST {
+        (extras, false)
+    } else {
+        let inline = (0..extras)
+            .rev()
+            .find(|&inline| room - controls(inline, true) >= NAME_LEAST)
+            .unwrap_or(0);
+        (inline, true)
+    };
+    Fit {
+        inline,
+        more,
+        // The names' padding is 6 px a side.
+        name_room: (room - controls(inline, more) - 12.0).max(0.0),
+        small,
+    }
+}
+
+/// The buttons the card adds after the mic and the headphones: Reconnect
+/// while offline, and the extras the User area switches on, in the card's
+/// order (its switches, then the top bar's buttons when there's no top bar).
+pub(crate) fn card_buttons<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    small: bool,
+) -> (
+    Option<iced::Element<'a, Message>>,
+    Vec<iced::Element<'a, Message>>,
+) {
+    let theme = ctx.look.theme;
+    let account = ctx.account;
+    let dock = ctx.layout.halocord.dock();
+    let side = if small { account::COMPACT_BUTTON } else { 32.0 };
+    let glyph = |size: u32| if small { size - 3 } else { size };
+    let kept = &ctx.layout.halocord;
+    // A plugin's switch, lit in the accent while it is on.
+    let switch_button = |id: &str, icon: Icon, on_label: &'static str, off_label: &'static str| {
+        let on = kept.is(id);
+        let message = super::place(id).map(|plugin| {
+            Message::Account(account::Event::Plugin(super::Change::Switch {
+                plugin,
+                on: !on,
+            }))
+        });
+        account::tinted_button(
+            ctx,
+            icon,
+            if on { on_label } else { off_label },
+            if on { theme.accent } else { theme.text },
+            glyph(20),
+            side,
+            message,
+        )
+    };
+    let mut extras = Vec::new();
+    if dock.fake_mute {
+        extras.push(switch_button(
+            id::FAKE_MUTE,
+            Icon::MicOff,
+            "Stop faking mute",
+            "Fake mute",
+        ));
+    }
+    if dock.fake_deafen {
+        extras.push(switch_button(
+            id::FAKE_DEAFEN,
+            Icon::HeadphoneOff,
+            "Stop faking deafen",
+            "Fake deafen",
+        ));
+    }
+    if dock.stereo {
+        extras.push(switch_button(
+            id::STEREO,
+            Icon::Music,
+            "Turn stereo off",
+            "Turn stereo on",
+        ));
+    }
+    if dock.stats {
+        extras.push(account::tinted_button(
+            ctx,
+            Icon::ChartBar,
+            "Call stats",
+            theme.text,
+            glyph(20),
+            side,
+            (account.in_call && account.ready).then_some(Message::Call(crate::call::Event::Open(
+                crate::call::Popup::Link,
+            ))),
+        ));
+    }
+    if dock.game {
+        // Lit while the game is shared; it needs the Discord account.
+        let shown = ctx.state.discord_show_game;
+        extras.push(account::tinted_button(
+            ctx,
+            Icon::Gamepad,
+            if shown {
+                "Stop sharing your game"
+            } else {
+                "Share your game"
+            },
+            if shown { theme.accent } else { theme.text },
+            glyph(20),
+            side,
+            ctx.state
+                .discord_user
+                .is_some()
+                .then_some(Message::Account(account::Event::ShowGame)),
+        ));
+    }
+    // Plugin buttons that sit in the top bar when Yapfast draws one.
+    if !ctx.own_title_bar {
+        for (icon, label, press) in presses(kept) {
+            extras.push(account::tinted_button(
+                ctx,
+                icon,
+                label,
+                theme.text,
+                glyph(20),
+                side,
+                Some(Message::Bar(crate::window_bar::Event::Halo(press))),
+            ));
+        }
+    }
+    // Offline, Reconnect before Settings, always on the card.
+    let state = ctx.state;
+    let reconnect = (!state.preview && !state.online).then(|| {
+        account::tinted_button(
+            ctx,
+            Icon::Refresh,
+            "Reconnect",
+            theme.secondary,
+            glyph(20),
+            side,
+            (!state.busy).then_some(Message::Account(account::Event::Reconnect)),
+        )
+    });
+    (reconnect, extras)
+}
+
+/// The tray, while it's open and the card has buttons in it: those buttons
+/// in a row on a menu's panel, its foot 4 px above the card and its right
+/// edge at the card's.
+pub fn card_tray<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<iced::Element<'a, Message>> {
+    if !ctx.account_more {
+        return None;
+    }
+    let compact = ctx.layout.halocord.dock().compact;
+    let (reconnect, extras) = card_buttons(ctx, compact);
+    let fit = card_fit(ctx, compact, extras.len(), reconnect.is_some());
+    let hidden: Vec<_> = extras.into_iter().skip(fit.inline).collect();
+    if !fit.more || hidden.is_empty() {
+        return None;
+    }
+    let count = hidden.len();
+    let tray = iced::widget::container(iced::widget::Row::from_vec(hidden).spacing(GAP))
+        .padding(6)
+        .style(crate::controls::menu_panel(ctx.look.theme));
+    let width = count as f32 * EXTRA + (count - 1) as f32 * GAP + 12.0 + 2.0;
+    let right =
+        account::INSET + if compact { crate::rail::WIDTH } else { 0.0 } + card_width(ctx, compact);
+    let bottom = ctx.look.window.height - account::height(compact) - account::INSET - 4.0;
+    Some(
+        crate::widgets::Place::new(
+            iced::widget::opaque(tray),
+            iced::Point::new((right - width).max(account::INSET), bottom),
+            8.0,
+        )
+        .anchor(crate::widgets::Anchor::Bottom)
+        .into(),
+    )
+}
+
+/// How wide `words` are on one line, at `size` in `font`.
+pub fn words_width(words: &str, size: f32, font: iced::Font) -> f32 {
+    use iced::advanced::{
+        graphics::text::Paragraph,
+        text::{self, LineHeight, Paragraph as _, Shaping, Wrapping},
+    };
+    Paragraph::with_text(text::Text {
+        content: words,
+        bounds: iced::Size::INFINITE,
+        size: size.into(),
+        line_height: LineHeight::default(),
+        font,
+        align_x: text::Alignment::Default,
+        align_y: iced::alignment::Vertical::Top,
+        shaping: Shaping::Advanced,
+        wrapping: Wrapping::None,
+    })
+    .min_width()
+}
+
+/// `words` as they fit in `room` px on one line, at `size` in `font`:
+/// whole, or cut with an ellipsis where they'd run past it.
+pub fn ellipsized(words: &str, size: f32, font: iced::Font, room: f32) -> String {
+    type Key = (String, u32, u32, u32);
+    thread_local! {
+        // The card draws on every view: each name is measured once a room.
+        static CUT: std::cell::RefCell<std::collections::HashMap<Key, String>> =
+            std::cell::RefCell::default();
+    }
+    let weight = if font == crate::fonts::BOLD { 1 } else { 0 };
+    let key = (
+        words.to_owned(),
+        size.to_bits(),
+        weight,
+        room.round() as u32,
+    );
+    if let Some(cut) = CUT.with(|kept| kept.borrow().get(&key).cloned()) {
+        return cut;
+    }
+    let cut = cut_to(words, size, font, room.round());
+    CUT.with(|kept| {
+        let mut kept = kept.borrow_mut();
+        if kept.len() > 256 {
+            kept.clear();
+        }
+        kept.insert(key, cut.clone());
+    });
+    cut
+}
+
+fn cut_to(words: &str, size: f32, font: iced::Font, room: f32) -> String {
+    if words.is_empty() || words_width(words, size, font) <= room {
+        return words.to_owned();
+    }
+    let ends: Vec<usize> = words
+        .char_indices()
+        .map(|(at, _)| at)
+        .skip(1)
+        .chain([words.len()])
+        .collect();
+    let cut = |count: usize| format!("{}…", words[..ends[count - 1]].trim_end());
+    // The most letters that fit with the ellipsis; a letter and it at least.
+    let (mut low, mut high) = (1, ends.len());
+    while low < high {
+        let middle = (low + high).div_ceil(2);
+        if words_width(&cut(middle), size, font) <= room {
+            low = middle;
+        } else {
+            high = middle - 1;
+        }
+    }
+    cut(low)
 }

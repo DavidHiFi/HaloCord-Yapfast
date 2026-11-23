@@ -189,6 +189,14 @@ impl App {
                     .map(|layer| self.popup(L(Layer::TagCard), layer)),
             );
         }
+        if let Some(tray) = crate::halocord::card_tray(self.ctx()) {
+            layers = layers
+                .push(outside(
+                    Message::Account(crate::account::Event::More(false)),
+                    false,
+                ))
+                .push(tray);
+        }
         if let Some(popover) = crate::status::popover_view(&self.status, self.ctx()) {
             layers = layers
                 .push(outside(Message::Status(crate::status::Event::Close), false))

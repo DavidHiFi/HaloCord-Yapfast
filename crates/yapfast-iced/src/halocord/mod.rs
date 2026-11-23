@@ -29,7 +29,10 @@ mod servers;
 pub mod theme_files;
 mod voice;
 
-pub use buttons::{Press, press, presses, start_button};
+pub use buttons::{Press, card_tray, ellipsized, press, presses, start_button};
+pub(crate) use buttons::{card_buttons, card_fit};
+#[cfg(test)]
+pub(crate) use buttons::{shared, words_width};
 use chat::thousands;
 pub use chat::{count_color, count_words, double_click, tag};
 use kept::off;

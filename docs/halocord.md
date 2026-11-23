@@ -16,7 +16,8 @@ whole list to carry across.
   - `voice.rs`, `chat.rs`, `menus.rs`, `buttons.rs`, `members.rs`, `servers.rs`: the plugins of
     each area, what each tells the core, the hooks it plugs in while it's on, and
     what the window draws for it. `menus.rs` is the window's side of plug-in
-    point 5 (`menu_rows`, `pick`).
+    point 5 (`menu_rows`, `pick`). `buttons.rs` also shares the account card's row
+    (`card_fit`, the tray in `card_tray`, the name cut by `ellipsized`).
 - `crates/yapfast-iced/src/settings/pages/halocord.rs`: the HaloCord settings page,
   drawn from `PLUGINS`.
 - `crates/yapfast-iced/src/mochacord.rs`: MochaCord's look: what `layout.json` keeps
@@ -168,8 +169,16 @@ Window (`yapfast-iced`):
 - `account.rs`: the User area plugin's options. `height(compact)` beside `HEIGHT`,
   `Event::Plugin(Change)`, and `view` reads `layout.halocord.dock()` for compact mode
   (smaller, inside the channel list), hidden dropdown arrows and the extra buttons,
-  and says "Faking mute" or "Faking deafen" under the name in a call. The Game
-  activity button's `Event::ShowGame` and its arm send `Action::ShowGame`.
+  and says "Faking mute" or "Faking deafen" under the name in a call. Its extra
+  buttons come from `halocord::card_buttons`, and `halocord::card_fit` says how many
+  stay beside the name (the rest go behind a "More buttons" ⋯ button), with the name
+  cut by `halocord::ellipsized`; `Event::More(bool)` opens and shuts their tray, and
+  `COMPACT_AVATAR`, `COMPACT_BUTTON` and `tinted_button` are `pub(crate)` for it. The
+  Game activity button is one of them; its `Event::ShowGame` arm sends `Action::ShowGame`.
+- `app/mod.rs` and `ctx.rs`: the `account_more` flag (the tray is open); `app/settle.rs`
+  `settle`: one `if` shuts it once nothing is left in the tray, and `CloseMenus` shuts it.
+- `app/view.rs`: `halocord::card_tray`, the tray's layer over the card, with a click
+  outside sending `Event::More(false)`.
 - `profile/body.rs`: `member_since` draws both dates through `halocord::exact_day`
   (Better joined date's whole date and days ago on pointing), and `profile_top` asks
   `halocord::full_picture` what a click on the banner, or on the full profile's

@@ -98,6 +98,8 @@ pub struct App {
     /// The account's card, and whether the pointer is on its names.
     pub account: crate::account::Account,
     pub account_pointed: bool,
+    /// The account card's overflow of buttons is open.
+    pub account_more: bool,
     /// The composer, the edit in its row and the suggestions over them.
     pub composer: crate::composer::Composer,
     /// Files waiting to go and dragged over the window.
@@ -274,6 +276,7 @@ impl App {
             post_author: None,
             account: Default::default(),
             account_pointed: false,
+            account_more: false,
             composer: Default::default(),
             uploads: Default::default(),
             modifiers: keyboard::Modifiers::default(),
