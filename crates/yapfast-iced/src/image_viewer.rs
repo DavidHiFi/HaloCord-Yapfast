@@ -69,6 +69,9 @@ pub enum Event {
     /// The pointer came onto a GIF's star: the favourites are asked for,
     /// if they haven't come.
     WantFavorites,
+    /// A click on the picture while HaloCord's Image zoom is on: bigger,
+    /// or fitted again.
+    Zoom,
 }
 
 /// What the window keeps of the viewer: the size it opened at, for its
@@ -76,6 +79,8 @@ pub enum Event {
 #[derive(Default)]
 pub struct Viewed {
     pub size: Option<(String, usize, Size)>,
+    /// HaloCord's Image zoom: the picture shown bigger, to scroll around.
+    pub zoomed: bool,
 }
 
 impl Viewed {
@@ -84,15 +89,21 @@ impl Viewed {
     pub fn update(&mut self, event: Event, cx: &mut Cx<'_>) -> Task<Message> {
         match event {
             Event::Open(item, index) => {
+                self.zoomed = false;
                 cx.dispatch(Action::ViewImage { item, index });
                 return iced::widget::operation::focus(crate::app::NOBODY);
             }
             Event::Close => {
+                self.zoomed = false;
                 cx.dispatch(Action::CloseImage);
                 self.size = None;
                 cx.request(Request::Focus(Focus::Default));
             }
-            Event::Step(step) => cx.dispatch(Action::StepImage(step)),
+            Event::Step(step) => {
+                self.zoomed = false;
+                cx.dispatch(Action::StepImage(step));
+            }
+            Event::Zoom => self.zoomed = !self.zoomed,
             Event::Saved(item, index, path) => {
                 if let Some(path) = path {
                     cx.dispatch(Action::SaveAttachment { item, index, path });
@@ -195,6 +206,7 @@ pub fn save(item: String, index: usize, state: &AppState) -> Task<Message> {
 pub fn view<'a>(viewed: &'a Viewed, cx: Ctx<'a>) -> Option<Element<'a, Message>> {
     View {
         s: &viewed.size,
+        zoomed: viewed.zoomed,
         cx,
     }
     .view()
@@ -204,6 +216,7 @@ pub fn view<'a>(viewed: &'a Viewed, cx: Ctx<'a>) -> Option<Element<'a, Message>>
 #[derive(Clone, Copy)]
 struct View<'a> {
     s: &'a Option<(String, usize, Size)>,
+    zoomed: bool,
     cx: Ctx<'a>,
 }
 
@@ -244,11 +257,14 @@ impl<'a> View<'a> {
             (natural.height * scale).round().max(1.0),
         );
         let shown = full.or(attachment.preview.as_ref());
+        // HaloCord's Image zoom: bigger, scrolled inside the fitted size.
+        let zoom = crate::halocord::zoom_size(self.cx, self.zoomed, natural, size);
         let picture = self.cx.shot(Shot {
             fit: Fit::Contain,
             ground: false,
-            ..Shot::new(shown, size)
+            ..Shot::new(shown, zoom.unwrap_or(size))
         });
+        let picture = crate::halocord::zoomable(self.cx, picture, zoom, size);
         let (item, index) = (viewer.item.clone(), viewer.index);
         let picture = RightPress::new(picture, move |_| {
             Message::Image(Event::Menu(item.clone(), index, false))
