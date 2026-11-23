@@ -175,27 +175,27 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
 
-/// Keep current channel: on, the conversation kept in the app's folder opens
-/// once it's listed, and the one open is kept there.
+/// Keep current channel: on as the window starts, the conversation kept
+/// in the app's folder opens once it's listed, and the one open is kept
+/// there. Switched on later, it opens nothing and keeps from then on.
 #[test]
 fn keep_current_channel_opens_the_kept_conversation_and_keeps_the_open_one() {
     let (mut app, _folder) = super::server::discord_server(0, |_, _| {});
     let _alone = super::plugin_alone();
     let file = app.client.root().join("halocord-channel");
     std::fs::write(&file, "discord:10:11\n").expect("a kept conversation");
+    let general = |app: &App| app.client.state().selected.as_deref() == Some("discord:10:11");
     let _ = app.settle();
-    assert_ne!(
-        app.client.state().selected.as_deref(),
-        Some("discord:10:11"),
-        "off at first"
-    );
+    assert!(!general(&app), "off at first");
+    // Switched on in the middle of a session: nothing opens.
     turn_on(&mut app, id::KEEP_CHANNEL);
     let _ = app.settle();
-    assert_eq!(
-        app.client.state().selected.as_deref(),
-        Some("discord:10:11"),
-        "opened once listed"
-    );
+    assert!(!general(&app), "not opened when switched on later");
+    assert!(!app.halocord_kept.waiting());
+    // As after a restart with it on: the kept one opens once listed.
+    app.halocord_kept = Default::default();
+    let _ = app.settle();
+    assert!(general(&app), "opened once listed");
     // As after a restart with nothing kept: the one open is written.
     std::fs::remove_file(&file).expect("the file");
     app.halocord_kept = Default::default();
@@ -204,11 +204,64 @@ fn keep_current_channel_opens_the_kept_conversation_and_keeps_the_open_one() {
         std::fs::read_to_string(&file).expect("kept again").trim(),
         "discord:10:11"
     );
+    switch_off(&mut app, id::KEEP_CHANNEL);
+}
+
+/// Keep current channel: while it waits for the kept conversation to be
+/// listed, Yapfast's own picks keep it waiting, but someone going
+/// somewhere else ends the wait, so the kept one doesn't take them back.
+#[test]
+fn keep_current_channel_stops_waiting_once_something_else_is_opened() {
+    use yapfast_core::application::{Action, Navigation};
+    let (mut app, _folder) = super::server::discord_server(0, |_, _| {});
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::KEEP_CHANNEL);
+    std::fs::write(app.client.root().join("halocord-channel"), "discord:10:11")
+        .expect("a kept conversation");
+    // #general isn't listed yet as the window starts.
+    let mut later = None;
+    super::change(&mut app, |state| {
+        let at = state
+            .rooms
+            .iter()
+            .position(|room| room.id == "discord:10:11")
+            .expect("#general");
+        later = Some(state.rooms.remove(at));
+    });
+    app.halocord_kept = Default::default();
+    let _ = app.settle();
+    assert!(app.halocord_kept.waiting(), "waits for it to be listed");
+    // Yapfast closing what's open, as it does with nothing to show: still waiting.
+    super::change(&mut app, |state| state.selected = None);
+    let _ = app.settle();
+    assert!(app.halocord_kept.waiting(), "Yapfast's own pick");
+    // Someone goes to the server (the window starts on the DMs): the wait
+    // ends.
+    let server = Navigation::Server("discord:10".into());
+    assert_ne!(app.client.state().navigation, server);
+    app.client.dispatch(Action::Navigate(server.clone()));
+    let _ = app.sync();
+    let _ = app.settle();
+    assert!(!app.halocord_kept.waiting(), "something else was opened");
+    // #general listed now: nobody is taken back to it.
+    super::change(&mut app, |state| {
+        state.rooms.push(later.take().expect("kept"));
+    });
+    let _ = app.settle();
+    assert_eq!(app.client.state().navigation, server);
+    assert_ne!(
+        app.client.state().selected.as_deref(),
+        Some("discord:10:11")
+    );
+    switch_off(&mut app, id::KEEP_CHANNEL);
+}
+
+fn switch_off(app: &mut App, which: &str) {
     changed(
         &mut app.layout,
         &mut app.client,
         Change::Switch {
-            plugin: place(id::KEEP_CHANNEL).expect("the plugin"),
+            plugin: place(which).expect("the plugin"),
             on: false,
         },
     );

@@ -186,8 +186,9 @@ Window (`yapfast-iced`):
   `show_role` names and colours a role from the open profile (Clickable roles).
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `app/settle.rs`: `settle` starts with `halocord::keep_channel` (Keep current channel: the
-  conversation kept in `halocord-channel` in the app's folder opens once listed, and the one
-  open is kept); `app/mod.rs`: the `halocord_kept` field it keeps its state in.
+  conversation kept in `halocord-channel` in the app's folder opens once listed, if the plugin
+  was on as the window started and nothing else was opened first, and the one open is kept);
+  `app/mod.rs`: the `halocord_kept` field it keeps its state in.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
 - `call/mod.rs`: `Event::Unmute(person)` and its arm, which calls `halocord::unmute`.
