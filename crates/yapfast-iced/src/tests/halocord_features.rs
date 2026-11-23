@@ -442,3 +442,25 @@ fn better_forwards_stays_in_the_conversation_after_a_forward() {
         },
     );
 }
+
+/// GIF paste: off, a picked GIF goes out at once and Shift puts it in the
+/// message box, as Yapfast does; on, the other way round.
+#[test]
+fn gif_paste_puts_a_picked_gif_in_the_message_box() {
+    use crate::halocord::inserts_gif;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    assert!(!inserts_gif(false) && inserts_gif(true), "off at first");
+    turn_on(&mut app, id::GIF_PASTE);
+    assert!(inserts_gif(false), "a click puts it in");
+    assert!(!inserts_gif(true), "Shift and a click sends it");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::GIF_PASTE).expect("the plugin"),
+            on: false,
+        },
+    );
+    assert!(!inserts_gif(false), "off again");
+}

@@ -47,7 +47,7 @@ mod voice;
 pub use areas::{Area, area};
 pub use buttons::{Press, press, presses, start_button};
 use chat::thousands;
-pub use chat::{count_color, count_words, double_click, tag};
+pub use chat::{count_color, count_words, double_click, inserts_gif, tag};
 pub use clicks::{Clicks, click_keys, click_row};
 pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
 use kept::off;
@@ -132,6 +132,7 @@ pub mod id {
     pub const EMBEDDED_URLS: &str = "embedded-urls";
     pub const AUTO_ZIPPER: &str = "auto-zipper";
     pub const BETTER_FORWARDS: &str = "better-forwards";
+    pub const GIF_PASTE: &str = "gif-paste";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -184,6 +185,7 @@ pub static PLUGINS: &[Plugin] = &[
     chat::EMBEDDED_URLS,
     chat::AUTO_ZIPPER,
     chat::BETTER_FORWARDS,
+    chat::GIF_PASTE,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

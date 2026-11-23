@@ -319,7 +319,8 @@ impl Picker {
     pub(super) fn gif_pick(&mut self, index: usize, cx: &mut Cx<'_>) -> Task<Message> {
         let action = match self.gif_item(index) {
             Some(Item::Gif { url, .. }) => {
-                let insert = cx.modifiers.shift();
+                // HaloCord's GIF paste (docs/halocord.md).
+                let insert = crate::halocord::inserts_gif(cx.modifiers.shift());
                 let action = Action::PickGif {
                     url: url.clone(),
                     insert,

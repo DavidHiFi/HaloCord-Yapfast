@@ -332,6 +332,8 @@ Window (`yapfast-iced`):
   `window_bar`.
 - `account.rs`: the same buttons beside Settings, when the window has no title bar of
   its own.
+- `picker/gifs.rs`: `gif_pick` asks `halocord::inserts_gif` whether a GIF goes into the
+  message box (GIF paste swaps Shift's meaning), in place of reading Shift itself.
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
   It also hands its buttons to `halocord::timestamp_button` (Send timestamps' clock,
   before them while its picker is on).
