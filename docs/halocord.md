@@ -56,7 +56,8 @@ whole list to carry across.
 - `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link in a
   sticker's menu.
 - `crates/yapfast-core/src/halocord/quick_mention.rs`: Mention in a message's menu
-  (puts the sender's name in the message box).
+  (puts the sender's name in the message box), and `author`, whom the hover bar's @
+  button mentions.
 - `crates/yapfast-core/src/halocord/copy_user_url.rs`: Copy profile link in a
   Discord user's menu.
 - `crates/yapfast-core/src/halocord/new_user.rs`: the new account tag plugin's hook (an amber tag by
@@ -162,6 +163,8 @@ Window (`yapfast-iced`):
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines; `open_menu`
   adds `halocord::message_rows` (the engine's rows, then Find reply's).
+- `message/hover_bar.rs`: `hover_bar` pushes `halocord::mention_button` after Edit or
+  Reply (Quick mention's @, one `if let`).
 - `person_menu.rs`: plug-in point 5, `open_person_menu` adds `halocord::person_rows`
   (two lines, `rows` is `mut`), which adds Copy status link's and Copy profile
   colors' rows after the engine's.
