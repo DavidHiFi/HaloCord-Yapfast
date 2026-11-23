@@ -694,6 +694,11 @@ fn handle_line<'a>(
     if badges {
         line = line.push(badge_rows(ctx, shown));
     }
+    if let Some(marks) =
+        crate::halocord::name_marks(ctx, &profile.id, crate::halocord::Place::Profile)
+    {
+        line = line.push(marks);
+    }
     if let Some(tag) = tag {
         let fill = if inks.light {
             Color {

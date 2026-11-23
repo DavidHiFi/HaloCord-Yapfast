@@ -53,8 +53,8 @@ pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 #[cfg(test)]
 pub use members::time_left;
 pub use members::{
-    add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
-    tip_member_count,
+    Place, add_member_count, dm_marks, exact_day, full_picture, name_marks, platform_marks,
+    timeout_clock, timeout_note, tip_member_count,
 };
 pub use members::{role_press, zoom_size, zoomable};
 pub use menus::{

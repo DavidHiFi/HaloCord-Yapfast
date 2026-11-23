@@ -270,6 +270,12 @@ Window (`yapfast-iced`):
 - `members.rs`: `member_row` draws the timed-out clock with `halocord::timeout_clock` (Show
   timeout duration's time left on pointing), pushes `halocord::in_voice_mark` after it, then
   `halocord::platform_marks` (one `if let` each).
+- `sidebar/dms.rs` (a DM's row, after its tags, through `halocord::dm_marks` by the room),
+  `message/mod.rs` (`author_line`, after the
+  plugins' tags), `sidebar/voice.rs` (`voice_person`, after the unmute mark) and
+  `profile/body.rs` (`handle_line`, after the badges): `halocord::name_marks` with the
+  place, what plugins put by a name there (Platform indicators' marks while its switch
+  for that place is on; one `if let` each).
 - `shell.rs`: in `shell_sync`, a copied download goes through `halocord::copied_text` first:
   text Copy file text asked for goes on the clipboard as text, anything else as a picture.
 - `links.rs`: `follow_link` opens a masked link with no question while Always trust links

@@ -908,3 +908,58 @@ fn platform_indicators_mark_people_by_the_apps_they_are_on() {
         "unseen"
     );
 }
+
+/// Platform indicators' other places: each one's switch, off at first, puts
+/// the same marks by the name in the DM list, on messages, under voice
+/// channels and on profiles.
+#[test]
+fn platform_indicators_show_in_each_place_switched_on() {
+    use crate::halocord::{Change, PLATFORMS, Place, changed, name_marks, place};
+    use yapfast_core::yapfast_discord::halocord::note;
+    let (mut app, _folder) = super::preview();
+    note(
+        "platform-places-sam",
+        &serde_json::json!({"client_status": {"mobile": "idle"}}),
+    );
+    let plugin = place(PLATFORMS).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let places = [Place::Dms, Place::Message, Place::Voice, Place::Profile];
+    for at in places {
+        assert!(
+            name_marks(app.ctx(), "platform-places-sam", at).is_none(),
+            "{at:?} is off at first"
+        );
+    }
+    for (setting, at) in places.into_iter().enumerate() {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting,
+                on: true,
+            },
+        );
+        assert!(
+            name_marks(app.ctx(), "platform-places-sam", at).is_some(),
+            "{at:?}"
+        );
+        assert!(
+            name_marks(app.ctx(), "platform-places-nobody", at).is_none(),
+            "{at:?}: someone never seen"
+        );
+    }
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert!(
+        name_marks(app.ctx(), "platform-places-sam", Place::Dms).is_none(),
+        "the plugin off"
+    );
+}
