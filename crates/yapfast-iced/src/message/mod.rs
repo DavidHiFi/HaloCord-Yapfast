@@ -711,6 +711,9 @@ fn author_line<'a>(
     for tag in yapfast_core::halocord::extras(message, ctx.app) {
         line = line.push(crate::halocord::tag(ctx, tag));
     }
+    if let Some(clock) = crate::halocord::message_timeout(ctx, &message.sender) {
+        line = line.push(clock);
+    }
     let time = Piece::new(
         vec![span(sent_time(ctx, index, message))],
         index,

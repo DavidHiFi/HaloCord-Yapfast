@@ -1,11 +1,11 @@
 //! Member list plugins: the member count line, Platform indicators, Show
-//! timeout duration, Better joined date and View icons.
+//! timeout duration, Better joined date, View icons and Show hidden things.
 
 use iced::Element;
 
 use chrono::NaiveDate;
 
-use super::{Kept, Plugin, id, thousands};
+use super::{Kept, Kind, Plugin, Setting, id, thousands};
 use crate::{app::Message, ctx::Ctx, pictures::Icon, style::hex};
 
 pub(super) const MEMBER_COUNT: Plugin = Plugin {
@@ -57,6 +57,76 @@ pub fn timeout_clock<'a>(cx: Ctx<'a>, until: u64) -> Element<'a, Message> {
     )
     .gap(6)
     .into()
+}
+
+pub(super) const SHOW_HIDDEN: Plugin = Plugin {
+    id: id::SHOW_HIDDEN,
+    name: "Show hidden things",
+    about: "Shows what Discord's client shows only to moderators: the clock by a timed out member's name on their messages too, not only in the member list, and \"Invites paused\" in a server's name when you point at it in the server list.",
+    on_at_first: false,
+    settings: &[
+        Setting {
+            key: "timeouts",
+            heading: "Timeouts on messages",
+            note: "The clock by a timed out member's name on their messages.",
+            kind: Kind::Switch {
+                unless_changed: true,
+            },
+        },
+        Setting {
+            key: "invites",
+            heading: "Invites paused",
+            note: "In a server's name when you point at it in the server list.",
+            kind: Kind::Switch {
+                unless_changed: true,
+            },
+        },
+    ],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// Whether Show hidden things is on with its switch `setting` on.
+fn shows_hidden(cx: Ctx<'_>, setting: usize) -> bool {
+    let kept = &cx.layout.halocord;
+    kept.on(&SHOW_HIDDEN) && kept.flag(&SHOW_HIDDEN, &SHOW_HIDDEN.settings[setting])
+}
+
+/// Hook: the clock by a timed out member's name on their message, as the
+/// member list has it, while Show hidden things shows timeouts there.
+pub fn message_timeout<'a>(cx: Ctx<'a>, person: &str) -> Option<Element<'a, Message>> {
+    if !shows_hidden(cx, 0) {
+        return None;
+    }
+    // A message's sender is `discord:` and the member's id.
+    let person = yapfast_core::discord::sender_user(person).unwrap_or(person);
+    let now = yapfast_core::clock::now_ms();
+    let Some(Ok(members)) = &cx.state.members else {
+        return None;
+    };
+    let until = members
+        .iter()
+        .find(|member| member.id == person)
+        .and_then(|member| member.timed_out_until)
+        .filter(|until| *until > now)?;
+    Some(timeout_clock(cx, until))
+}
+
+/// Hook: a server's name as the server list names it when pointed at, with
+/// "Invites paused" after it while they are and Show hidden things says so.
+pub fn server_tip<'a>(
+    cx: Ctx<'_>,
+    server: &str,
+    name: std::borrow::Cow<'a, str>,
+) -> std::borrow::Cow<'a, str> {
+    let paused = server
+        .strip_prefix("discord:")
+        .is_some_and(yapfast_core::yapfast_discord::halocord::invites_paused);
+    if paused && shows_hidden(cx, 1) {
+        std::borrow::Cow::Owned(format!("{name} · Invites paused"))
+    } else {
+        name
+    }
 }
 
 /// What the message box adds after when a timeout ends, while Show timeout

@@ -48,6 +48,8 @@ whole list to carry across.
   menu.
 - `crates/yapfast-core/src/halocord/copy_file_contents.rs`: Copy file text in a text
   file's menu (downloads it as Copy Image does; the window copies it as text).
+- `crates/yapfast-discord/src/halocord/invites.rs`: Show hidden things' record of the
+  servers whose invites are paused.
 - `crates/yapfast-discord/src/halocord.rs`: Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
 - `crates/yapfast-iced-kit/icons/halo-desktop.svg`, `halo-phone.svg`, `halo-web.svg`:
@@ -230,6 +232,12 @@ Window (`yapfast-iced`):
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
   `composer_look` ends the timed-out line with `halocord::timeout_note` (the time left).
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
+- `ready.rs` (`yapfast-discord`): `server` notes whether invites are paused with
+  `halocord::note_invites` (Show hidden things).
+- `message/mod.rs`: after the plugins' tags by an author's name, `halocord::message_timeout`'s
+  clock (Show hidden things).
+- `rail.rs`: a server's name when pointed at goes through `halocord::server_tip` (Show hidden
+  things: Invites paused).
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
 - `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
   `self.theme_event` (it gives a task now).
