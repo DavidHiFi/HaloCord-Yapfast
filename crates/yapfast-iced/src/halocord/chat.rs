@@ -87,16 +87,66 @@ pub(super) const NEW_USER: Plugin = Plugin {
 pub(super) const CLICK_ACTIONS: Plugin = Plugin {
     id: id::CLICK_ACTIONS,
     name: "Message click actions",
-    about: "Double-click a message to reply to it, or your own to edit it.",
+    about: "Double-click a message to reply to it, or your own to edit it. A triple click and a click while holding Backspace can act too, as set below, such as reacting or deleting a message without asking; others' messages only if you set it for them.",
     on_at_first: false,
-    settings: &[Setting {
-        key: "edit_own",
-        heading: "Edit your own",
-        note: "A double-click on your own message edits it. Off, it replies, as on anyone else's.",
-        kind: Kind::Switch {
-            unless_changed: true,
+    settings: &[
+        Setting {
+            key: "edit_own",
+            heading: "Edit your own",
+            note: "A double-click on your own message edits it. Off, it replies, as on anyone else's.",
+            kind: Kind::Switch {
+                unless_changed: true,
+            },
         },
-    }],
+        super::clicks::choice("triple", "TRIPLE CLICK", super::clicks::NOTHING),
+        Setting {
+            key: "emoji",
+            heading: "REACT WITH",
+            note: "The emoji a click set to React puts on the message.",
+            kind: Kind::Text {
+                placeholder: "💀",
+                unless_changed: "💀",
+            },
+        },
+        // Nothing unless changed, so the plugin works as before until a
+        // Backspace or triple click is picked.
+        super::clicks::choice(
+            "backspace_own",
+            "CLICK WITH BACKSPACE HELD, YOUR MESSAGES",
+            super::clicks::NOTHING,
+        ),
+        // Deleting others' messages (with Manage Messages) is asked for,
+        // never given.
+        super::clicks::choice(
+            "backspace_others",
+            "CLICK WITH BACKSPACE HELD, OTHERS' MESSAGES",
+            super::clicks::NOTHING,
+        ),
+        Setting {
+            key: "within",
+            heading: "CLICKS WITHIN",
+            note: "How quickly the clicks of a double or triple click follow each other.",
+            kind: Kind::Slider {
+                most: 1000,
+                step: 50,
+                unit: " ms",
+                unless_changed: 300,
+            },
+        },
+        Setting {
+            key: "wait_for_triple",
+            heading: "Wait for a triple click",
+            note: "While a triple click does something, a double click waits that long to see if a third click follows.",
+            kind: Kind::Switch {
+                unless_changed: true,
+            },
+        },
+        off(
+            "not_in_dms",
+            "Not in DMs",
+            "Clicks do nothing in direct messages.",
+        ),
+    ],
     apply: |_, _| {},
     hooks: None,
 };
@@ -105,6 +155,16 @@ pub(super) const CLICK_ACTIONS: Plugin = Plugin {
 /// actions is on: Edit on one's own (unless its setting is off), else
 /// Reply, as the hover bar's buttons do, where the message box writes.
 pub fn double_click(cx: Ctx<'_>, index: usize) -> Option<Message> {
+    let act = double_act(cx, index)?;
+    Some(Message::Menu(crate::menus::Event::Act(
+        act,
+        cx.row_message(index)?.item.clone(),
+        iced::Point::ORIGIN,
+    )))
+}
+
+/// What a double-click on row `index` does, as [`double_click`] says it.
+pub(super) fn double_act(cx: Ctx<'_>, index: usize) -> Option<crate::menus::MenuAct> {
     use crate::menus::MenuAct;
     if !cx.layout.halocord.is(id::CLICK_ACTIONS) {
         return None;
@@ -114,6 +174,20 @@ pub fn double_click(cx: Ctx<'_>, index: usize) -> Option<Message> {
     // word, and editing it again would undo what was typed.
     let editing = cx.composer.editing.as_deref() == Some(message.item.as_str());
     if editing || message.deleted || message.delivery != yapfast_core::chat::Delivery::default() {
+        return None;
+    }
+    // Not in DMs, when set: a DM, a group DM too, is `direct`.
+    let state = cx.state;
+    let in_dm = state
+        .rooms
+        .iter()
+        .any(|room| room.direct && state.selected.as_ref() == Some(&room.id));
+    if in_dm
+        && cx.layout.halocord.flag(
+            &CLICK_ACTIONS,
+            &CLICK_ACTIONS.settings[super::clicks::NOT_IN_DMS],
+        )
+    {
         return None;
     }
     let writes = if index >= crate::timeline::ASIDE {
@@ -128,18 +202,13 @@ pub fn double_click(cx: Ctx<'_>, index: usize) -> Option<Message> {
         .layout
         .halocord
         .flag(&CLICK_ACTIONS, &CLICK_ACTIONS.settings[0]);
-    let act = if message.own && message.can_edit && edits {
-        MenuAct::Edit
+    if message.own && message.can_edit && edits {
+        Some(MenuAct::Edit)
     } else if message.can_reply {
-        MenuAct::Reply
+        Some(MenuAct::Reply)
     } else {
-        return None;
-    };
-    Some(Message::Menu(crate::menus::Event::Act(
-        act,
-        message.item.clone(),
-        iced::Point::ORIGIN,
-    )))
+        None
+    }
 }
 
 pub fn tag<'a>(ctx: Ctx<'a>, tag: Tag) -> Element<'a, Message> {

@@ -114,6 +114,8 @@ pub struct App {
     pub reporting: bool,
     /// The message the keyboard is stepping on (`timeline/keys.rs`), by item.
     pub keyed: Option<String>,
+    /// HaloCord's Message click actions: the presses counted so far.
+    pub halocord_clicks: crate::halocord::Clicks,
     /// What the timeline's voice messages and videos show of their playing.
     pub playback: crate::playback::Playback,
     /// A masked link clicked, while the question before it shows.
@@ -280,6 +282,7 @@ impl App {
             forward: Default::default(),
             confirm_focus: true,
             asking: false,
+            halocord_clicks: Default::default(),
             reporting: false,
             keyed: None,
             playback: Default::default(),
