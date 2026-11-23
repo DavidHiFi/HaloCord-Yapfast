@@ -1010,6 +1010,62 @@ fn message_click_actions_edit_own_and_reply_to_others() {
     assert_eq!(act(&app, own), Some(MenuAct::Reply));
 }
 
+/// Message click actions leave the message being edited alone: a double
+/// click in its edit field (to pick a word) is the field's, and keeps what
+/// was typed there.
+#[test]
+fn message_click_actions_leave_the_message_being_edited_alone() {
+    use crate::{
+        halocord::{CLICK_ACTIONS, Change, changed, double_click, place},
+        menus::MenuAct,
+    };
+    let (mut app, _folder) = preview();
+    let rows = app.client.state().messages.len();
+    let own = (0..rows)
+        .find(|&row| {
+            app.ctx()
+                .row_message(row)
+                .is_some_and(|message| message.own && !message.deleted && message.can_edit)
+        })
+        .expect("a message of this account's");
+    let item = app.ctx().row_message(own).expect("it").item.clone();
+    let plugin = place(CLICK_ACTIONS).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    assert!(double_click(app.ctx(), own).is_some(), "on, it edits");
+    let _ = app.update(Message::Menu(crate::menus::Event::Act(
+        MenuAct::Edit,
+        item.clone(),
+        iced::Point::ORIGIN,
+    )));
+    assert_eq!(app.composer.editing.as_deref(), Some(item.as_str()));
+    assert!(
+        double_click(app.ctx(), own).is_none(),
+        "not while it's edited"
+    );
+    interact(&mut app, |ui| {
+        let field = iced::widget::Id::new(crate::composer::EDIT);
+        ui.click(field.clone()).expect("the edit field");
+        ui.typewrite(" and more");
+        ui.click(field.clone()).expect("the edit field");
+        ui.click(field).expect("the edit field");
+    });
+    assert_eq!(app.composer.editing.as_deref(), Some(item.as_str()));
+    assert!(
+        app.composer.edit.text().contains(" and more"),
+        "what was typed stays: {}",
+        app.composer.edit.text()
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}
+
 /// Clickable roles: a role on a profile sends its card only while it is on,
 /// and the card takes the role's name and colour from the profile.
 #[test]
