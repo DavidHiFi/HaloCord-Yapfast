@@ -174,3 +174,46 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Last online: with it on, a DM whose person Yapfast saw go offline says
+/// "Online just now" under the name, from the window's own list making;
+/// back online, or with it off, nothing.
+#[test]
+fn last_online_says_when_a_dm_went_offline() {
+    use yapfast_core::chat::Presence;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let dm = app.client.state().rooms[0].id.clone();
+    let presence = |app: &mut App, presence| {
+        super::change(app, |state| {
+            let room = std::sync::Arc::make_mut(&mut state.rooms[0]);
+            room.direct = true;
+            room.presence = Some(presence);
+        });
+    };
+    let said = |app: &App| crate::halocord::last_online(app.ctx(), &dm);
+    turn_on(&mut app, id::LAST_ONLINE);
+    let plugin = place(id::LAST_ONLINE).expect("the plugin");
+    // Not kept across restarts in this test: nothing in its folder.
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: false,
+        },
+    );
+    presence(&mut app, Presence::Online);
+    assert_eq!(said(&app), None, "online");
+    presence(&mut app, Presence::Offline);
+    assert_eq!(said(&app).as_deref(), Some("Online just now"));
+    presence(&mut app, Presence::Idle);
+    assert_eq!(said(&app), None, "back");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert_eq!(said(&app), None, "off");
+}

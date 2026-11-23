@@ -79,6 +79,11 @@ impl<'a> super::View<'a> {
             .as_ref()
             .map(|(id, channel, server)| (id.as_str(), channel.as_str(), server.as_str()));
         let mut line = row![].spacing(4).align_y(Alignment::Center);
+        // HaloCord's Last online (docs/halocord.md), when nothing else is
+        // said under the name.
+        let last_online = (spot.is_none() && room.status.is_empty() && !room.official)
+            .then(|| crate::halocord::last_online(self.cx, &room.id))
+            .flatten();
         if let Some(spot) = spot {
             line = line.push(self.cx.voice_spot(spot, 12.0, !room.status.is_empty()));
         }
@@ -94,8 +99,15 @@ impl<'a> super::View<'a> {
                     .color(theme.muted)
                     .wrapping(text::Wrapping::None),
             );
+        } else if let Some(seen) = last_online.clone() {
+            line = line.push(
+                text(seen)
+                    .size(12)
+                    .color(theme.muted)
+                    .wrapping(text::Wrapping::None),
+            );
         }
-        if spot.is_some() || !room.status.is_empty() || room.official {
+        if spot.is_some() || !room.status.is_empty() || room.official || last_online.is_some() {
             person = person.sub(line);
         }
         let mut face = self.cx.person(person);

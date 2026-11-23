@@ -23,6 +23,7 @@
 mod buttons;
 mod chat;
 mod kept;
+mod last_online;
 mod members;
 mod menus;
 mod servers;
@@ -34,6 +35,7 @@ use chat::thousands;
 pub use chat::{count_color, count_words, double_click, tag};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
+pub use last_online::{dm_line as last_online, note_presences};
 #[cfg(test)]
 pub use members::time_left;
 pub use members::{
@@ -100,6 +102,7 @@ pub mod id {
     pub const COPY_PROFILE_COLORS: &str = "copy-profile-colors";
     pub const FIND_REPLY: &str = "find-reply";
     pub const IMAGE_ZOOM: &str = "image-zoom";
+    pub const LAST_ONLINE: &str = "last-online";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -144,6 +147,7 @@ pub static PLUGINS: &[Plugin] = &[
     menus::COPY_PROFILE_COLORS,
     menus::FIND_REPLY,
     members::IMAGE_ZOOM,
+    last_online::LAST_ONLINE,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

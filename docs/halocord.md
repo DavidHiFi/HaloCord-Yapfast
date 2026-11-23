@@ -184,6 +184,9 @@ Window (`yapfast-iced`):
 - Core `chat.rs`, `discord_text/render.rs`, `application/profiles.rs` and
   `yapfast-discord/src/ready.rs`: `ProfileRole::id`, which `named_roles` gives, and
   `show_role` names and colours a role from the open profile (Clickable roles).
+- `sync.rs`: `make_lists` starts with `halocord::note_presences` (Last online: who of the DMs
+  went offline); `sidebar/dms.rs`: a DM's row says `halocord::last_online` under the name when
+  nothing else is said there.
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
