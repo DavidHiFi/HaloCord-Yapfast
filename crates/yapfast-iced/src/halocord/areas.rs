@@ -65,6 +65,13 @@ pub fn area(id: &str) -> Area {
         | id::FIX_FILE_EXTENSIONS
         | id::CLICK_ACTIONS
         | id::IMAGE_ZOOM
+        | id::EMBEDDED_URLS
+        | id::AUTO_ZIPPER
+        | id::BETTER_FORWARDS
+        | id::GIF_PASTE
+        | id::UNIVERSAL_MENTION
+        | id::NOTIFICATION_TITLE
+        | id::FAVORITE_ANYTHING
         | "fake-dms"
         | "message-logger" => Area::Chat,
         id::COPY_MENTION
@@ -75,18 +82,30 @@ pub fn area(id: &str) -> Area {
         | id::COPY_PROFILE_LINK
         | id::COPY_STATUS_URLS
         | id::COPY_PROFILE_COLORS
-        | id::FIND_REPLY => Area::Menus,
-        id::USER_AREA | id::RESTART | id::READ_ALL | id::CLOSE_DMS | id::JUMP_TO_START => {
-            Area::Buttons
-        }
+        | id::FIND_REPLY
+        | id::SEARCH_MENU
+        | id::SONG_LINK => Area::Menus,
+        id::USER_AREA
+        | id::RESTART
+        | id::READ_ALL
+        | id::CLOSE_DMS
+        | id::JUMP_TO_START
+        | id::HIDE_CHAT_BUTTONS
+        | id::BETTER_UPLOAD_BUTTON => Area::Buttons,
         id::STAFF_TAG
         | id::MEMBER_COUNT
         | id::PLATFORMS
         | id::SHOW_TIMEOUT
         | id::BETTER_JOINED_DATE
         | id::VIEW_ICONS
-        | id::CLICKABLE_ROLES => Area::Members,
-        id::PLAIN_FOLDER | id::INVITE_DEFAULTS | id::NO_PENDING_COUNT => Area::Servers,
+        | id::CLICKABLE_ROLES
+        | id::SHOW_HIDDEN
+        | id::SHOW_SONG_NAME => Area::Members,
+        id::PLAIN_FOLDER
+        | id::INVITE_DEFAULTS
+        | id::NO_PENDING_COUNT
+        | id::HOME_TYPING
+        | id::KEEP_CHANNEL => Area::Servers,
         "custom-rpc" | "animated-status" => Area::Status,
         _ => Area::Other,
     }
