@@ -15,9 +15,10 @@ use crate::{
     settings::{Event, Section, voice::Event as VoiceEvent},
 };
 
-/// Settings on a section, in a window tall enough to show its whole page.
+/// Settings on a section, in a window tall enough to show its whole page
+/// (the Plugins page grows with each plugin, and a wrapped row of choices).
 fn open(app: &mut App, section: Section) {
-    app.shell.frame.height = 2400.0;
+    app.shell.frame.height = 3200.0;
     crate::window_bar::fit_window(app);
     let _ = app.update(Message::Settings(Event::Open(section)));
 }

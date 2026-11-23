@@ -1293,7 +1293,8 @@ pub fn dock_button<'a, M: Clone + 'a>(
 }
 
 /// A row of choices, one chosen: on the sunken ground, the chosen one
-/// raised in the active colour and bold.
+/// raised in the active colour and bold. Options that don't fit on one
+/// line wrap onto even lines ([`choice_lines`]).
 pub fn choices<'a, M: Clone + 'a>(
     theme: &Theme,
     options: &[&'a str],
@@ -1303,24 +1304,9 @@ pub fn choices<'a, M: Clone + 'a>(
     choices_within(theme, options, current, 360.0, on_choose)
 }
 
-/// The room a choice's label needs, with its sides, at size 14: each
-/// character at 0.65 of the size (a little wide of the widest fonts the app
-/// ships), so an estimate never comes out short.
-fn choice_need(label: &str) -> f32 {
-    label.chars().count() as f32 * 14.0 * 0.65 + 16.0
-}
-
-/// Whether `options` fit one row `widest` across: each at the room its label
-/// needs, with the row's padding and the gaps between.
-fn choices_fit(options: &[&str], widest: f32) -> bool {
-    let labels: f32 = options.iter().map(|option| choice_need(option)).sum();
-    let gaps = 3.0 * options.len().saturating_sub(1) as f32;
-    labels + gaps + 6.0 <= widest
-}
-
-/// [`choices`] at most `widest` across, for a row of many. When the labels
-/// don't fit one row they wrap onto more, each option at its label's width,
-/// so none overlaps or is cut off, at any width of the page.
+/// [`choices`] at most `widest` across, for a row of many. When the words
+/// don't fit one row they go on as few even lines as hold them
+/// ([`choice_lines`]), so none overlaps or is cut off.
 pub fn choices_within<'a, M: Clone + 'a>(
     theme: &Theme,
     options: &[&'a str],
@@ -1328,82 +1314,152 @@ pub fn choices_within<'a, M: Clone + 'a>(
     widest: f32,
     on_choose: impl Fn(usize) -> M,
 ) -> Element<'a, M> {
-    let one_row = choices_fit(options, widest);
-    let mut row = row![].spacing(3).padding(3);
-    let mut wrapped: Vec<Element<'a, M>> = Vec::new();
-    for (index, option) in options.iter().enumerate() {
-        let chosen = index == current;
-        let (active, hover) = (theme.active, theme.hover);
-        let (ink, lit_ink) = if chosen {
-            (theme.text, theme.text)
-        } else {
-            (theme.secondary, theme.text)
-        };
-        let label = text(*option)
-            .size(14)
-            .font(if chosen { BOLD } else { MEDIUM })
-            .wrapping(text::Wrapping::None);
-        let face = if one_row {
-            container(label)
-                .center_x(Length::Fill)
-                .height(Length::Fill)
-                .align_y(Alignment::Center)
-        } else {
-            container(label)
-                .height(Length::Fill)
-                .align_y(Alignment::Center)
-        };
-        let choice = button(face)
-            .padding([0, if one_row { 4 } else { 12 }])
-            .width(if one_row {
-                Length::FillPortion(option.len() as u16 + 6)
-            } else {
-                Length::Shrink
-            })
-            .height(if one_row {
-                Length::Fill
-            } else {
-                Length::Fixed(30.0)
-            })
-            .on_press(on_choose(index))
-            .style(move |_, status| {
-                let lit = lights(status);
-                button::Style {
-                    background: if chosen {
-                        Some(active.into())
-                    } else {
-                        lit.then(|| hover.into())
-                    },
-                    text_color: if lit { lit_ink } else { ink },
-                    border: Border::default().rounded(6),
-                    ..Default::default()
-                }
-            });
-        if one_row {
-            row = row.push(choice);
-        } else {
-            wrapped.push(choice.into());
+    let mut lines = column![].spacing(3).padding(3);
+    let shared = choice_lines(options, widest);
+    let count = shared.len();
+    for line in shared {
+        let mut row = row![].spacing(3).height(30);
+        for index in line {
+            row = row.push(choice(
+                theme,
+                options[index],
+                index == current,
+                on_choose(index),
+            ));
         }
+        lines = lines.push(row);
     }
     let sunken = theme.sunken;
-    if one_row {
-        return container(row)
-            .height(36)
-            .max_width(widest)
-            .style(move |_| rounded(sunken, 8))
-            .into();
-    }
-    container(
-        iced::widget::Row::with_children(wrapped)
-            .spacing(3)
-            .padding(3)
-            .wrap()
-            .vertical_spacing(3),
+    container(lines)
+        .height(36.0 + 33.0 * (count - 1) as f32)
+        .max_width(widest)
+        .style(move |_| rounded(sunken, 8))
+        .into()
+}
+
+/// One of [`choices`]' options, its share of its line as long as its words.
+fn choice<'a, M: Clone + 'a>(
+    theme: &Theme,
+    option: &'a str,
+    chosen: bool,
+    press: M,
+) -> Element<'a, M> {
+    let (active, hover) = (theme.active, theme.hover);
+    let (ink, lit_ink) = if chosen {
+        (theme.text, theme.text)
+    } else {
+        (theme.secondary, theme.text)
+    };
+    button(
+        container(
+            text(option)
+                .size(14)
+                .font(if chosen { BOLD } else { MEDIUM })
+                .wrapping(text::Wrapping::None),
+        )
+        .center_x(Length::Fill)
+        .height(Length::Fill)
+        .align_y(Alignment::Center),
     )
-    .width(Length::Fill)
-    .max_width(widest)
-    .style(move |_| rounded(sunken, 8))
+    .padding([0, 4])
+    .width(Length::FillPortion(option.len() as u16 + 6))
+    .height(Length::Fill)
+    .on_press(press)
+    .style(move |_, status| {
+        let lit = lights(status);
+        button::Style {
+            background: if chosen {
+                Some(active.into())
+            } else {
+                lit.then(|| hover.into())
+            },
+            text_color: if lit { lit_ink } else { ink },
+            border: Border::default().rounded(6),
+            ..Default::default()
+        }
+    })
     .into()
+}
+
+/// How wide an option's words are, bold as when it's chosen; measured
+/// once each, as the rows draw often.
+pub fn choice_words(option: &str) -> f32 {
+    thread_local! {
+        static MEASURED: std::cell::RefCell<std::collections::HashMap<String, f32>> =
+            std::cell::RefCell::default();
+    }
+    if let Some(width) = MEASURED.with(|kept| kept.borrow().get(option).copied()) {
+        return width;
+    }
+    let width = measure_choice(option);
+    MEASURED.with(|kept| kept.borrow_mut().insert(option.to_owned(), width));
+    width
+}
+
+fn measure_choice(option: &str) -> f32 {
+    use iced::advanced::{
+        graphics::text::Paragraph,
+        text::{self, LineHeight, Paragraph as _, Shaping, Wrapping},
+    };
+    Paragraph::with_text(text::Text {
+        content: option,
+        bounds: iced::Size::INFINITE,
+        size: 14.0.into(),
+        line_height: LineHeight::default(),
+        font: BOLD,
+        align_x: text::Alignment::Default,
+        align_y: iced::alignment::Vertical::Top,
+        shaping: Shaping::Advanced,
+        wrapping: Wrapping::None,
+    })
+    .min_width()
+}
+
+/// [`choices`]' options as lines that each fit `widest`: one line when
+/// they all do, as they're shared out; otherwise as few as hold every
+/// option's words whole, each given its share as on one line, with the
+/// options kept in order and the lines as even as they can be.
+pub fn choice_lines(options: &[&str], widest: f32) -> Vec<Vec<usize>> {
+    // Inside the frame's 3 px padding, each option's words, bold as when
+    // chosen, then the 3 px gap. Its 4 px a side may take the words' last
+    // pixels, as it always could; past that the row wraps.
+    let room = widest - 6.0;
+    let needs: Vec<f32> = options.iter().map(|option| choice_words(option)).collect();
+    // A line fits when each option's share of it (by its words' length, as
+    // FillPortion gives) holds its words.
+    let fits = |line: &[usize]| {
+        if line.is_empty() {
+            return true;
+        }
+        let portions: f32 = line
+            .iter()
+            .map(|&index| f32::from(options[index].len() as u16 + 6))
+            .sum();
+        let free = room - 3.0 * (line.len() - 1) as f32;
+        line.iter().all(|&index| {
+            free * f32::from(options[index].len() as u16 + 6) / portions >= needs[index]
+        })
+    };
+    let all: Vec<usize> = (0..options.len()).collect();
+    if fits(&all) {
+        return vec![all];
+    }
+    // As few lines as fit, then each line as near the same count.
+    for count in 2..=options.len().max(2) {
+        // The first lines take one more where they don't share evenly.
+        let (each, over) = (options.len() / count, options.len() % count);
+        let mut lines: Vec<Vec<usize>> = Vec::with_capacity(count);
+        let mut from = 0;
+        for line in 0..count {
+            let take = each + usize::from(line < over);
+            lines.push(all[from..from + take].to_vec());
+            from += take;
+        }
+        if lines.iter().all(|line| fits(line)) {
+            return lines;
+        }
+    }
+    all.into_iter().map(|index| vec![index]).collect()
 }
 
 /// A tab with a bar under it while chosen (the full profile's, the voice
@@ -1463,7 +1519,8 @@ mod choice_tests {
 
     #[test]
     fn short_numbers_fit_one_row_and_long_labels_wrap() {
-        assert!(choices_fit(&["64", "128", "256", "384", "510"], 360.0));
+        crate::testing::install_fonts();
+        assert_eq!(choice_lines(&["64", "128", "256", "384", "510"], 360.0).len(), 1);
         let long = [
             "30 minutes",
             "1 hour",
@@ -1473,12 +1530,18 @@ mod choice_tests {
             "7 days",
             "Never",
         ];
-        assert!(!choices_fit(&long, 360.0));
-        assert!(choices_fit(&long, 900.0));
+        assert!(choice_lines(&long, 360.0).len() > 1);
+        assert_eq!(choice_lines(&long, 900.0).len(), 1);
     }
 
     #[test]
     fn a_need_grows_with_the_label() {
-        assert!(choice_need("510") < choice_need("30 minutes"));
+        crate::testing::install_fonts();
+        assert!(choice_words("510") < choice_words("30 minutes"));
+    }
+
+    #[test]
+    fn no_options_is_one_empty_line() {
+        assert_eq!(choice_lines(&[], 360.0), vec![Vec::<usize>::new()]);
     }
 }
