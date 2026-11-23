@@ -395,6 +395,7 @@ impl App {
             return;
         }
         let old = std::mem::replace(&mut self.theme, theme);
+        crate::style::set_rice(&self.theme);
         self.win.pictures.marks.borrow_mut().clear();
         self.win.icons.forget();
         self.show_roster(false);

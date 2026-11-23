@@ -961,7 +961,9 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
         theme.field
     };
     // Discord's outline: faint, and a notch lighter with the keys.
-    let edge = if ctx.composer.focused {
+    let edge = if ctx.composer.focused && crate::style::rice().is_some() {
+        theme.focus
+    } else if ctx.composer.focused {
         faded(theme.muted, 0.55)
     } else {
         theme.outline_field

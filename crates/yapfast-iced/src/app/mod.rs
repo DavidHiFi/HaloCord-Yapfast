@@ -226,6 +226,7 @@ impl App {
         }
         let themes = Themes::read(&layout);
         let theme = themes.shown();
+        crate::style::set_rice(&theme);
         let (fitter, fitted) = crate::pictures::Fitter::new();
         let mut client = client;
         for action in layout.actions() {

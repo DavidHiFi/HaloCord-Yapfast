@@ -416,3 +416,26 @@ fn picture_of_build_15_plugins() {
     assert!(shows(&app, "Image zoom"));
     draw(&app, "plugin-image-zoom");
 }
+
+#[test]
+#[ignore = "writes pictures for a person to look at"]
+fn picture_of_build_16_look() {
+    let (mut app, _folder) = mocha();
+    assert!(
+        crate::style::rice().is_some(),
+        "MochaCord draws the rice look"
+    );
+    app.client.app = yapfast_core::application::member_server(&["30"]);
+    app.client.app.state.account = Some("1".into());
+    app.client.app.state.selected = Some("discord:10:12".into());
+    let _ = app.sync();
+    app.shell.frame = iced::Size::new(1120.0, 900.0);
+    let _ = crate::person_menu::open_person_menu(
+        &mut app,
+        "1",
+        iced::Point::new(420.0, 200.0),
+        crate::person_menu::CONTEXT_MENU,
+    );
+    assert!(app.win.menu.is_some(), "the member's menu");
+    draw(&app, "look-menu");
+}
