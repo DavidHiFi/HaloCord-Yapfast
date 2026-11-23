@@ -147,9 +147,6 @@ pub enum Event {
     /// Someone's voice or stream volume in their menu, and whether it's the
     /// drag's last.
     Volume(bool, u32, bool),
-    /// The mark of someone muted for this account clicked in the sidebar
-    /// (HaloCord's Click to unmute), by their person id.
-    Unmute(String),
     /// Someone in a call right clicked, by the call's room and their id,
     /// where in the window.
     Person(String, String, Point),
@@ -265,10 +262,6 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         Event::Favorite(sound, on) => Action::Voice(Command::FavoriteSound(sound, on)),
         Event::Volume(stream, value, done) => {
             crate::call::popups::person::person_volume(app, stream, value, done);
-            return Task::none();
-        }
-        Event::Unmute(person) => {
-            crate::halocord::unmute(app, &person);
             return Task::none();
         }
         Event::Person(room, user, at) => {

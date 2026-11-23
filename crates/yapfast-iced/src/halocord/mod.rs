@@ -18,7 +18,9 @@
 //!   plugin).
 //!
 //! Adding a plugin: its id in [`id`], one `const` in its area's file, and its
-//! place in [`PLUGINS`]. `docs/halocord.md` has the template.
+//! place in [`PLUGINS`]. `docs/halocord.md` has the template. A plugin that
+//! needs messages of its own (a press on something it drew, a reply from a
+//! task it started) adds a variant to [`Event`] and its arm in [`update`].
 
 mod buttons;
 mod chat;
@@ -42,7 +44,7 @@ pub use members::{
 pub use members::{role_press, zoom_size, zoomable};
 pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
 pub use servers::{home_mentions, no_request_badge};
-pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
+pub use voice::{in_voice_mark, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
 #[cfg(test)]
@@ -163,6 +165,22 @@ pub fn any_found(query: &str) -> bool {
 /// The place of the plugin with `id` in [`PLUGINS`].
 pub fn place(id: &str) -> Option<usize> {
     PLUGINS.iter().position(|plugin| plugin.id == id)
+}
+
+/// The window's plugins' own messages, carried by `Message::HaloCord`, so a
+/// plugin's presses and replies need no event of Yapfast's own.
+#[derive(Clone, Debug)]
+pub enum Event {
+    /// Click to unmute: this person, unmuted for this account.
+    Unmute(String),
+}
+
+/// Carries out a plugin's message.
+pub fn update(app: &mut crate::app::App, event: Event) -> iced::Task<crate::app::Message> {
+    match event {
+        Event::Unmute(person) => voice::unmute(app, &person),
+    }
+    iced::Task::none()
 }
 
 #[cfg(test)]
