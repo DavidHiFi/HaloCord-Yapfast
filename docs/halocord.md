@@ -64,6 +64,9 @@ whole list to carry across.
   `<t:13:30>` goes up as a Discord timestamp) and its tests.
 - `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
   `.jfif` photo goes up as `.jpg`) and its tests.
+- `crates/yapfast-core/src/halocord/message_logger.rs`: Message logger's store (in
+  memory, the last 2000 messages it marked) and what it makes of a live deletion or edit,
+  and its tests.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -155,7 +158,9 @@ Window (`yapfast-iced`):
   the change handler, which calls `halocord::changed` (keeps it under `halocord`,
   and sends the voice state again when a fake mute or deafen switch changes in a call).
 - `client.rs`: plug-in point 2, one match arm in `execute`.
-- `message/mod.rs`: plug-in point 4, a loop in `author_line`.
+- `message/mod.rs`: plug-in point 4, a loop in `author_line`; `message_content` pushes
+  `halocord::earlier_texts` above the text, takes `halocord::deleted_ink` first for its ink,
+  and pushes `halocord::deleted_mark` after "(edited)" (Message logger).
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines; `open_menu`
   adds `halocord::message_rows` (the engine's rows, then Find reply's).
 - `person_menu.rs`: plug-in point 5, `open_person_menu` adds `halocord::person_rows`
@@ -216,12 +221,18 @@ Window (`yapfast-iced`):
 - Core `application/compose.rs`: `outgoing_body` runs the text through
   `halocord::send_timestamps::wire` first (Send timestamps).
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
-  `halocord::fix_file_extensions::name` first (Fix file extensions).
+  `halocord::fix_file_extensions::name` first (Fix file extensions). For Message logger:
+  `live` asks `halocord::message_logger::live` first and keeps a deleted message it
+  marks, in the channel's own `kept_deleted`; `render` marks those `deleted`; the
+  messages saved leave them out; and once the plugin stops keeping deletions,
+  `settle_kept_deleted` lets them go as their deletions would have.
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
 - `tests/calls.rs`, `tests/media.rs`, `tests/menus.rs`, `tests/navigation.rs`,
   `tests/writing.rs`: tests of the Volume booster, the copy rows, the buttons beside
   Settings and Show timeout duration, in Yapfast's own test files.
 - Core `application/tests/servers.rs`: the invite test's Invite defaults lines.
+- Core `discord_text/tests.rs`: `halocord_message_logger_keeps_deleted_and_edited_messages_off_disk`
+  (Message logger's open channel hooks).
 - `window_bar.rs`: `Event::Halo(Press)` with its arm in `update` (a plugin's button
   pressed), and the buttons `halocord::presses` lists, pushed before Inbox in
   `window_bar`.

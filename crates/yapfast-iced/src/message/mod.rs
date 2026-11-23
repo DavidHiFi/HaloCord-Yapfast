@@ -152,7 +152,14 @@ pub fn message_content<'a>(
             .align_y(Alignment::Center),
         );
     }
-    let ink = if message.deleted || message.delivery != chat::Delivery::default() {
+    // HaloCord's Message logger: an edited message's earlier texts, and a
+    // kept deleted one in red (docs/halocord.md).
+    if let Some(earlier) = crate::halocord::earlier_texts(ctx, message) {
+        content = content.push(earlier);
+    }
+    let ink = if let Some(red) = crate::halocord::deleted_ink(ctx, message) {
+        red
+    } else if message.deleted || message.delivery != chat::Delivery::default() {
         theme.muted
     } else if message.notice.is_some() {
         theme.secondary
@@ -184,6 +191,9 @@ pub fn message_content<'a>(
     }
     if message.edited && message.notice.is_none() && !editing {
         content = content.push(text("(edited)").size(10).color(theme.muted));
+    }
+    if let Some(mark) = crate::halocord::deleted_mark(ctx, message) {
+        content = content.push(mark);
     }
     let gallery = Gallery::of(
         &message.attachments,

@@ -31,7 +31,9 @@ mod voice;
 
 pub use buttons::{Press, press, presses, start_button};
 use chat::thousands;
-pub use chat::{count_color, count_words, double_click, tag};
+pub use chat::{
+    count_color, count_words, deleted_ink, deleted_mark, double_click, earlier_texts, tag,
+};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 #[cfg(test)]
@@ -100,6 +102,7 @@ pub mod id {
     pub const COPY_PROFILE_COLORS: &str = "copy-profile-colors";
     pub const FIND_REPLY: &str = "find-reply";
     pub const IMAGE_ZOOM: &str = "image-zoom";
+    pub const MESSAGE_LOGGER: &str = "message-logger";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -144,6 +147,7 @@ pub static PLUGINS: &[Plugin] = &[
     menus::COPY_PROFILE_COLORS,
     menus::FIND_REPLY,
     members::IMAGE_ZOOM,
+    chat::MESSAGE_LOGGER,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

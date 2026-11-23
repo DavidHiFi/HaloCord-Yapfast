@@ -249,3 +249,111 @@ pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     apply: |kept, plugin| engine::fix_file_extensions::set(kept.on(plugin)),
     hooks: None,
 };
+
+/// A switch that starts `on`.
+const fn switch(key: &'static str, heading: &'static str, on: bool) -> Setting {
+    Setting {
+        key,
+        heading,
+        note: "",
+        kind: Kind::Switch { unless_changed: on },
+    }
+}
+
+/// A list of Discord ids, empty unless changed.
+const fn ids(key: &'static str, heading: &'static str) -> Setting {
+    Setting {
+        key,
+        heading,
+        note: "Discord ids, separated by commas.",
+        kind: Kind::Text {
+            placeholder: "",
+            unless_changed: "",
+        },
+    }
+}
+
+pub(super) const MESSAGE_LOGGER: Plugin = Plugin {
+    id: id::MESSAGE_LOGGER,
+    name: "Message logger",
+    about: "A message deleted while it's loaded stays where it was, in red and marked deleted, and an edited message shows what it said before, above it. Only what this app loaded while it ran: the last 2000 such messages are kept in memory, never on disk, and nothing is asked of Discord. Turning it off forgets them.",
+    on_at_first: false,
+    settings: &[
+        switch("deletes", "Keep deleted messages", true),
+        switch("edits", "Keep edits' earlier text", true),
+        switch("ignore_bots", "Ignore bots", false),
+        ids("ignore_people", "IGNORE PEOPLE"),
+        ids("ignore_channels", "IGNORE CHANNELS"),
+        ids("ignore_servers", "IGNORE SERVERS"),
+    ],
+    apply: |kept, plugin| {
+        use engine::message_logger::Settings;
+        let setting = |at: usize| &plugin.settings[at];
+        let ids = |at: usize| Settings::ids(kept.text(plugin, setting(at)));
+        engine::message_logger::set(kept.on(plugin).then(|| Settings {
+            deletes: kept.flag(plugin, setting(0)),
+            edits: kept.flag(plugin, setting(1)),
+            ignore_bots: kept.flag(plugin, setting(2)),
+            ignore_people: ids(3),
+            ignore_channels: ids(4),
+            ignore_servers: ids(5),
+        }));
+    },
+    hooks: None,
+};
+
+/// The Discord id of a message the logger may know, while it's on.
+fn logged_id<'m>(cx: Ctx<'_>, message: &'m yapfast_core::chat::ChatMessage) -> Option<&'m str> {
+    cx.layout
+        .halocord
+        .on(&MESSAGE_LOGGER)
+        .then(|| message.item.strip_prefix("d:"))
+        .flatten()
+}
+
+/// Hook: Message logger's earlier texts of an edited message, above it,
+/// the oldest first.
+pub fn earlier_texts<'a>(
+    cx: Ctx<'a>,
+    message: &yapfast_core::chat::ChatMessage,
+) -> Option<Element<'a, Message>> {
+    let logged = engine::message_logger::logged(logged_id(cx, message)?)?;
+    if logged.edits.is_empty() {
+        return None;
+    }
+    let theme = cx.look.theme;
+    let size = crate::message::text_size(cx);
+    Some(
+        iced::widget::column(logged.edits.into_iter().map(|earlier| {
+            text(format!("{earlier} (edited)"))
+                .size(size)
+                .color(theme.muted)
+                .into()
+        }))
+        .into(),
+    )
+}
+
+/// Whether Message logger kept this message, deleted: a Discord message
+/// shows deleted only when its open channel keeps it for the logger.
+fn kept_deleted(cx: Ctx<'_>, message: &yapfast_core::chat::ChatMessage) -> bool {
+    message.deleted && logged_id(cx, message).is_some()
+}
+
+/// Hook: the ink of a message Message logger kept deleted: red.
+pub fn deleted_ink(cx: Ctx<'_>, message: &yapfast_core::chat::ChatMessage) -> Option<iced::Color> {
+    kept_deleted(cx, message).then_some(cx.look.theme.danger_text)
+}
+
+/// Hook: "(deleted)" under a message Message logger kept.
+pub fn deleted_mark<'a>(
+    cx: Ctx<'a>,
+    message: &yapfast_core::chat::ChatMessage,
+) -> Option<Element<'a, Message>> {
+    kept_deleted(cx, message).then(|| {
+        text("(deleted)")
+            .size(10)
+            .color(cx.look.theme.danger_text)
+            .into()
+    })
+}

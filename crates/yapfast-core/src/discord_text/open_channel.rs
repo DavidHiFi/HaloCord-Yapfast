@@ -167,6 +167,10 @@ pub struct OpenChannel {
     /// Messages deleted while the channel is open. A page asked for before
     /// Discord deleted one can still carry it, and mustn't bring it back.
     deleted: HashSet<u64>,
+    /// Messages deleted while open that HaloCord's Message logger keeps in
+    /// place: they show deleted, are never saved, and go as any deletion
+    /// once it stops keeping them.
+    kept_deleted: HashSet<u64>,
     /// This account's reactions on their way to Discord, by message and
     /// emoji: another click on one waits for it, as Discord's client does,
     /// so a burst of clicks can't race.
@@ -263,6 +267,7 @@ impl OpenChannel {
             pending: Vec::new(),
             sent: HashSet::new(),
             deleted: HashSet::new(),
+            kept_deleted: HashSet::new(),
             reacting: Arc::default(),
             loading_earlier: false,
             loading_later: false,
@@ -560,11 +565,18 @@ impl OpenChannel {
     /// Its newest messages to keep on disk, once they've changed. An answer
     /// only this account sees is never kept: it lives as long as the app.
     pub(super) fn take_changes(&mut self) -> Option<(String, Vec<Message>)> {
+        self.settle_kept_deleted();
         if !std::mem::take(&mut self.dirty) {
             return None;
         }
         let newest = &self.latest.as_ref().unwrap_or(&self.shown).messages;
-        let kept = || newest.values().filter(|message| !message.ephemeral);
+        // HaloCord's Message logger: its kept deleted messages stay off disk.
+        let kept_deleted = &self.kept_deleted;
+        let kept = || {
+            newest
+                .values()
+                .filter(|message| !message.ephemeral && !kept_deleted.contains(&message.order()))
+        };
         let skip = kept()
             .count()
             .saturating_sub(yapfast_discord::cache::CHANNEL_MESSAGES);
@@ -631,6 +643,19 @@ impl OpenChannel {
 
     /// Applies a gateway event; returns whether the shown messages changed.
     pub fn live(&mut self, event: &Live) -> bool {
+        // HaloCord's Message logger keeps a deleted message, marked, and an
+        // edit's earlier text (docs/halocord.md).
+        let settled = self.settle_kept_deleted();
+        if let Some(order) =
+            crate::halocord::message_logger::live(&self.guild, &self.channel, event, |order| {
+                self.message(order)
+            })
+        {
+            self.kept_deleted.insert(order);
+            self.rendered.remove(&order);
+            self.dirty = true;
+            return true;
+        }
         if let Live::Deleted { channel, id } = event
             && *channel == self.channel
         {
@@ -649,9 +674,28 @@ impl OpenChannel {
                 latest.keep_newest(KEPT_MESSAGES);
             }
         }
-        let changed = self.apply_live(event);
+        let changed = self.apply_live(event) || settled;
         self.dirty |= changed;
         changed
+    }
+
+    /// HaloCord's Message logger stopped keeping deletions: the messages it
+    /// kept here go, as their deletions would have taken them. Whether any
+    /// went.
+    fn settle_kept_deleted(&mut self) -> bool {
+        if self.kept_deleted.is_empty() || crate::halocord::message_logger::keeps_deletions() {
+            return false;
+        }
+        for order in std::mem::take(&mut self.kept_deleted) {
+            self.shown.messages.remove(&order);
+            if let Some(latest) = &mut self.latest {
+                latest.messages.remove(&order);
+            }
+            self.rendered.remove(&order);
+            self.deleted.insert(order);
+        }
+        self.dirty = true;
+        true
     }
 
     /// Whether a name, avatar or role its messages show changed since they
@@ -1826,7 +1870,7 @@ impl OpenChannel {
             timestamp,
             own,
             edited: message.edited,
-            deleted: false,
+            deleted: self.kept_deleted.contains(&message.order()),
             blocked: snapshot.blocked.contains(&message.author_id),
             mentions_me: message.names_me(me, marks),
             replies_to_me: message.replies_to(me),

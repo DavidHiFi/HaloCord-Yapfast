@@ -174,3 +174,75 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Message logger: a message it kept shows its earlier text above it and
+/// "(deleted)" under it, only while the plugin is on.
+#[test]
+fn message_logger_shows_earlier_text_and_marks_a_kept_deletion() {
+    use std::sync::Arc;
+    use yapfast_core::{
+        chat::ChatMessage,
+        halocord::message_logger,
+        yapfast_discord::{message::parse, service::Live},
+    };
+
+    let (mut app, _folder) = super::server::discord_server(0, |_, _| {});
+    let _alone = super::plugin_alone();
+    app.client
+        .dispatch(yapfast_core::application::Action::Navigate(
+            yapfast_core::application::Navigation::Server("discord:10".into()),
+        ));
+    app.client
+        .dispatch(yapfast_core::application::Action::SelectRoom(
+            "discord:10:11".into(),
+        ));
+    turn_on(&mut app, id::MESSAGE_LOGGER);
+    // What Discord's events would have taught it: an edit, then a deletion.
+    let first = parse(&serde_json::json!({
+        "id": "900", "channel_id": "11", "content": "See you at six",
+        "author": {"id": "7", "username": "sam"},
+        "timestamp": "2026-11-21T00:00:00Z",
+    }))
+    .expect("a message");
+    let mut edited = first.clone();
+    edited.content = "See you at seven".into();
+    let known = |order: u64| (order == 900).then_some(&first);
+    message_logger::live("10", "11", &Live::Updated(edited), known);
+    message_logger::live(
+        "10",
+        "11",
+        &Live::Deleted {
+            channel: "11".into(),
+            id: "900".into(),
+        },
+        known,
+    );
+    super::change(&mut app, |state| {
+        state.messages = Arc::new(vec![Arc::new(ChatMessage {
+            id: "900".into(),
+            item: "d:900".into(),
+            author: "Sam".into(),
+            sender: "discord:7".into(),
+            body: "See you at seven".into(),
+            edited: true,
+            deleted: true,
+            timestamp: 1_700_000_000,
+            ..Default::default()
+        })]);
+    });
+    assert!(
+        super::shows(&app, "See you at six (edited)"),
+        "the earlier text"
+    );
+    assert!(super::shows(&app, "(deleted)"));
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::MESSAGE_LOGGER).expect("the plugin"),
+            on: false,
+        },
+    );
+    assert!(!super::shows(&app, "(deleted)"), "off, no mark");
+    assert!(!super::shows(&app, "See you at six (edited)"));
+}

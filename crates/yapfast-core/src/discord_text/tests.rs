@@ -2112,3 +2112,102 @@ async fn an_apps_answer_says_who_used_which_command() {
     };
     assert!(found(&discord, server, &quoting).used.is_none());
 }
+
+#[test]
+fn halocord_message_logger_keeps_deleted_and_edited_messages_off_disk() {
+    use crate::halocord::message_logger::{self, Logged, Settings};
+    message_logger::set(Some(Settings {
+        deletes: true,
+        edits: true,
+        ..Settings::default()
+    }));
+    let mut open = OpenChannel::new("discord:10:11").unwrap();
+    open.loaded(Load::Latest, shown(page(1..=3)));
+    open.take_changes();
+    assert!(open.live(&Live::Updated(Message {
+        content: "two, edited".into(),
+        ..message("2", None)
+    })));
+    assert!(open.live(&Live::Deleted {
+        channel: "11".into(),
+        id: "2".into(),
+    }));
+    assert!(
+        open.message(2)
+            .is_some_and(|kept| kept.content == "two, edited"),
+        "kept where it was"
+    );
+    assert_eq!(
+        message_logger::logged("2"),
+        Some(Logged {
+            deleted: true,
+            edits: vec!["2".into()],
+        })
+    );
+    let (_, saved) = open.take_changes().unwrap();
+    assert_eq!(
+        saved
+            .iter()
+            .map(|message| message.id.as_str())
+            .collect::<Vec<_>>(),
+        ["1", "3"],
+        "never on disk"
+    );
+    message_logger::set(None);
+    assert!(open.live(&Live::Deleted {
+        channel: "11".into(),
+        id: "3".into(),
+    }));
+    assert!(open.message(3).is_none(), "off, a deletion goes");
+}
+
+#[test]
+fn halocord_message_logger_kept_deletions_hold_after_the_store_forgets_them() {
+    use crate::halocord::message_logger::{self, Settings};
+    message_logger::set(Some(Settings {
+        deletes: true,
+        ..Settings::default()
+    }));
+    let mut open = OpenChannel::new("discord:10:11").unwrap();
+    open.loaded(Load::Latest, shown(page(1..=3)));
+    open.take_changes();
+    assert!(open.live(&Live::Deleted {
+        channel: "11".into(),
+        id: "2".into(),
+    }));
+    // Other channels' deletions push it out of the logger's store.
+    let other = message("9", None);
+    for id in 0..=message_logger::MESSAGES as u64 {
+        message_logger::live(
+            "10",
+            "99",
+            &Live::Deleted {
+                channel: "99".into(),
+                id: (10_000 + id).to_string(),
+            },
+            |_| Some(&other),
+        );
+    }
+    assert!(!message_logger::deleted("2"), "the store forgot it");
+    let (_, saved) = open.take_changes().unwrap();
+    assert_eq!(
+        saved
+            .iter()
+            .map(|message| message.id.as_str())
+            .collect::<Vec<_>>(),
+        ["1", "3"],
+        "still never on disk"
+    );
+    assert!(open.message(2).is_some(), "still kept in place");
+    // Off: it goes, as its deletion would have taken it.
+    message_logger::set(None);
+    let (_, saved) = open.take_changes().expect("a change to save");
+    assert_eq!(
+        saved
+            .iter()
+            .map(|message| message.id.as_str())
+            .collect::<Vec<_>>(),
+        ["1", "3"]
+    );
+    assert!(open.message(2).is_none(), "gone once off");
+}
