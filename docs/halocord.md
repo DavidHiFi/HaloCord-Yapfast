@@ -175,6 +175,9 @@ Window (`yapfast-iced`):
   `halocord::full_picture` what a click on the banner, or on the full profile's
   picture, sends (View icons); `role_chips` makes a chip a button when
   `halocord::role_press` gives it a message (Clickable roles).
+- `image_viewer.rs`: `Viewed::zoomed`, `Event::Zoom` and its arm (Open, Close and
+  Step reset it), `View::zoomed`, and the picture sized by `halocord::zoom_size`
+  and wrapped by `halocord::zoomable` (Image zoom).
 - `info_cards.rs` and `app/screens.rs`: `Event::ProfileRole`, its empty arm, and its
   arm in `info_event`, which opens the role's card and closes the profile
   (Clickable roles).
