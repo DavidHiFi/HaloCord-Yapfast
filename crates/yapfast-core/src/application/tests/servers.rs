@@ -598,6 +598,29 @@ fn discord_invites_go_to_a_channel_this_account_may_invite_to() {
     );
     app.dispatch(Action::CloseInvite);
     assert!(app.state.invite.is_none());
+
+    // Invite defaults: the next dialog's link starts with what was picked.
+    crate::halocord::set_first_invite(Some((3600, 10)));
+    assert!(matches!(
+        app.dispatch(Action::OpenInvite("discord:10".into()))
+            .as_slice(),
+        [Effect::Backend(Command::Discord(
+            DiscordCommand::CreateInvite {
+                max_age: 3600,
+                max_uses: 10,
+                ..
+            }
+        ))]
+    ));
+    let invite = app.state.invite.clone().unwrap();
+    assert_eq!((invite.max_age, invite.max_uses), (3600, 10));
+    app.dispatch(Action::CloseInvite);
+    crate::halocord::set_first_invite(Some((99, 10)));
+    assert_eq!(
+        crate::halocord::first_invite(),
+        None,
+        "only Discord's choices"
+    );
 }
 
 #[test]

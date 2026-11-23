@@ -113,3 +113,64 @@ fn plain_folder_icon_starts_off() {
         .expect("listed");
     assert!(!plugin.on_at_first);
 }
+
+/// Invite defaults: the plugin sets what a new invite link starts with
+/// (the core's tests open the dialog with it), and Discord's again once off.
+#[test]
+fn invite_defaults_pick_what_a_new_link_starts_with() {
+    use yapfast_core::halocord::first_invite;
+    let (mut app, _folder) = preview();
+    turn_on(&mut app, id::INVITE_DEFAULTS);
+    assert_eq!(first_invite(), Some((0, 0)), "never runs out, no limit");
+    let plugin = place(id::INVITE_DEFAULTS).expect("the plugin");
+    for (setting, choice) in [(0, 1), (1, 3)] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Choose {
+                plugin,
+                setting,
+                choice,
+            },
+        );
+    }
+    assert_eq!(first_invite(), Some((3600, 10)), "an hour, ten people");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert_eq!(first_invite(), None);
+}
+
+/// No pending count: the DM home's count leaves out friend requests, and
+/// so does the count beside Friends.
+#[test]
+fn no_pending_count_leaves_requests_out_of_the_counts() {
+    use yapfast_core::chat::FriendRequest;
+    let (mut app, _folder) = preview();
+    super::change(&mut app, |state| {
+        state.friend_requests = vec![FriendRequest {
+            id: "10".into(),
+            name: "Lena".into(),
+            avatar: None,
+            incoming: true,
+            spam: false,
+        }];
+    });
+    let _ = app.sync();
+    let with = app.rail.home.badge.clone();
+    turn_on(&mut app, id::NO_PENDING_COUNT);
+    let _ = app.sync();
+    let mut without = crate::rail::home(app.client.state());
+    crate::halocord::home_mentions(app.client.state(), &mut without);
+    assert_eq!(app.rail.home.badge, without.badge);
+    assert_ne!(app.rail.home.badge, with, "one request fewer");
+    let mut rows = vec![crate::sidebar::SideRow::Screens {
+        friends: false,
+        requests: false,
+        badge: "1".into(),
+    }];
+    crate::halocord::no_request_badge(&mut rows);
+    assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
+}

@@ -703,8 +703,9 @@ pub fn composer_look(ctx: crate::ctx::Ctx<'_>) -> Look {
         .filter(|_| discord)
         .map(|until| {
             format!(
-                "You're timed out in this server until {}.",
-                crate::place_menus::until(until / 1000, ctx.layout.prefs.twelve_hour_clock)
+                "You're timed out in this server until {}{}.",
+                crate::place_menus::until(until / 1000, ctx.layout.prefs.twelve_hour_clock),
+                crate::halocord::timeout_note(ctx, until)
             )
         });
     let request = room.filter(|room| room.request).map(|room| {

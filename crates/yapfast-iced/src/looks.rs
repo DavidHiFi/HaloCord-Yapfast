@@ -59,9 +59,9 @@ pub struct MemberLook {
     pub tag: Option<(Arc<str>, Option<Arc<str>>)>,
     pub bot: bool,
     pub owner: bool,
-    /// Timed out in the server, marked with a clock; boosting it, a gem
-    /// whose tooltip says since when.
-    pub timed_out: bool,
+    /// Timed out in the server until then (milliseconds), marked with a
+    /// clock; boosting it, a gem whose tooltip says since when.
+    pub timed_out: Option<u64>,
     pub boosting: Option<String>,
     pub presence: Option<Presence>,
     /// The line under the name.
@@ -272,7 +272,7 @@ pub fn member_lines(
                 .map(|tag| (tag.text.clone(), tag.badge.clone())),
             bot: member.bot,
             owner: owner == Some(member.id.as_str()),
-            timed_out: member.timed_out_until.is_some_and(|until| until > now),
+            timed_out: member.timed_out_until.filter(|until| *until > now),
             boosting: member.boosting_since.map(|since| {
                 format!(
                     "Server boosting since {}",
@@ -737,7 +737,7 @@ mod tests {
             })
             .collect();
         assert!(
-            looks[0].timed_out && !looks[1].timed_out,
+            looks[0].timed_out.is_some() && looks[1].timed_out.is_none(),
             "only while it runs"
         );
         assert!(

@@ -141,7 +141,10 @@ impl App {
         if self.rail.items != rail {
             self.rail.items = rail;
         }
-        let home = crate::rail::home(state);
+        let mut home = crate::rail::home(state);
+        if self.layout.halocord.is(crate::halocord::NO_PENDING_COUNT) {
+            crate::halocord::home_mentions(state, &mut home);
+        }
         if self.rail.home != home {
             self.rail.home = home;
         }
@@ -150,13 +153,16 @@ impl App {
             Navigation::DirectMessages => Vec::new(),
         };
         let state = self.client.state();
-        let side = sidebar(
+        let mut side = sidebar(
             state,
             &categories,
             &self.layout.collapsed,
             &self.sidebar.filter,
             self.theme.dark,
         );
+        if self.layout.halocord.is(crate::halocord::NO_PENDING_COUNT) {
+            crate::halocord::no_request_badge(&mut side);
+        }
         if self.sidebar.rows != side {
             self.sidebar.rows = side;
         }
@@ -212,7 +218,10 @@ impl App {
         }
         // The lists and the header change with the rooms and servers, not
         // with each message or presence: they're made again only then.
-        let key = lists_key(state, &self.theme.id);
+        // No pending count changes the counts, so switching it makes them again.
+        let key = lists_key(state, &self.theme.id).wrapping_add(u64::from(
+            self.layout.halocord.is(crate::halocord::NO_PENDING_COUNT),
+        ));
         if self.lists_shown != Some(key) {
             self.lists_shown = Some(key);
             self.make_lists();

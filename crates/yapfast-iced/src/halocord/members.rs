@@ -1,4 +1,5 @@
-//! Member list plugins: the member count line and Platform indicators.
+//! Member list plugins: the member count line, Platform indicators and
+//! Show timeout duration.
 
 use iced::Element;
 
@@ -14,6 +15,60 @@ pub(super) const MEMBER_COUNT: Plugin = Plugin {
     apply: |_, _| {},
     hooks: None,
 };
+
+pub(super) const SHOW_TIMEOUT: Plugin = Plugin {
+    id: id::SHOW_TIMEOUT,
+    name: "Show timeout duration",
+    about: "Says how long a timeout has left: on the clock beside a timed out member's name when you point at it, and in the message box while you're timed out.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// How long is left until `until` (milliseconds) from `now`, in words:
+/// "under a minute", "5 minutes", "3 hours", "2 days".
+pub fn time_left(until: u64, now: u64) -> String {
+    let minutes = until.saturating_sub(now) / 60_000;
+    let (count, unit) = match minutes {
+        0 => return "under a minute".into(),
+        1..60 => (minutes, "minute"),
+        60..1440 => (minutes / 60, "hour"),
+        _ => (minutes / 1440, "day"),
+    };
+    format!("{count} {unit}{}", if count == 1 { "" } else { "s" })
+}
+
+/// The clock beside a timed out member's name, saying how long is left
+/// when pointed at while Show timeout duration is on.
+pub fn timeout_clock<'a>(cx: Ctx<'a>, until: u64) -> Element<'a, Message> {
+    let theme = cx.look.theme;
+    let clock = cx.look.glyph(Icon::Clock, 14, theme.danger);
+    if !cx.layout.halocord.is(id::SHOW_TIMEOUT) {
+        return clock.into();
+    }
+    let left = time_left(until, yapfast_core::clock::now_ms());
+    iced::widget::tooltip(
+        clock,
+        crate::controls::tip(theme, format!("Timed out, {left} left")),
+        iced::widget::tooltip::Position::Top,
+    )
+    .gap(6)
+    .into()
+}
+
+/// What the message box adds after when a timeout ends, while Show timeout
+/// duration is on: how long is left.
+pub fn timeout_note(cx: Ctx<'_>, until: u64) -> String {
+    if cx.layout.halocord.is(id::SHOW_TIMEOUT) {
+        format!(
+            " ({} left)",
+            time_left(until, yapfast_core::clock::now_ms())
+        )
+    } else {
+        String::new()
+    }
+}
 
 pub(super) const PLATFORMS: Plugin = Plugin {
     id: id::PLATFORMS,

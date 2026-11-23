@@ -632,6 +632,43 @@ fn the_timed_out_line_follows_the_twelve_hour_clock() {
     ));
 }
 
+/// Show timeout duration: the timed out line says how long is left too.
+#[test]
+fn show_timeout_duration_says_how_long_is_left() {
+    use crate::halocord::{Change, changed, id, place, time_left};
+    use std::sync::Arc;
+    let (mut app, _folder) = with_commands(0);
+    let until = yapfast_core::clock::now_ms() + 3 * 3_600_000 + 60_000;
+    super::change(&mut app, |state| {
+        let room = state
+            .rooms
+            .iter_mut()
+            .find(|room| room.id == "discord:10:11")
+            .expect("#general");
+        Arc::make_mut(room).timed_out_until = Some(until);
+    });
+    let at = crate::place_menus::until(until / 1000, app.layout.prefs.twelve_hour_clock);
+    let line = |note: &str| format!("You're timed out in this server until {at}{note}.");
+    assert!(shows(&app, &line("")), "off at first");
+    let plugin = place(id::SHOW_TIMEOUT).expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let _ = app.sync();
+    assert!(shows(&app, &line(" (3 hours left)")));
+    assert_eq!(time_left(1000, 0), "under a minute");
+    assert_eq!(time_left(60_000, 0), "1 minute");
+    assert_eq!(time_left(59 * 60_000, 0), "59 minutes");
+    assert_eq!(time_left(2 * 86_400_000, 0), "2 days");
+    assert_eq!(
+        time_left(0, 5),
+        "under a minute",
+        "an ended one never goes below"
+    );
+}
+
 /// With Matrix, the line under the composer says whether the room is
 /// end-to-end encrypted, and why an unencrypted one can't be written in.
 #[cfg(feature = "matrix")]
