@@ -122,9 +122,24 @@ pub enum Place {
 }
 
 /// What plugins add by a person's name in `place`, by their Discord user
-/// id: Platform indicators' marks while its switch for the place is on.
-/// None when there's nothing.
+/// id: User voice show's speaker on messages and profiles, then Platform
+/// indicators' marks, each while its switch for the place is on. None when
+/// there's nothing.
 pub fn name_marks<'a>(cx: Ctx<'a>, user: &str, place: Place) -> Option<Element<'a, Message>> {
+    let voice = match place {
+        Place::Message => super::voice::message_voice_mark(cx, user),
+        Place::Profile => super::voice::profile_voice_mark(cx, user),
+        Place::Dms | Place::Voice => None,
+    };
+    let marks: Vec<Element<'a, Message>> = voice
+        .into_iter()
+        .chain(place_platforms(cx, user, place))
+        .collect();
+    (!marks.is_empty()).then(|| iced::widget::Row::with_children(marks).spacing(4).into())
+}
+
+/// Platform indicators' marks in `place`, while its switch for it is on.
+fn place_platforms<'a>(cx: Ctx<'a>, user: &str, place: Place) -> Option<Element<'a, Message>> {
     let kept = &cx.layout.halocord;
     let setting = match place {
         Place::Dms => 0,

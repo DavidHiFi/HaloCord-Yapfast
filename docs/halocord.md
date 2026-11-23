@@ -275,7 +275,8 @@ Window (`yapfast-iced`):
   plugins' tags), `sidebar/voice.rs` (`voice_person`, after the unmute mark) and
   `profile/body.rs` (`handle_line`, after the badges): `halocord::name_marks` with the
   place, what plugins put by a name there (Platform indicators' marks while its switch
-  for that place is on; one `if let` each).
+  for that place is on, and User voice show's speaker on messages and profiles; one
+  `if let` each).
 - `shell.rs`: in `shell_sync`, a copied download goes through `halocord::copied_text` first:
   text Copy file text asked for goes on the clipboard as text, anything else as a picture.
 - `links.rs`: `follow_link` opens a masked link with no question while Always trust links

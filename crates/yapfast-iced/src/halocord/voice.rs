@@ -108,7 +108,18 @@ pub(super) const USER_VOICE_SHOW: Plugin = Plugin {
     name: "User voice show",
     about: "Marks a member in the member list while they are in a voice channel, and says which one.",
     on_at_first: false,
-    settings: &[],
+    settings: &[
+        off(
+            "messages",
+            "On messages",
+            "The speaker by the author's name on each message while they're in voice.",
+        ),
+        off(
+            "profiles",
+            "On profiles",
+            "\"In voice: channel\" on someone's profile while they're in voice; a click opens the channel.",
+        ),
+    ],
     apply: |_, _| {},
     hooks: None,
 };
@@ -172,6 +183,52 @@ pub fn in_voice_mark<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message>
             iced::widget::tooltip::Position::Top,
         )
         .gap(6)
+        .into(),
+    )
+}
+
+/// The voice channel `user` is in, by its room id and name.
+fn voice_room_and_name<'a>(cx: Ctx<'a>, user: &str) -> Option<(&'a str, &'a str)> {
+    cx.state
+        .rooms
+        .iter()
+        .find(|room| room.voice && room.people.iter().any(|person| person.id == user))
+        .map(|room| (room.id.as_str(), room.name.as_str()))
+}
+
+/// User voice show's speaker by an author's name on a message, while its
+/// switch for messages is on.
+pub(super) fn message_voice_mark<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message>> {
+    let kept = &cx.layout.halocord;
+    if !kept.on(&USER_VOICE_SHOW) || !kept.flag(&USER_VOICE_SHOW, &USER_VOICE_SHOW.settings[0]) {
+        return None;
+    }
+    in_voice_mark(cx, user)
+}
+
+/// User voice show on a profile, while its switch for profiles is on: the
+/// speaker and "In voice: channel", which opens the channel.
+pub(super) fn profile_voice_mark<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message>> {
+    let kept = &cx.layout.halocord;
+    if !kept.on(&USER_VOICE_SHOW) || !kept.flag(&USER_VOICE_SHOW, &USER_VOICE_SHOW.settings[1]) {
+        return None;
+    }
+    let (room, name) = voice_room_and_name(cx, user)?;
+    let theme = cx.look.theme;
+    Some(
+        iced::widget::button(
+            iced::widget::row![
+                cx.look.glyph(Icon::Volume, 14, theme.muted),
+                text(format!("In voice: {name}"))
+                    .size(12)
+                    .color(theme.muted),
+            ]
+            .spacing(4)
+            .align_y(iced::Alignment::Center),
+        )
+        .padding(0)
+        .style(iced::widget::button::text)
+        .on_press(Message::Side(crate::sidebar::Event::Open(room.to_owned())))
         .into(),
     )
 }
