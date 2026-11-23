@@ -349,8 +349,13 @@ Window (`yapfast-iced`):
   `halocord::embedded_urls::wire` (Embedded URLs).
 - Core `discord_text/render.rs`: `notification` runs the author's name through
   `halocord::notification_title::author` (Notification title).
-- Core `discord_text/gifs.rs`: `favorite_gif` asks `halocord::favorite_anything::is_on`
-  (`favorite_gif_with`), and its test `halocord_favorite_anything_stars_stills_and_videos`.
+- Core `discord_text/gifs.rs`: `favorite_gif` asks `halocord::favorite_anything::offered`
+  whether an attachment can be a favourite, and its favourite's id (Favorite anything).
+- Core `discord_text/open_channel.rs`: `Rendering`'s `favorite_anything` (and its line in
+  `alike`), so switching Favorite anything renders the open channel's rows again.
+- Core `discord_text/tests.rs`: `Rendering`'s new field in
+  `messages_render_again_once_what_they_show_changes`, and
+  `halocord_favorite_anything_reaches_rows_already_shown`.
 - `message/attachments.rs`: the GIF corner leaves out a still picture's favourite
   (`halocord::favorite_anything::still`). Switching Favorite anything on or off changes
   only the messages shown afterwards.

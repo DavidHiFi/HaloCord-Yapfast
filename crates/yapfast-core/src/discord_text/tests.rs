@@ -527,6 +527,7 @@ fn messages_render_again_once_what_they_show_changes() {
         may_pin: false,
         may_forward: false,
         deletes: Deletes::Own,
+        favorite_anything: false,
     };
     let shown = rendering(1, server("general", false));
     assert!(
@@ -569,6 +570,13 @@ fn messages_render_again_once_what_they_show_changes() {
             ..rendering(1, server("general", false))
         }),
         "may delete others' messages"
+    );
+    assert!(
+        !shown.alike(&Rendering {
+            favorite_anything: true,
+            ..rendering(1, server("general", false))
+        }),
+        "HaloCord's Favorite anything switched"
     );
 }
 
@@ -2152,4 +2160,45 @@ fn turning_the_logger_off_settles_the_deleted_messages_it_kept() {
     assert!(open.settle_kept_deleted());
     assert_eq!(ids(&open), [1, 3], "gone, as Discord has it");
     assert!(!open.settle_kept_deleted(), "once");
+}
+
+/// HaloCord's Favorite anything: switched on with the channel open, a still
+/// picture already shown gets its favourite star the next time the rows
+/// are published, and loses it once off again.
+#[tokio::test(flavor = "multi_thread")]
+#[ignore = "needs testing/fake_discord.ts and YAPFAST_DISCORD_TEST_SERVER"]
+async fn halocord_favorite_anything_reaches_rows_already_shown() {
+    let discord = fake_discord().await;
+    let (done, _finished) = tokio::sync::mpsc::unbounded_channel();
+    let still = Message {
+        attachments: vec![yapfast_discord::message::Attachment {
+            name: "still.png".into(),
+            size: None,
+            url: "https://cdn.discordapp.com/attachments/11/9/still.png".into(),
+            image: true,
+            dimensions: Some((64, 64)),
+            preview_url: None,
+            view_url: None,
+            still_url: None,
+            video_url: None,
+            shown: Shown::Message,
+            link_url: None,
+            animated: false,
+            spoiler: false,
+            description: None,
+        }],
+        ..message("9", None)
+    };
+    let mut open = OpenChannel::new("discord:10:11").unwrap();
+    open.loaded(Load::Latest, shown(vec![still]));
+    let starred = |open: &mut OpenChannel| {
+        open.publish(&discord, &done)[0].attachments[0]
+            .gif
+            .is_some()
+    };
+    assert!(!starred(&mut open), "off: a still picture has no star");
+    crate::halocord::favorite_anything::set(true);
+    assert!(starred(&mut open), "on: the row shown already gets it");
+    crate::halocord::favorite_anything::set(false);
+    assert!(!starred(&mut open), "off again");
 }
