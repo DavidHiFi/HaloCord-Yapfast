@@ -54,7 +54,7 @@ pub(super) const FAKE_MUTE: Plugin = Plugin {
 pub(super) const FAKE_DEAFEN: Plugin = Plugin {
     id: id::FAKE_DEAFEN,
     name: "Fake deafen",
-    about: "Others see you deafened in calls while you still hear everyone. They see you muted too, as a real deafen shows.",
+    about: "Others see you deafened in calls while you still hear everyone. They see you muted too, as a real deafen shows, and your microphone sends nothing meanwhile, as with a real deafen.",
     on_at_first: false,
     settings: &[],
     apply: tell_voice,

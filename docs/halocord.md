@@ -218,6 +218,8 @@ Core (`yapfast-core`):
   - `GateMeter` calls `flat::measure(...)` in place of `measure(...)`.
   - The loops in `CaptureRequest::run` and `measure` also end on `flat::on()`, so
     the flat path takes over within a block.
+  - `Processing::pair` sends nothing while `halocord::fake_deafened()`, as while a
+    push-to-mute key is held (the flat microphone's `talking` does the same).
 
 Discord (`yapfast-discord`):
 
