@@ -1,0 +1,337 @@
+{
+  "$schema": "https://schemas.elgato.com/streamdeck/plugins/manifest.json",
+  "SDKVersion": 2,
+  "UUID": "com.davidhifi.yapfast",
+  "Author": "DavidHiFi",
+  "Name": "HaloCord for Yapfast",
+  "Description": "Mute, deafen, camera, screen share with one key per screen, push to talk and the fake voice switches for HaloCord for Yapfast. Needs the Stream Deck plugin turned on in HaloCord.",
+  "Version": "1.0.0.0",
+  "Icon": "imgs/plugin",
+  "URL": "https://github.com/DavidHiFi/HaloCord-Yapfast",
+  "CodePath": "bin/plugin.js",
+  "Nodejs": {
+    "Version": "24",
+    "Debug": "disabled"
+  },
+  "Category": "HaloCord",
+  "CategoryIcon": "imgs/category",
+  "OS": [
+    {
+      "Platform": "windows",
+      "MinimumVersion": "10"
+    }
+  ],
+  "Software": {
+    "MinimumVersion": "6.5"
+  },
+  "Actions": [
+    {
+      "Name": "Mute",
+      "UUID": "com.davidhifi.yapfast.mute",
+      "Icon": "imgs/actions/mute",
+      "Tooltip": "Mute or unmute your microphone",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/mute-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/mute-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Deafen",
+      "UUID": "com.davidhifi.yapfast.deafen",
+      "Icon": "imgs/actions/deafen",
+      "Tooltip": "Deafen or undeafen",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/deafen-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/deafen-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Camera",
+      "UUID": "com.davidhifi.yapfast.camera",
+      "Icon": "imgs/actions/camera",
+      "Tooltip": "Turn your camera on or off in the call",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/camera-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/camera-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Share Screen",
+      "UUID": "com.davidhifi.yapfast.share",
+      "Icon": "imgs/actions/share",
+      "Tooltip": "Open the share picker, or stop sharing",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/share-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/share-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Voice Mode",
+      "UUID": "com.davidhifi.yapfast.voicemode",
+      "Icon": "imgs/actions/voicemode",
+      "Tooltip": "Switch between voice activity and push to talk",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/voicemode-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/voicemode-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Push to Talk",
+      "UUID": "com.davidhifi.yapfast.talk",
+      "Icon": "imgs/actions/talk",
+      "Tooltip": "Hold to talk",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": false,
+      "States": [
+        {
+          "Image": "imgs/keys/talk-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/talk-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Push to Mute",
+      "UUID": "com.davidhifi.yapfast.mutehold",
+      "Icon": "imgs/actions/mutehold",
+      "Tooltip": "Hold to stay muted",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": false,
+      "States": [
+        {
+          "Image": "imgs/keys/mutehold-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/mutehold-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Leave Call",
+      "UUID": "com.davidhifi.yapfast.leave",
+      "Icon": "imgs/actions/leave",
+      "Tooltip": "Leave the voice call",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/leave-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/leave-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Screen 1 (Left)",
+      "UUID": "com.davidhifi.yapfast.screen1",
+      "Icon": "imgs/actions/screen1",
+      "Tooltip": "Share this screen in the call. Press another screen key to jump to it, or this one again to stop.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/screen1-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/screen1-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Screen 2 (Main)",
+      "UUID": "com.davidhifi.yapfast.screen2",
+      "Icon": "imgs/actions/screen2",
+      "Tooltip": "Share this screen in the call. Press another screen key to jump to it, or this one again to stop.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/screen2-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/screen2-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Screen 3 (Right)",
+      "UUID": "com.davidhifi.yapfast.screen3",
+      "Icon": "imgs/actions/screen3",
+      "Tooltip": "Share this screen in the call. Press another screen key to jump to it, or this one again to stop.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/screen3-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/screen3-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Screen 4 (Top)",
+      "UUID": "com.davidhifi.yapfast.screen4",
+      "Icon": "imgs/actions/screen4",
+      "Tooltip": "Share this screen in the call. Press another screen key to jump to it, or this one again to stop.",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/screen4-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/screen4-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Fake Mute",
+      "UUID": "com.davidhifi.yapfast.fakemute",
+      "Icon": "imgs/actions/fakemute",
+      "Tooltip": "Look muted to others while you still talk",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/fakemute-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/fakemute-1",
+          "ShowTitle": false
+        }
+      ]
+    },
+    {
+      "Name": "Fake Deafen",
+      "UUID": "com.davidhifi.yapfast.fakedeafen",
+      "Icon": "imgs/actions/fakedeafen",
+      "Tooltip": "Look deafened to others while you still hear",
+      "Controllers": [
+        "Keypad"
+      ],
+      "DisableAutomaticStates": true,
+      "UserTitleEnabled": false,
+      "SupportedInMultiActions": true,
+      "States": [
+        {
+          "Image": "imgs/keys/fakedeafen-0",
+          "ShowTitle": false
+        },
+        {
+          "Image": "imgs/keys/fakedeafen-1",
+          "ShowTitle": false
+        }
+      ]
+    }
+  ]
+}

@@ -93,7 +93,7 @@ pub enum Dot {
 
 impl Account {
     /// Shown muted: in a call, as it is; out of one, as calls are joined.
-    fn shown_muted(&self, join: (bool, bool)) -> bool {
+    pub(crate) fn shown_muted(&self, join: (bool, bool)) -> bool {
         if self.in_call {
             self.muted
         } else {
@@ -101,7 +101,7 @@ impl Account {
         }
     }
 
-    fn shown_deafened(&self, join: (bool, bool)) -> bool {
+    pub(crate) fn shown_deafened(&self, join: (bool, bool)) -> bool {
         if self.in_call { self.deafened } else { join.1 }
     }
 }

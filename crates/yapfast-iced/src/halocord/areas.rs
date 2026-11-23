@@ -55,7 +55,8 @@ pub fn area(id: &str) -> Area {
         | id::FORCE_MONO
         | id::CLICK_TO_UNMUTE
         | id::USER_VOICE_SHOW
-        | id::VOICE_COUNT => Area::Voice,
+        | id::VOICE_COUNT
+        | id::STREAM_DECK => Area::Voice,
         id::COUNTER
         | id::NEW_USER
         | id::ALWAYS_TRUST

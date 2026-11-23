@@ -19,6 +19,7 @@
 //!   a plugin).
 //! - `areas.rs`: which part of Discord each plugin works on, for the chips
 //!   on the Plugins page.
+//! - `deck.rs`: Stream Deck keys, through a small server on this computer.
 //! - `backup.rs`: Backup & Restore's file of the plugins, the look and the
 //!   person's own themes (not a plugin).
 //!
@@ -29,6 +30,7 @@ mod areas;
 pub mod backup;
 mod buttons;
 mod chat;
+pub mod deck;
 mod fake_dialog;
 mod kept;
 mod members;
@@ -117,6 +119,7 @@ pub mod id {
     pub const ANIMATED_STATUS: &str = "animated-status";
     pub const FAKE_DMS: &str = "fake-dms";
     pub const MESSAGE_LOGGER: &str = "message-logger";
+    pub const STREAM_DECK: &str = "stream-deck";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -165,6 +168,7 @@ pub static PLUGINS: &[Plugin] = &[
     presence::ANIMATED_STATUS,
     messages::FAKE_DMS,
     messages::MESSAGE_LOGGER,
+    deck::STREAM_DECK,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

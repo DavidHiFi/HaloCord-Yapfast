@@ -38,6 +38,8 @@ pub enum Message {
     Mfa(mfa::Event),
     /// A command from the test display's control file.
     Control(String),
+    /// A Stream Deck key, from HaloCord's Stream Deck plugin.
+    Deck(crate::halocord::deck::Asked),
     /// The timeline: its scrolling, its rows and what's done on them
     /// (`timeline/`).
     Timeline(crate::timeline::Event),

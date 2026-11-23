@@ -401,6 +401,7 @@ impl App {
                 self.mfa.update(event, &mut cx)
             }
             Message::Control(command) => crate::control_file::control(self, &command),
+            Message::Deck(asked) => crate::halocord::deck::asked(self, asked),
             Message::Timeline(event) => crate::timeline::update(self, event),
             Message::DismissNotice => crate::banners::dismiss_notice(self),
             Message::Link(link, at) => crate::links::follow_link(self, &link, at),

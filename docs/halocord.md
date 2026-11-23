@@ -37,6 +37,13 @@ whole list to carry across.
   theme tiles, the editor's page, the MochaCord tile's cog.
 - `crates/yapfast-iced/src/halocord/areas.rs`: which area each plugin belongs to, for
   the chips (a table by id, so `Plugin` has no area field).
+- `crates/yapfast-iced/src/halocord/deck.rs`: the Stream Deck plugin: a small server on
+  `127.0.0.1:47830` while it's on (`subscription`), what the keys draw (`/state`) and
+  each press (`/press/<key>`, answered by `asked`). Only requests with the
+  `X-HaloCord-Deck: 1` header, this computer's host name and no origin get in. Screen
+  keys 1 to 4 are the screens left of the main one, the main one, right of it and above
+  it (`slots`). The deck's own plugin, `com.davidhifi.yapfast`, lives in
+  `packaging/streamdeck/` (its README says how to build, test and install it).
 - `crates/yapfast-iced/src/halocord/backup.rs`: Backup & Restore's file: the plugins,
   MochaCord's options, the person's own themes and the theme chosen.
 - `crates/yapfast-iced/src/mochacord.rs`: MochaCord's look: what `layout.json` keeps
@@ -317,6 +324,12 @@ Kit (`yapfast-iced-kit`) and vendor:
 - `controls.rs`: `field_style` rings a field in the theme's `focus` role; `choices_within`
   wraps its options onto more rows when their labels don't fit one (`choices_fit`).
 - `icons.rs`: `Icon::HaloLogo`, `HaloDesktop`, `HaloPhone`, `HaloWeb`.
+- `app/message.rs`: `Message::Deck(halocord::deck::Asked)`; `app/mod.rs`: its arm, which
+  calls `halocord::deck::asked`; `app/subscription.rs`: `halocord::deck::subscription`
+  (the Stream Deck server, while its plugin is on).
+- `keybinds.rs`: `toggled` is `pub(crate)`, for the deck's voice mode key.
+- `account.rs`: `shown_muted` and `shown_deafened` are `pub(crate)`, for what the deck's
+  keys draw.
 - `vendor/iced_wgpu`: `glass.rs` and the glass attempt in `window/compositor.rs` (see
   its `README.yapfast.md`).
 - Core `theme.rs`: the `MOCHACORD` built-in theme (`pub(crate)`); HaloCord's colour
@@ -329,6 +342,10 @@ Kit (`yapfast-iced-kit`) and vendor:
 Core (`yapfast-core`):
 
 - `lib.rs`: `pub mod halocord;`.
+- `stream_worker.rs`: `current_pick`, and `screen_places` (each screen's id as the
+  share list gives it, with its place on the desktop and whether it's the main one, from
+  `EnumDisplayDevicesW`), for the Stream Deck's screen keys. `Cargo.toml`: the
+  `Win32_Graphics_Gdi` feature for it.
 - `application.rs`: plug-in point 1, two checks and two `after` calls; `Action::Republish`
   (draws a chat again from what is held, for Fake DMs and Message logger).
 - `chat.rs`: `DiscordCommand::Republish`, the command that arm sends.
