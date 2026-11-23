@@ -347,7 +347,6 @@ Window (`yapfast-iced`):
   (`favorite_gif_with`), and its test `halocord_favorite_anything_stars_stills_and_videos`.
 - `message/attachments.rs`: the GIF corner leaves out a still picture's favourite
   (`halocord::favorite_anything::still`).
-
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
   `halocord::fix_file_extensions::name` first (Fix file extensions), and
   `start_send` runs each file's name and bytes through `halocord::auto_zipper::zipped`
@@ -383,7 +382,6 @@ Window (`yapfast-iced`):
 - `activity.rs` (`yapfast-discord`): `subline` names the song with `halocord::song_name` in
   place of the app's name while Show song name is on; `looks.rs`: `LooksMadeWith`'s
   `song_names`, so switching it makes the member list's lines again.
-
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
 - `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
   `self.theme_event` (it gives a task now).

@@ -150,7 +150,6 @@ pub mod id {
     pub const SHOW_SONG_NAME: &str = "show-song-name";
     pub const SONG_LINK: &str = "song-link";
     pub const FAVORITE_ANYTHING: &str = "favorite-anything";
-
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -215,7 +214,6 @@ pub static PLUGINS: &[Plugin] = &[
     members::SHOW_SONG_NAME,
     menus::SONG_LINK,
     chat::FAVORITE_ANYTHING,
-
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
