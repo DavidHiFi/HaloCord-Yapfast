@@ -430,7 +430,7 @@ pub fn open_menu(app: &mut App, index: usize, at: Point) -> Task<Message> {
     if link.is_some() {
         rows.push(row(MenuAct::CopyLink, "Copy Message Link", Icon::Chain));
     }
-    rows.extend(crate::halocord::menu_rows(&message));
+    rows.extend(crate::halocord::message_rows(app, &message));
     if message.can_delete && writes {
         rows.push(MenuRow {
             danger: true,

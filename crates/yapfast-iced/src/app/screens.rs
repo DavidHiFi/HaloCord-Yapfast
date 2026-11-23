@@ -246,6 +246,17 @@ impl App {
                 self.ask()
             }
             Event::Sticker(item, index) => self.show_expression(Expression::Sticker(item, index)),
+            // HaloCord's Clickable roles: the role's card where it was
+            // pressed; the profile under it closes, as the role card is
+            // drawn under profiles.
+            Event::ProfileRole(role) => {
+                let at = self.pressed.get();
+                let shown = self.show_role(role, at);
+                self.profiles.card = None;
+                self.client
+                    .dispatch(yapfast_core::application::Action::CloseProfile);
+                Task::batch([shown, self.settle()])
+            }
             event => {
                 if matches!(event, Event::GoToServer(_)) {
                     self.profiles.card = None;

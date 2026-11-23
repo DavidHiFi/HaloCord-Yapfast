@@ -156,9 +156,11 @@ Window (`yapfast-iced`):
   and sends the voice state again when a fake mute or deafen switch changes in a call).
 - `client.rs`: plug-in point 2, one match arm in `execute`.
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
-- `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines.
+- `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines; `open_menu`
+  adds `halocord::message_rows` (the engine's rows, then Find reply's).
 - `person_menu.rs`: plug-in point 5, `open_person_menu` adds `halocord::person_rows`
-  (two lines, `rows` is `mut`).
+  (two lines, `rows` is `mut`), which adds Copy status link's and Copy profile
+  colors' rows after the engine's.
 - `message/attachments.rs`: plug-in point 5, `file_card` and `stickers` wrap what they draw in a
   right click (`RightPress`, `Event::Attachment`; a few lines each).
 - `image_viewer.rs`: the `Event::Attachment` variant and its empty arm.
@@ -171,7 +173,14 @@ Window (`yapfast-iced`):
 - `profile/body.rs`: `member_since` draws both dates through `halocord::exact_day`
   (Better joined date's whole date and days ago on pointing), and `profile_top` asks
   `halocord::full_picture` what a click on the banner, or on the full profile's
-  picture, sends (View icons).
+  picture, sends (View icons); `role_chips` makes a chip a button when
+  `halocord::role_press` gives it a message (Clickable roles).
+- `info_cards.rs` and `app/screens.rs`: `Event::ProfileRole`, its empty arm, and its
+  arm in `info_event`, which opens the role's card and closes the profile
+  (Clickable roles).
+- Core `chat.rs`, `discord_text/render.rs`, `application/profiles.rs` and
+  `yapfast-discord/src/ready.rs`: `ProfileRole::id`, which `named_roles` gives, and
+  `show_role` names and colours a role from the open profile (Clickable roles).
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.

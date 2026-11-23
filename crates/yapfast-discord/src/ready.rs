@@ -1305,8 +1305,9 @@ impl Server {
             .collect()
     }
 
-    /// A member's named roles, highest first, each with its colour if it has one.
-    pub fn named_roles(&self, roles: &[String]) -> Vec<(String, Option<u32>)> {
+    /// A member's named roles, highest first, each with its id and its colour
+    /// if it has one.
+    pub fn named_roles(&self, roles: &[String]) -> Vec<(String, String, Option<u32>)> {
         let mut named: Vec<_> = roles
             .iter()
             .filter(|role| **role != self.id)
@@ -1314,13 +1315,18 @@ impl Server {
                 let name = self.role_names.get(role)?;
                 let position = self.role_positions.get(role).copied().unwrap_or_default();
                 let color = self.role_colors.get(role).map(|(_, color)| *color);
-                Some((std::cmp::Reverse(position), name.clone(), color))
+                Some((
+                    std::cmp::Reverse(position),
+                    name.clone(),
+                    color,
+                    role.clone(),
+                ))
             })
             .collect();
         named.sort();
         named
             .into_iter()
-            .map(|(_, name, color)| (name, color))
+            .map(|(_, name, color, id)| (id, name, color))
             .collect()
     }
 
