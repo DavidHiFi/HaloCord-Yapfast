@@ -41,6 +41,7 @@ mod menus;
 mod messages;
 mod presence;
 mod servers;
+mod song_buttons;
 pub mod theme_files;
 mod voice;
 
@@ -70,6 +71,9 @@ pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, messag
 pub use servers::{
     KeptChannel, home_face, home_mentions, keep_channel, no_request_badge,
 };
+pub use song_buttons::buttons as song_buttons;
+#[cfg(test)]
+pub use song_buttons::known as song_buttons_known;
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
@@ -266,6 +270,15 @@ pub enum Event {
     /// Search result menu: a right click on a search result, by its room
     /// and item.
     SearchMenu(String, String),
+    /// Song link's buttons: "Song links" pressed for a link, song.link's
+    /// answer for it, and a service's button (its page or its app's
+    /// address).
+    SongLinks(String),
+    SongLinksFound(
+        String,
+        Result<Vec<yapfast_core::yapfast_discord::halocord::SongPlatform>, String>,
+    ),
+    OpenSong(String),
 }
 
 /// Carries out a plugin's message.
@@ -291,6 +304,9 @@ pub fn update(app: &mut crate::app::App, event: Event) -> iced::Task<crate::app:
         }
         Event::Backspace(held) => clicks::backspace(app, held),
         Event::SearchMenu(room, item) => return menus::search_menu(app, room, item),
+        Event::SongLinks(link) => return song_buttons::ask(app, link),
+        Event::SongLinksFound(link, found) => song_buttons::found(link, found),
+        Event::OpenSong(address) => crate::browser::open(&address),
     }
     iced::Task::none()
 }

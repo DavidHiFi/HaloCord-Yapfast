@@ -84,6 +84,9 @@ whole list to carry across.
   file's menu (downloads it as Copy Image does; the window copies it as text).
 - `crates/yapfast-discord/src/halocord/invites.rs`: Show hidden things' record of the
   servers whose invites are paused.
+- `crates/yapfast-discord/src/halocord/song_link.rs`: Song link's buttons ask song.link's
+  public API (`api.song.link/v1-alpha.1/links`) where a song is, only when pressed.
+- `crates/yapfast-iced/src/halocord/song_buttons.rs`: the buttons, and song.link's answers.
 - `crates/yapfast-discord/src/halocord.rs`: Show song name's switch and `song_name`, and
   Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
@@ -240,6 +243,8 @@ Window (`yapfast-iced`):
 - `menus.rs`: `open_menu` lets `halocord::kept_deleted` rows open a menu, and
   `takes_apps` excludes `halocord::is_fake_row`.
 - `client.rs`: plug-in point 2, one match arm in `execute`.
+- `message/mod.rs`: after the cards, `halocord::song_buttons` (Song link's buttons under a
+  song).
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines; `open_menu`
   adds `halocord::message_rows` (the engine's rows, then Find reply's, then Song link's
