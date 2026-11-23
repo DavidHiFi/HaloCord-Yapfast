@@ -231,9 +231,8 @@ Window (`yapfast-iced`):
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
   `composer_look` ends the timed-out line with `halocord::timeout_note` (the time left).
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
-- `activity.rs` (`yapfast-discord`): `subline` names the song with `halocord::song_name` in
-  place of the app's name while Show song name is on; `looks.rs`: `LooksMadeWith`'s
-  `song_names`, so switching it makes the member list's lines again.
+- `looks.rs`: `LooksMadeWith`'s `song_names`, so switching Show song name makes the member
+  list's lines again.
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
 - `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
   `self.theme_event` (it gives a task now).
@@ -294,6 +293,8 @@ Discord (`yapfast-discord`):
 - `member_list.rs`: `presence` and the member list's rows call `halocord::note` with the
   presence (one line each).
 - `service/tracker.rs`: `presence` calls `halocord::note` (one line).
+- `activity.rs`: `subline` names the song with `halocord::song_name` in place of the app's
+  name while Show song name is on (one line).
 
 Calls (`yapfast-discord`):
 
