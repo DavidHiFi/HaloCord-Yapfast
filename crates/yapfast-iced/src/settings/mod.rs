@@ -45,7 +45,6 @@ use crate::{
 };
 
 use appearance::Editor;
-#[cfg(test)]
 pub use appearance::Event as ThemeEvent;
 
 /// What a theme editor's change sends.
