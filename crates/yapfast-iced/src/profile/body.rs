@@ -339,6 +339,14 @@ fn profile_top<'a>(
     } else if let Some(still) = still {
         banner = banner.push(Pic::new(still, banner_size).radius_each(top_corners));
     }
+    let banner: Element<'a, Message> =
+        match crate::halocord::full_picture(ctx, profile.banner.as_deref()) {
+            Some(view) => mouse_area(banner)
+                .on_press(view)
+                .interaction(iced::mouse::Interaction::Pointer)
+                .into(),
+            None => banner.into(),
+        };
     let face = mouse_area(profile_avatar(
         ctx,
         shown,
@@ -352,9 +360,15 @@ fn profile_top<'a>(
     } else {
         iced::mouse::Interaction::Pointer
     });
-    // The picture opens the full profile.
+    // The picture opens the full profile, and there with View icons on
+    // opens full size.
     let face = if mode.large() {
-        face
+        match crate::halocord::full_picture(ctx, profile.avatar.as_deref()) {
+            Some(view) => face
+                .on_press(view)
+                .interaction(iced::mouse::Interaction::Pointer),
+            None => face,
+        }
     } else {
         face.on_press(Message::Profile(Event::Enlarge(None, mode == Mode::Docked)))
     };

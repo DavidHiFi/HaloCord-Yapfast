@@ -1,5 +1,5 @@
 //! Member list plugins: the member count line, Platform indicators, Show
-//! timeout duration and Better joined date.
+//! timeout duration, Better joined date and View icons.
 
 use iced::Element;
 
@@ -205,6 +205,56 @@ fn day_words(day: &str, today: NaiveDate) -> Option<String> {
         days => format!("{} days ago", thousands(days as usize)),
     };
     Some(format!("{}, {ago}", date.format("%A, %B %-d, %Y")))
+}
+
+pub(super) const VIEW_ICONS: Plugin = Plugin {
+    id: id::VIEW_ICONS,
+    name: "View icons",
+    about: "Click the banner on a profile, or the picture on a full profile, to open it full size in your browser.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// What a click on a profile's picture at `url` sends while View icons is
+/// on: it opens the picture at its biggest.
+pub fn full_picture(cx: Ctx<'_>, url: Option<&str>) -> Option<Message> {
+    let url = url.filter(|_| cx.layout.halocord.is(id::VIEW_ICONS))?;
+    Some(Message::Profile(crate::profile::Event::ViewPicture(
+        biggest(url),
+    )))
+}
+
+/// `url` asking Discord's picture server for the largest size it gives.
+fn biggest(url: &str) -> String {
+    match url.split_once("size=") {
+        Some((before, after)) => {
+            let rest = after.trim_start_matches(|c: char| c.is_ascii_digit());
+            format!("{before}size=4096{rest}")
+        }
+        None => url.to_owned(),
+    }
+}
+
+#[cfg(test)]
+mod picture_tests {
+    #[test]
+    fn a_picture_opens_at_its_biggest() {
+        use super::biggest;
+        assert_eq!(
+            biggest("https://cdn.discordapp.com/avatars/1/a.png?size=128"),
+            "https://cdn.discordapp.com/avatars/1/a.png?size=4096"
+        );
+        assert_eq!(
+            biggest("https://cdn.discordapp.com/banners/1/b.gif?size=600&quality=lossless"),
+            "https://cdn.discordapp.com/banners/1/b.gif?size=4096&quality=lossless"
+        );
+        assert_eq!(
+            biggest("https://cdn.discordapp.com/embed/avatars/3.png"),
+            "https://cdn.discordapp.com/embed/avatars/3.png"
+        );
+    }
 }
 
 #[cfg(test)]

@@ -1,4 +1,4 @@
-//! Pictures of build 8 to 11's features, drawn by the window in the MochaCord
+//! Pictures of build 8 to 12's features, drawn by the window in the MochaCord
 //! theme. Each test is ignored: it writes `audit/plugins/features-<name>.png`
 //! for the owner to look at. Run them with `cargo test -p yapfast-iced --lib
 //! -- --include-ignored halocord_feature_pictures`.
@@ -327,4 +327,17 @@ fn picture_of_the_game_button() {
     let _ = app.sync();
     assert!(app.layout.halocord.dock().game);
     draw(&app, "game-button");
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_build_12_plugins() {
+    let (mut app, _folder) = mocha();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::VIEW_ICONS);
+    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Search("icons".into())));
+    let _ = app.sync();
+    assert!(shows(&app, "View icons"));
+    draw(&app, "plugin-icons");
 }

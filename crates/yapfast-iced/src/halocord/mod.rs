@@ -13,7 +13,7 @@
 //! - `menus.rs`: right-click menu rows and what a pick does.
 //! - `buttons.rs`: the user area and the top bar's buttons.
 //! - `members.rs`: the member list's count and platform marks, timeouts
-//!   and the exact dates on a profile.
+//!   and a profile's exact dates and full size pictures.
 //! - `theme_files.rs`: Appearance's Save to file and Load from file (not a
 //!   plugin).
 //!
@@ -36,7 +36,9 @@ use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 #[cfg(test)]
 pub use members::time_left;
-pub use members::{add_member_count, exact_day, platform_marks, timeout_clock, timeout_note};
+pub use members::{
+    add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
+};
 pub use menus::{attachment_menu, chosen, copied_text, menu_rows, person_rows};
 pub use servers::{home_mentions, no_request_badge};
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
@@ -89,6 +91,7 @@ pub mod id {
     pub const SEND_TIMESTAMPS: &str = "send-timestamps";
     pub const FIX_FILE_EXTENSIONS: &str = "fix-file-extensions";
     pub const BETTER_JOINED_DATE: &str = "better-joined-date";
+    pub const VIEW_ICONS: &str = "view-icons";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -125,6 +128,7 @@ pub static PLUGINS: &[Plugin] = &[
     chat::SEND_TIMESTAMPS,
     chat::FIX_FILE_EXTENSIONS,
     members::BETTER_JOINED_DATE,
+    members::VIEW_ICONS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

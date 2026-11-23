@@ -169,7 +169,9 @@ Window (`yapfast-iced`):
   and says "Faking mute" or "Faking deafen" under the name in a call. The Game
   activity button's `Event::ShowGame` and its arm send `Action::ShowGame`.
 - `profile/body.rs`: `member_since` draws both dates through `halocord::exact_day`
-  (Better joined date's whole date and days ago on pointing).
+  (Better joined date's whole date and days ago on pointing), and `profile_top` asks
+  `halocord::full_picture` what a click on the banner, or on the full profile's
+  picture, sends (View icons).
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.

@@ -943,3 +943,24 @@ fn the_game_button_switches_sharing_the_game() {
         "the button sends its switch"
     );
 }
+
+/// View icons: a profile's pictures open at their biggest only while it is on.
+#[test]
+fn view_icons_opens_a_profile_picture_full_size() {
+    use crate::halocord::{Change, VIEW_ICONS, changed, full_picture, place};
+    let (mut app, _folder) = preview();
+    let url = "https://cdn.discordapp.com/avatars/1/a.png?size=128";
+    assert!(full_picture(app.ctx(), Some(url)).is_none());
+    let plugin = place(VIEW_ICONS).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    assert!(full_picture(app.ctx(), None).is_none());
+    assert!(matches!(
+        full_picture(app.ctx(), Some(url)),
+        Some(Message::Profile(crate::profile::Event::ViewPicture(page)))
+            if page == "https://cdn.discordapp.com/avatars/1/a.png?size=4096"
+    ));
+}
