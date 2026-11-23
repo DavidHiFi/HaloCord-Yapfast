@@ -304,7 +304,7 @@ impl<'a> View<'a> {
             .width(POPOVER)
             .style(crate::profile::frame_style(inks, theme.line, 8.0, true));
         let bottom = self.cx.look.window.height
-            - crate::account::height(self.cx.layout.halocord.dock().compact)
+            - crate::account::full_height(self.cx)
             - crate::account::INSET
             - 4.0;
         Some(

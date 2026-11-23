@@ -721,15 +721,15 @@ fn halocord_sends_stereo_at_510_unless_changed() {
     assert_eq!(app.layout.halocord.value(loader, bitrate), 510);
     open(&mut app, Section::HaloCord);
     assert!(shows(&app, "Stereo loader"));
-    assert!(shows(&app, "MICROPHONE BIT RATE"));
+    assert!(shows(&app, "MICROPHONE BIT RATE (KBIT/S)"));
     interact(&mut app, |ui| {
-        ui.click("256 kbit/s").expect("the choice");
+        ui.click("256").expect("the choice");
     });
     interact(&mut app, |ui| {
         ui.click("Stereo loader").expect("the switch");
     });
     assert!(
-        !shows(&app, "MICROPHONE BIT RATE"),
+        !shows(&app, "MICROPHONE BIT RATE (KBIT/S)"),
         "settings hide while off"
     );
     let layout = stored(&folder);
@@ -845,16 +845,36 @@ fn mochacord_options_are_kept_across_a_restart() {
     crate::mochacord::Kept::default().apply();
 }
 
-/// What a click at `x` on the user area drawn alone (300 px wide) sends.
-fn dock_click(app: &App, x: f32) -> Vec<Message> {
+/// What a click at (`x`, `y`) on the user area drawn alone (300 px wide)
+/// sends.
+fn dock_click_at(app: &App, x: f32, y: f32) -> Vec<Message> {
     let mut ui = iced_test::Simulator::with_size(
         iced::Settings::default(),
-        iced::Size::new(300.0, crate::account::HEIGHT + crate::account::INSET),
+        iced::Size::new(
+            300.0,
+            crate::account::full_height(app.ctx()) + crate::account::INSET,
+        ),
         crate::account::view(app.ctx()),
     );
-    ui.point_at(iced::Point::new(x, crate::account::HEIGHT / 2.0));
+    ui.point_at(iced::Point::new(x, y));
     ui.simulate(iced_test::simulator::click());
     ui.into_messages().collect()
+}
+
+/// A click at `x` on the row with the name, the mic and the cog, which sits
+/// under the plugin buttons' row when there is one.
+fn dock_click(app: &App, x: f32) -> Vec<Message> {
+    let above = crate::account::full_height(app.ctx()) - crate::account::HEIGHT;
+    dock_click_at(app, x, above + crate::account::HEIGHT / 2.0)
+}
+
+/// A click on plugin button `index` of `count` in the row above the name.
+fn plugin_click(app: &App, index: usize, count: usize) -> Vec<Message> {
+    // The card is 284 px from 8 px in; its row is inset 8 px each side, the
+    // buttons 4 px apart.
+    let width = (268.0 - 4.0 * (count - 1) as f32) / count as f32;
+    let x = 16.0 + index as f32 * (width + 4.0) + width / 2.0;
+    dock_click_at(app, x, 6.0 + 16.0)
 }
 
 /// With the arrows hidden the mute button moves to where its arrow was
@@ -886,15 +906,15 @@ fn the_dock_hides_arrows_and_draws_its_extra_buttons() {
     changed(&mut app.layout, &mut app.client, flag(1));
     assert!(mutes(&dock_click(&app, 188.0)), "the arrows are gone");
     assert!(!mutes(&dock_click(&app, 148.0)));
-    // No extra button yet: the place beside the cog sends nothing.
-    assert!(
-        dock_click(&app, 225.0).is_empty()
-            || !dock_click(&app, 225.0)
-                .iter()
-                .any(|message| { matches!(message, Message::Account(Event::Plugin(_))) })
+    // No extra button yet: no row above the name, and nothing sent.
+    assert_eq!(
+        crate::account::full_height(app.ctx()),
+        crate::account::HEIGHT,
+        "no empty row"
     );
     changed(&mut app.layout, &mut app.client, flag(2));
-    let sent = dock_click(&app, 225.0);
+    assert!(crate::account::full_height(app.ctx()) > crate::account::HEIGHT);
+    let sent = plugin_click(&app, 0, 1);
     let plugin = place(FAKE_MUTE).unwrap();
     assert!(
         sent.iter().any(|message| matches!(
@@ -921,7 +941,7 @@ fn the_game_button_switches_sharing_the_game() {
     };
     let (mut app, _folder) = preview();
     app.shell.own_title_bar = true;
-    assert!(!shares(&dock_click(&app, 225.0)), "no button yet");
+    assert!(!shares(&plugin_click(&app, 0, 1)), "no button yet");
     let plugin = place(USER_AREA).unwrap();
     changed(
         &mut app.layout,
@@ -934,12 +954,12 @@ fn the_game_button_switches_sharing_the_game() {
     );
     assert!(app.layout.halocord.dock().game);
     assert!(
-        !shares(&dock_click(&app, 225.0)),
+        !shares(&plugin_click(&app, 0, 1)),
         "it waits for the Discord account"
     );
     change(&mut app, |state| state.discord_user = Some("42".into()));
     assert!(
-        shares(&dock_click(&app, 225.0)),
+        shares(&plugin_click(&app, 0, 1)),
         "the button sends its switch"
     );
 }

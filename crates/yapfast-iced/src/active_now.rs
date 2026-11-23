@@ -593,20 +593,41 @@ fn active_card<'a>(ctx: crate::ctx::Ctx<'a>, card: &'a Card, now: u64) -> Elemen
         .style(crate::controls::lit_style(
             theme.bonfire.then_some(head_ground),
             hover,
-            0.0,
+            card_corners(true, card.rows.is_empty()),
         ));
     let mut body = column![head];
-    for entry in &card.rows {
-        body = body.push(active_row(ctx, entry));
+    for (index, entry) in card.rows.iter().enumerate() {
+        let last = index + 1 == card.rows.len();
+        body = body.push(active_row(ctx, entry, last));
     }
     container(body)
         .width(Length::Fill)
         .clip(true)
-        .style(move |_| crate::style::outlined(ground, edge, 16.0))
+        .style(move |_| crate::style::outlined(ground, edge, CARD_RADIUS))
         .into()
 }
 
-fn active_row<'a>(ctx: crate::ctx::Ctx<'a>, entry: &'a CardRow) -> Element<'a, Message> {
+/// A card's corners.
+const CARD_RADIUS: f32 = 16.0;
+
+/// The corners a lit edge inside a card takes: the card's on the side it
+/// touches the card's top (`top`) or bottom (`bottom`), square where it
+/// meets another part.
+fn card_corners(top: bool, bottom: bool) -> iced::border::Radius {
+    let pick = |on: bool| if on { CARD_RADIUS } else { 0.0 };
+    iced::border::Radius {
+        top_left: pick(top),
+        top_right: pick(top),
+        bottom_right: pick(bottom),
+        bottom_left: pick(bottom),
+    }
+}
+
+fn active_row<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    entry: &'a CardRow,
+    last: bool,
+) -> Element<'a, Message> {
     let theme = ctx.look.theme;
     let mut words = column![
         text(entry.title.as_str())
@@ -667,7 +688,11 @@ fn active_row<'a>(ctx: crate::ctx::Ctx<'a>, entry: &'a CardRow) -> Element<'a, M
         .padding(0)
         .width(Length::Fill)
         .on_press(Message::Side(crate::sidebar::Event::Open(room.clone())))
-        .style(crate::controls::lit_style(None, hover, 0.0))
+        .style(crate::controls::lit_style(
+            None,
+            hover,
+            card_corners(false, last),
+        ))
         .into()
 }
 
@@ -749,6 +774,20 @@ pub fn active_now_fits(ctx: crate::ctx::Ctx<'_>) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_heads_lit_edge_takes_the_cards_round_on_the_top() {
+        let alone = card_corners(true, true);
+        assert_eq!(alone.top_left, CARD_RADIUS);
+        assert_eq!(alone.bottom_right, CARD_RADIUS);
+        let head = card_corners(true, false);
+        assert_eq!((head.top_left, head.top_right), (CARD_RADIUS, CARD_RADIUS));
+        assert_eq!((head.bottom_left, head.bottom_right), (0.0, 0.0));
+        let last = card_corners(false, true);
+        assert_eq!((last.top_left, last.bottom_left), (0.0, CARD_RADIUS));
+        let middle = card_corners(false, false);
+        assert_eq!(middle.top_left + middle.bottom_right, 0.0);
+    }
 
     #[test]
     fn names_shorten_as_discords_active_now_does() {

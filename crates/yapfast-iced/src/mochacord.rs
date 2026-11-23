@@ -7,13 +7,16 @@
 //!
 //! Glass is real blur or nothing: the window's surface is see-through and
 //! Windows blurs the desktop behind it (acrylic), and the docks' fills carry
-//! alpha over that. Anywhere the blur can't be had (the software renderer,
-//! the option off, Windows' transparency effects off, the window not in
-//! front) the fills are the opaque Mocha ones.
+//! alpha over that. The glass is the same whether the window is in front or
+//! not. Anywhere the blur can't be had (the software renderer, the option
+//! off, Windows' transparency effects off, battery saver on) the fills are
+//! the opaque Mocha ones (`blur.rs`).
+
+mod blur;
 
 use std::{
     path::Path,
-    sync::atomic::{AtomicBool, AtomicU32, Ordering},
+    sync::atomic::{AtomicBool, AtomicU8, AtomicU32, Ordering},
 };
 
 use iced::Color;
@@ -173,13 +176,27 @@ pub fn prepare(root: &Path) {
 
 static GLASS_ON: AtomicBool = AtomicBool::new(false);
 static STRENGTH: AtomicU32 = AtomicU32::new(75);
-static FRONT: AtomicBool = AtomicBool::new(true);
+/// What Windows last said about its effects: bit 0 transparency off, bit 1
+/// battery saver on. All clear until asked.
+static EFFECTS: AtomicU8 = AtomicU8::new(0);
 
-/// Tells the glass whether the window is in front. Windows draws acrylic
-/// only on the window in front; behind, it's a flat grey, so the fills go
-/// opaque then.
-pub fn set_in_front(front: bool) {
-    FRONT.store(front, Ordering::Relaxed);
+/// Asks Windows whether it blurs now (transparency effects, battery saver),
+/// at start and each time the window takes or loses the focus, which is
+/// where someone coming back from Windows' settings lands.
+pub fn refresh_effects() {
+    let now = blur::effects();
+    EFFECTS.store(
+        u8::from(!now.transparency) | u8::from(now.battery_saver) << 1,
+        Ordering::Relaxed,
+    );
+}
+
+fn effects_now() -> blur::Effects {
+    let bits = EFFECTS.load(Ordering::Relaxed);
+    blur::Effects {
+        transparency: bits & 1 == 0,
+        battery_saver: bits & 2 != 0,
+    }
 }
 
 /// Which dock a fill is for; each has its own most see-through value.
@@ -204,9 +221,14 @@ impl Dock {
     }
 }
 
-/// Whether glass is showing: asked for, got from the GPU, and in front.
+/// Whether glass is showing: asked for, got from the GPU, and Windows blurs.
+/// Focus has no part in it.
 pub fn live() -> bool {
-    GLASS_ON.load(Ordering::Relaxed) && FRONT.load(Ordering::Relaxed) && renderer::glass_active()
+    blur::glass_shows(
+        GLASS_ON.load(Ordering::Relaxed),
+        renderer::glass_active(),
+        effects_now(),
+    )
 }
 
 /// `color` for `dock`: itself while glass isn't live, else with the alpha
@@ -227,8 +249,10 @@ fn glassy(color: Color, dock: Dock, strength: u32) -> Color {
     }
 }
 
-/// Puts the window's backdrop on: Windows' acrylic behind a see-through
-/// window, and the frame extended over all of it. Off puts both back.
+/// Puts the window's backdrop on: Windows' acrylic blur behind a
+/// see-through window (the accent policy's, which keeps blurring while the
+/// window is behind another; the system backdrop goes flat then), and the
+/// frame extended over all of it. Off puts both back.
 #[cfg(windows)]
 pub fn backdrop(window: isize, on: bool) {
     #[repr(C)]
@@ -250,9 +274,9 @@ pub fn backdrop(window: isize, on: bool) {
     }
     const DARK: u32 = 20;
     const BACKDROP: u32 = 38;
-    const ACRYLIC: i32 = 3;
+    // The system backdrop stays off either way: the accent policy blurs.
     const NONE: i32 = 1;
-    let (kind, edge) = if on { (ACRYLIC, -1) } else { (NONE, 0) };
+    let (kind, edge) = (NONE, if on { -1 } else { 0 });
     let dark = 1_i32;
     let margins = Margins {
         left: edge,
@@ -269,6 +293,7 @@ pub fn backdrop(window: isize, on: bool) {
             DwmExtendFrameIntoClientArea(window, &margins),
         ]
     };
+    blur::accent(window, on);
     tracing::info!(?results, on, "window backdrop");
 }
 
@@ -276,6 +301,7 @@ pub fn backdrop(window: isize, on: bool) {
 /// is see-through and glass is on.
 pub fn frame(window: &dyn iced::window::Window) {
     use iced::window::raw_window_handle::RawWindowHandle;
+    refresh_effects();
     if !(GLASS_ON.load(Ordering::Relaxed) && renderer::glass_active()) {
         return;
     }
