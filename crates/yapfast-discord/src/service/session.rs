@@ -91,6 +91,7 @@ pub(super) async fn run(
                 shared.activity.borrow().as_deref().filter(|_| playing),
                 music.as_deref(),
             );
+            crate::halocord::presence::identify(&mut shared.presence);
             Gateway::connect(&token, shared.presence.clone(), &mut reconnects).await
         };
         let connected = tokio::select! {
@@ -263,6 +264,7 @@ async fn connected_session(
         quiets: Box::pin(tokio::time::sleep(until(quiet))),
         away_change: None,
         away_changes: Box::pin(tokio::time::sleep(until(None))),
+        halo: crate::halocord::presence::Watch::new(shared.api.clone()),
         tracker,
         shared,
         join: VoiceJoin::new(),
@@ -314,6 +316,8 @@ struct Session<'a> {
     /// and the wait for it.
     away_change: Option<u64>,
     away_changes: Pin<Box<Sleep>>,
+    /// HaloCord's Custom RPC and Animated Status: when they send again.
+    halo: crate::halocord::presence::Watch,
     /// Discord's answers when asked for message requests' latest messages.
     previews: (mpsc::UnboundedSender<Value>, mpsc::UnboundedReceiver<Value>),
 }
@@ -352,6 +356,7 @@ impl Session<'_> {
                 }
                 () = activity_changed(&mut self.shared.activity) => self.show_presence().await,
                 () = activity_changed(&mut self.shared.music) => self.show_presence().await,
+                () = self.halo.due() => self.show_presence().await,
                 () = self.away_changes.as_mut(), if self.away_change.is_some() => {
                     self.show_presence().await
                 }
@@ -778,6 +783,7 @@ impl Session<'_> {
         let music = self.shared.music.borrow_and_update().clone();
         let music = music.filter(|_| self.tracker.status != "invisible");
         crate::own_activity::merge(&mut presence, activity.as_deref(), music.as_deref());
+        self.halo.apply(&mut presence);
         if self.tracker.shows_here(&presence["activities"]) {
             self.publisher.changed();
         }

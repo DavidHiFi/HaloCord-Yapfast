@@ -17,6 +17,8 @@ whole list to carry across.
     each area, what each tells the core, the hooks it plugs in while it's on, and
     what the window draws for it. `menus.rs` is the window's side of plug-in
     point 5 (`menu_rows`, `pick`).
+  - `presence.rs`: Custom RPC and Animated status, what each tells the Discord
+    service (`set_custom_rpc`, `set_animated`).
 - `crates/yapfast-iced/src/settings/pages/halocord.rs`: the HaloCord settings page,
   drawn from `PLUGINS`.
 - `crates/yapfast-iced/src/mochacord.rs`: MochaCord's look: what `layout.json` keeps
@@ -50,6 +52,11 @@ whole list to carry across.
   file's menu (downloads it as Copy Image does; the window copies it as text).
 - `crates/yapfast-discord/src/halocord.rs`: Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
+- `crates/yapfast-discord/src/halocord/presence.rs`: Custom RPC's activity (type
+  numbers, timer, pictures, buttons), Animated status's lines, the outside
+  pictures' keys, and `Watch`, which a session keeps to put both in the
+  presence it sends and to say when to send again (one timer, idle while both
+  are off).
 - `crates/yapfast-iced-kit/icons/halo-desktop.svg`, `halo-phone.svg`, `halo-web.svg`:
   its three marks.
 - `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link in a
@@ -95,6 +102,19 @@ whole list to carry across.
 6. If a Yapfast file has to call in, add the call and name the file under "Hooks in
    Yapfast's files". The window test `every_hook_is_in_the_docs` fails otherwise.
 7. `scripts/halocord-check.ps1` must pass before a release.
+
+## Presence plugins
+
+Custom RPC and Animated status change only the presence the gateway is sent,
+never Discord's saved settings. Each session's `Watch` holds the plugins'
+settings (set by the window through `set_custom_rpc` and `set_animated`) and
+adds them after the custom status, game and music are merged. A change to a
+setting waits 1.5 s for more typing; switching a plugin on or off is sent at
+once. Animated status has one timer, armed only while it has two or more
+lines, never under 30 s. Custom RPC needs an Application ID for pictures and
+buttons. An outside picture link is turned into a key with
+`POST /applications/{id}/external-assets` once per link and kept for the run;
+a link Discord refuses stays out. Invisible shares no activity.
 
 ## Plug-in points
 
@@ -238,8 +258,8 @@ Window (`yapfast-iced`):
   file beside Cancel, and `file_note` under each.
 - `markdown.rs`: inline code and code blocks fill with the theme's `code` role, not
   `panel`.
-- `tests/mod.rs`: `mod halocord_buttons;`, `mod halocord_button_pictures;` and
-  `mod halocord_fixes;`.
+- `tests/mod.rs`: `mod halocord_buttons;`, `mod halocord_button_pictures;`,
+  `mod halocord_fixes;` and `mod halocord_presence;`.
 
 Kit (`yapfast-iced-kit`) and vendor:
 
@@ -290,6 +310,13 @@ Discord (`yapfast-discord`):
 - `member_list.rs`: `presence` and the member list's rows call `halocord::note` with the
   presence (one line each).
 - `service/tracker.rs`: `presence` calls `halocord::note` (one line).
+- `service/session.rs`: a `halo: halocord::presence::Watch` field on `Session`
+  (made beside `away_changes`), a select arm that waits on `halo.due()` and sends
+  the presence again, `halo.apply(&mut presence)` after `own_activity::merge` in
+  `show_presence`, and `halocord::presence::identify` after the merge before the
+  gateway connects (Custom RPC, Animated status).
+- `api.rs`: `external_assets`, the call that gives an outside picture's `mp:`
+  key (Custom RPC).
 
 Calls (`yapfast-discord`):
 
