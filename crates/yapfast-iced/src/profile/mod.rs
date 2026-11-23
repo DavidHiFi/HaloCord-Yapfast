@@ -132,6 +132,8 @@ pub enum Event {
     /// editor opens.
     EditProfile,
     Editor(editor::Event),
+    /// View icons: a picture on the profile, opened full size in the browser.
+    ViewPicture(String),
 }
 
 /// An activity's more menu's width.
@@ -406,6 +408,7 @@ impl Profiles {
                 self.card = None;
                 cx.dispatch(Action::EditProfile);
             }
+            Event::ViewPicture(page) => crate::browser::open(&page),
             Event::TogglePanel => {
                 let shown = !cx.state().profile_panel;
                 cx.keep("profile_panel_hidden", !shown);
