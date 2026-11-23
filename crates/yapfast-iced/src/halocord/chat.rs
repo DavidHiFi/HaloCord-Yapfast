@@ -1,5 +1,6 @@
 //! Chat plugins: the staff and new account tags by names, and the
-//! character counter by the message box.
+//! character counter by the message box, and what a double-click on a
+//! message does.
 
 use iced::{
     Alignment, Element,
@@ -83,6 +84,61 @@ pub(super) const NEW_USER: Plugin = Plugin {
 
 /// Hook 4: A plugin's tag after a message's author: its words in a chip, or a
 /// crown, in the colour it sets.
+pub(super) const CLICK_ACTIONS: Plugin = Plugin {
+    id: id::CLICK_ACTIONS,
+    name: "Message click actions",
+    about: "Double-click a message to reply to it, or your own to edit it.",
+    on_at_first: false,
+    settings: &[Setting {
+        key: "edit_own",
+        heading: "Edit your own",
+        note: "A double-click on your own message edits it. Off, it replies, as on anyone else's.",
+        kind: Kind::Switch {
+            unless_changed: true,
+        },
+    }],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// What a double-click on row `index`'s message sends while Message click
+/// actions is on: Edit on one's own (unless its setting is off), else
+/// Reply, as the hover bar's buttons do, where the message box writes.
+pub fn double_click(cx: Ctx<'_>, index: usize) -> Option<Message> {
+    use crate::menus::MenuAct;
+    if !cx.layout.halocord.is(id::CLICK_ACTIONS) {
+        return None;
+    }
+    let message = cx.row_message(index)?;
+    if message.deleted || message.delivery != yapfast_core::chat::Delivery::default() {
+        return None;
+    }
+    let writes = if index >= crate::timeline::ASIDE {
+        crate::thread::aside_writes(cx)
+    } else {
+        crate::composer::composer_look(cx).enabled
+    };
+    if !writes {
+        return None;
+    }
+    let edits = cx
+        .layout
+        .halocord
+        .flag(&CLICK_ACTIONS, &CLICK_ACTIONS.settings[0]);
+    let act = if message.own && message.can_edit && edits {
+        MenuAct::Edit
+    } else if message.can_reply {
+        MenuAct::Reply
+    } else {
+        return None;
+    };
+    Some(Message::Menu(crate::menus::Event::Act(
+        act,
+        message.item.clone(),
+        iced::Point::ORIGIN,
+    )))
+}
+
 pub fn tag<'a>(ctx: Ctx<'a>, tag: Tag) -> Element<'a, Message> {
     let Some(color) = tag.color else {
         return ctx.blurple_tag(tag.text, 1.0);

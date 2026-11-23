@@ -238,6 +238,18 @@ impl<M> Inner<'_, '_, M> {
         }
     }
 
+    /// The pointer's look over the child as it is now, before the event
+    /// goes on to it.
+    pub fn interaction(&self) -> mouse::Interaction {
+        self.child.as_widget().mouse_interaction(
+            &*self.tree,
+            self.layout,
+            self.cursor,
+            &self.viewport,
+            self.renderer,
+        )
+    }
+
     /// Runs `operation` over the child.
     pub fn operate(&mut self, operation: &mut dyn Operation) {
         self.child
