@@ -294,52 +294,90 @@ pub fn message_rows(app: &App, message: &ChatMessage) -> Vec<MenuRow> {
 pub(super) const SONG_LINK: Plugin = Plugin {
     id: id::SONG_LINK,
     name: "Song link",
-    about: "\"Open on song.link\" in the menu of a message with a Spotify, Apple Music, YouTube Music or TIDAL song link opens song.link's page for it, which links the song on every service.",
+    about: "\"Open on song.link\" in the menu of a message with a Spotify or TIDAL track, an Apple Music album or song, or a YouTube Music video opens song.link's page for it, which links the song on every service.",
     on_at_first: false,
     settings: &[Setting {
         key: "country",
         heading: "Country",
-        note: "Two letters, for the services' links in your country.",
+        note: "Two letters, for the services' links in that country. Empty, song.link goes by where you are.",
         kind: Kind::Text {
             placeholder: "US",
-            unless_changed: "US",
+            unless_changed: "",
         },
     }],
     apply: |_, _| {},
     hooks: None,
 };
 
-/// Song link: the song links in `body` it knows: Spotify's, Apple Music's
-/// and iTunes', YouTube Music's and TIDAL's.
+/// Song link: the song links in `body` it knows, by their host and path:
+/// a Spotify or TIDAL track, an Apple Music (or iTunes) album or song, and a
+/// YouTube Music video.
 pub fn song_links(body: &str) -> Vec<&str> {
     let mut found: Vec<&str> = body
         .split(|char: char| char.is_whitespace() || char == '<' || char == '>')
         .map(|word| word.trim_end_matches([')', '.', ',', '!', '?']))
-        .filter(|word| {
-            let rest = word.strip_prefix("https://").unwrap_or_default();
-            ["open.spotify.com/track/", "play.spotify.com/track/"]
-                .iter()
-                .any(|start| rest.starts_with(start))
-                || ((rest.starts_with("music.apple.com/") || rest.starts_with("itunes.apple.com/"))
-                    && rest.contains("/album/"))
-                || rest.starts_with("music.youtube.com/watch?v=")
-                || rest.starts_with("tidal.com/track/")
-        })
+        .filter(|word| song(word))
         .collect();
     found.dedup();
     found
 }
 
+/// Whether `link` is a song Song link knows; see [`song_links`].
+fn song(link: &str) -> bool {
+    let Some(rest) = link.strip_prefix("https://") else {
+        return false;
+    };
+    let (host, path) = rest.split_once('/').unwrap_or((rest, ""));
+    let (path, query) = path.split_once('?').unwrap_or((path, ""));
+    let has = |segment: &str| path.split('/').any(|part| part == segment);
+    match host {
+        "open.spotify.com" | "play.spotify.com" | "tidal.com" | "listen.tidal.com" => has("track"),
+        "music.apple.com" | "itunes.apple.com" => has("album") || has("song"),
+        "music.youtube.com" => {
+            path == "watch" && query.split('&').any(|pair| pair.starts_with("v="))
+        }
+        _ => false,
+    }
+}
+
 /// Song link: song.link's page for `link`, for `country` when that's two
-/// letters.
+/// letters. Spotify's `si` (who shared it) is left off, and the link goes
+/// into song.link's address encoded, so its own `?` and `&` stay its own.
 pub fn song_page(link: &str, country: &str) -> String {
+    use std::fmt::Write as _;
+    let link = without_share_id(link);
+    let mut page = String::from("https://song.link/");
+    for byte in link.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-._~".contains(&byte) {
+            page.push(char::from(byte));
+        } else {
+            let _ = write!(page, "%{byte:02X}");
+        }
+    }
     let country = country.trim().to_uppercase();
-    let page = format!("https://song.link/{link}");
     if country.len() == 2 && country.bytes().all(|byte| byte.is_ascii_alphabetic()) {
-        let join = if link.contains('?') { '&' } else { '?' };
-        format!("{page}{join}userCountry={country}")
+        page.push_str("?userCountry=");
+        page.push_str(&country);
+    }
+    page
+}
+
+/// `link` without Spotify's `si`, which names who shared it.
+fn without_share_id(link: &str) -> String {
+    let spotify = ["https://open.spotify.com/", "https://play.spotify.com/"]
+        .iter()
+        .any(|start| link.starts_with(start));
+    let Some((base, query)) = link.split_once('?').filter(|_| spotify) else {
+        return link.to_owned();
+    };
+    let kept: Vec<&str> = query
+        .split('&')
+        .filter(|pair| !pair.starts_with("si=") && !pair.is_empty())
+        .collect();
+    if kept.is_empty() {
+        base.to_owned()
     } else {
-        page
+        format!("{base}?{}", kept.join("&"))
     }
 }
 
