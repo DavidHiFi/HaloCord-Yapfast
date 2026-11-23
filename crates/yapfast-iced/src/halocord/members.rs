@@ -8,6 +8,22 @@ use chrono::NaiveDate;
 use super::{Kept, Plugin, id, thousands};
 use crate::{app::Message, ctx::Ctx, pictures::Icon, style::hex};
 
+pub(super) const SHOW_CONNECTIONS: Plugin = Plugin {
+    id: id::SHOW_CONNECTIONS,
+    name: "Show connections",
+    about: "Someone's profile card shows their connections (Steam, Twitch, GitHub and the like), as their full profile does.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// Hook: whether a profile card shows the connections, as the full profile
+/// does, while Show connections is on.
+pub fn connections_on_card(cx: Ctx<'_>) -> bool {
+    cx.layout.halocord.is(id::SHOW_CONNECTIONS)
+}
+
 pub(super) const MEMBER_COUNT: Plugin = Plugin {
     id: id::MEMBER_COUNT,
     name: "Member count",

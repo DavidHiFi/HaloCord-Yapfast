@@ -184,6 +184,8 @@ Window (`yapfast-iced`):
 - Core `chat.rs`, `discord_text/render.rs`, `application/profiles.rs` and
   `yapfast-discord/src/ready.rs`: `ProfileRole::id`, which `named_roles` gives, and
   `show_role` names and colours a role from the open profile (Clickable roles).
+- `profile/body.rs`: the connections show when `halocord::connections_on_card` too (Show
+  connections).
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
