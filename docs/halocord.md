@@ -110,8 +110,8 @@ whole list to carry across.
 - `crates/yapfast-core/src/halocord/notification_title.rs`: Notification title (a reply's
   notification names whom it replies to).
 - `crates/yapfast-core/src/halocord/favorite_anything.rs`: Favorite anything (still
-  pictures and attached videos as favourites).
-
+  pictures and attached videos as favourites). Turning it on or off only affects messages
+  shown afterwards.
 - `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
   `.jfif` photo goes up as `.jpg`) and its tests.
 - `crates/yapfast-core/src/halocord/embedded_urls.rs`: Embedded URLs (a post's link goes
@@ -242,7 +242,13 @@ Window (`yapfast-iced`):
 - `client.rs`: plug-in point 2, one match arm in `execute`.
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines; `open_menu`
-  adds `halocord::message_rows` (the engine's rows, then Find reply's).
+  adds `halocord::message_rows` (the engine's rows, then Find reply's, then Song link's
+  "Open on song.link" while that plugin is on and the message has a Spotify, Apple Music,
+  YouTube Music or TIDAL song link). Song link's hook is `halocord::chosen`, which sends the
+  pick to `menus.rs`'s `own_pick`; that opens the outside site song.link in the browser, with
+  the message's first song link and the country code set in the plugin (`halocord::song_page`
+  and `song_links`). The song link and the country code therefore go to song.link when it is
+  clicked, and nowhere before.
 - `message/hover_bar.rs`: `hover_bar` pushes `halocord::mention_button` after Edit or
   Reply (Quick mention's @, one `if let`).
 - `search.rs`: a result's message goes through `halocord::search_result` (Search result
@@ -346,7 +352,8 @@ Window (`yapfast-iced`):
 - Core `discord_text/gifs.rs`: `favorite_gif` asks `halocord::favorite_anything::is_on`
   (`favorite_gif_with`), and its test `halocord_favorite_anything_stars_stills_and_videos`.
 - `message/attachments.rs`: the GIF corner leaves out a still picture's favourite
-  (`halocord::favorite_anything::still`).
+  (`halocord::favorite_anything::still`). Switching Favorite anything on or off changes
+  only the messages shown afterwards.
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
   `halocord::fix_file_extensions::name` first (Fix file extensions), and
   `start_send` runs each file's name and bytes through `halocord::auto_zipper::zipped`

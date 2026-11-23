@@ -1,5 +1,6 @@
-//! Opens web pages in the browser people chose; so far only Discord's
-//! captcha while linking. On the private test display, and in tests, no
+//! Opens web pages in the browser people chose: Discord's captcha while
+//! linking, and the links HaloCord's plugins open, such as a sticker at full
+//! size (Open sticker link) or a song's page (Song link). On the private test display, and in tests, no
 //! page opens: the host's browser would show it.
 
 /// Opens `page` in the default browser, and logs why if it couldn't.
