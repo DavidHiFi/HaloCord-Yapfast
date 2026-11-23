@@ -56,7 +56,9 @@ pub use members::{
     add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
 };
 pub use members::{role_press, zoom_size, zoomable};
-pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows, sticker_tile};
+pub use menus::{
+    attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, sticker_tile,
+};
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
 pub use servers::{home_mentions, no_request_badge};
 pub use voice::{in_voice_mark, unmute_mark, voice_count};
@@ -200,6 +202,9 @@ pub enum Event {
     Unmute(String),
     /// Copy sticker link: a sticker picker tile right clicked, by its picture.
     StickerMenu(String),
+    /// Quick mention's hover-bar button: this Discord user, mentioned in
+    /// the composer.
+    Mention(String),
 }
 
 /// Carries out a plugin's message.
@@ -207,6 +212,17 @@ pub fn update(app: &mut crate::app::App, event: Event) -> iced::Task<crate::app:
     match event {
         Event::Unmute(person) => voice::unmute(app, &person),
         Event::StickerMenu(picture) => return menus::sticker_menu(app, &picture),
+        // As Quick mention's menu row does: the composer takes the mention
+        // in and has the focus.
+        Event::Mention(user) => {
+            return menus::done(
+                app,
+                yapfast_core::halocord::Picked {
+                    actions: vec![yapfast_core::application::Action::MentionPerson(user)],
+                    ..Default::default()
+                },
+            );
+        }
     }
     iced::Task::none()
 }

@@ -130,6 +130,9 @@ pub fn hover_bar<'a>(ctx: crate::ctx::Ctx<'a>, index: usize) -> Option<Element<'
     } else if message.can_reply && writes {
         buttons = buttons.push(button(Icon::Reply, "Reply", act(MenuAct::Reply)));
     }
+    if let Some(mention) = crate::halocord::mention_button(ctx, message, writes) {
+        buttons = buttons.push(mention);
+    }
     // Beside Reply, as in Discord, whether or not Shift is held.
     if message.can_forward && crate::forward::allowed(ctx.state) {
         buttons = buttons.push(button(Icon::Forward, "Forward", act(MenuAct::Forward)));

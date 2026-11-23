@@ -84,10 +84,38 @@ pub(super) const QUICK_MENTION: Plugin = Plugin {
     name: "Quick mention",
     about: "Adds Mention to a message's right-click menu. It puts the sender's name in your message box.",
     on_at_first: false,
-    settings: &[],
+    settings: &[super::off(
+        "hover_button",
+        "Button in the hover bar",
+        "An @ beside Reply when you point at someone's message, which does the same.",
+    )],
     apply: |_, _| {},
     hooks: Some(&engine::quick_mention::QuickMention),
 };
+
+/// Quick mention's @ in a message's hover bar, while its switch for it is
+/// on, the message is someone else's on Discord and the composer writes.
+pub fn mention_button<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    message: &ChatMessage,
+    writes: bool,
+) -> Option<iced::Element<'a, Message>> {
+    let kept = &ctx.layout.halocord;
+    let shown =
+        writes && kept.on(&QUICK_MENTION) && kept.flag(&QUICK_MENTION, &QUICK_MENTION.settings[0]);
+    let user = engine::quick_mention::author(message).filter(|_| shown)?;
+    Some(
+        ctx.look
+            .icon_button(
+                crate::pictures::Icon::AtSign,
+                "Mention",
+                Message::HaloCord(super::Event::Mention(user.to_owned())),
+            )
+            // As the hover bar's own buttons.
+            .size(32.0, 20)
+            .into(),
+    )
+}
 
 pub(super) const COPY_PROFILE_LINK: Plugin = Plugin {
     id: id::COPY_PROFILE_LINK,
@@ -338,7 +366,7 @@ pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
 }
 
 /// What a chosen row gave: its actions, and its text to copy.
-fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
+pub(super) fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
     let mentions = picked
         .actions
         .iter()

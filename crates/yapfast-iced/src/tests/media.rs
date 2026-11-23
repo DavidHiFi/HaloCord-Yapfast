@@ -769,3 +769,60 @@ fn a_store_button_on_a_bots_message_without_its_app_opens_the_bots_store() {
         "the bot's store"
     );
 }
+
+/// Quick mention's hover-bar @: only with its switch on, only on someone
+/// else's Discord message, and its press puts the mention in the composer.
+#[test]
+fn quick_mentions_hover_button_mentions_the_author() {
+    use crate::halocord::{Change, changed, mention_button, place};
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let plugin = place("quick-mention").expect("the plugin");
+    let from = |sender: &str, own: bool| ChatMessage {
+        body: "Hello there".into(),
+        sender: sender.into(),
+        own,
+        ..Default::default()
+    };
+    let shown = |app: &crate::app::App, message: &ChatMessage| {
+        mention_button(app.ctx(), message, true).is_some()
+    };
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    assert!(!shown(&app, &from("discord:42", false)), "off at first");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: true,
+        },
+    );
+    assert!(shown(&app, &from("discord:42", false)));
+    assert!(!shown(&app, &from("discord:42", true)), "your own");
+    assert!(!shown(&app, &from("@sam:matrix.org", false)), "Matrix");
+    assert!(
+        mention_button(app.ctx(), &from("discord:42", false), false).is_none(),
+        "where you can't write"
+    );
+    // The press: the mention goes in the composer, as the menu row's does
+    // (the preview's Sam stands in for the author).
+    let _ = app.update(crate::app::Message::HaloCord(
+        crate::halocord::Event::Mention("@sam:preview.local".into()),
+    ));
+    assert!(app.client.state().draft().contains("@Sam"), "in the draft");
+    assert!(
+        app.composer.draft.text().contains("@Sam"),
+        "and in the composer's field, as the menu row puts it"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert!(!shown(&app, &from("discord:42", false)));
+}
