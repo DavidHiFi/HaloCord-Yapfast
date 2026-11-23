@@ -47,6 +47,18 @@ macro_rules! for_theme_colours {
         reply_spine,
         tooltip,
         avatar,
+        focus,
+        edge_from,
+        edge_to,
+        frost,
+        frost_solid,
+        dim,
+        shadow,
+        success,
+        warning,
+        info,
+        code,
+        shimmer_low,
         }
     };
 }

@@ -27,6 +27,11 @@ card has a pencil that opens it again to rename, change or delete it;
 deleting the chosen one shows Yap. Closing the window to the
 [tray](tray.md) closes Settings, so it drops the unsaved edit too.
 
+In HaloCord's build, the editor's Save to file writes the theme as it is to a
+`.json` file in the form below, and Load from file beside New theme reads one
+back as a new custom theme and chooses it. A file with none of the colour
+names, or that isn't JSON, is refused with a note.
+
 `layout.json` keeps them in `custom_themes`, in the order Appearance shows
 them after the built-in ones:
 
@@ -55,17 +60,27 @@ card.
 | Yap | `yap` | yes | marigold | Yapfast's own |
 | Bonfire | `bonfire` | yes | blurple | Discord's Dark theme, the default |
 | Catppuccin Mocha | `catppuccin-mocha` | yes | mauve | [Catppuccin](https://github.com/catppuccin/catppuccin) |
+| Catppuccin Macchiato | `catppuccin-macchiato` | yes | mauve | [Catppuccin](https://github.com/catppuccin/catppuccin), HaloCord's |
+| Catppuccin Frappé | `catppuccin-frappe` | yes | mauve | [Catppuccin](https://github.com/catppuccin/catppuccin), HaloCord's |
 | MochaCord | `mochacord` | yes | mauve, blue links | HaloCord's: Catppuccin Mocha with the rice values; see [HaloCord's build](halocord.md) |
+| MochaCord Blue | `mochacord-blue` | yes | blue | HaloCord's: MochaCord with a blue accent |
+| MochaCord Green | `mochacord-green` | yes | green | HaloCord's: MochaCord with HaloCord's green |
+| MochaCord Pink | `mochacord-pink` | yes | pink | HaloCord's: MochaCord with a pink accent |
 | Dracula | `dracula` | yes | purple | [Dracula](https://draculatheme.com/contribute) |
 | Nord | `nord` | yes | frost nord8 | [Nord](https://www.nordtheme.com/docs/colors-and-palettes) |
 | Gruvbox Dark | `gruvbox-dark` | yes | orange | [Gruvbox](https://github.com/morhetz/gruvbox) |
 | Tokyo Night | `tokyo-night` | yes | blue | [Tokyo Night](https://github.com/tokyo-night/tokyo-night-vscode-theme), Night style |
+| Rosé Pine | `rose-pine` | yes | iris | [Rosé Pine](https://rosepinetheme.com/palette/), HaloCord's |
+| Kanagawa | `kanagawa` | yes | crystal blue | [Kanagawa](https://github.com/rebelot/kanagawa.nvim), Wave style, HaloCord's |
+| Everforest | `everforest` | yes | green | [Everforest](https://github.com/sainnhe/everforest), dark medium, HaloCord's |
+| One Dark | `one-dark` | yes | blue | [One Dark](https://github.com/atom/one-dark-syntax), HaloCord's |
 | Catppuccin Latte | `catppuccin-latte` | no | mauve | [Catppuccin](https://github.com/catppuccin/catppuccin) |
 | Rosé Pine Dawn | `rose-pine-dawn` | no | rose | [Rosé Pine](https://rosepinetheme.com/palette/) |
 | Sakura | `sakura` | no | blossom pink | Yapfast's own |
 
-The palettes of Catppuccin, Dracula, Nord, Gruvbox, Tokyo Night and Rosé Pine
-are published under the MIT licence; thanks to their authors. For Tokyo
+The palettes of Catppuccin, Dracula, Nord, Gruvbox, Tokyo Night, Rosé Pine,
+Kanagawa, Everforest and One Dark are published under the MIT licence; thanks
+to their authors. For Tokyo
 Night, the steps between its grounds and text (bg_highlight, fg_gutter, dark3,
 dark5) are named as folke's tokyonight.nvim names them. Yapfast takes their
 colours, not their names for UI parts, so each mapping is Yapfast's:
@@ -84,6 +99,15 @@ colours, not their names for UI parts, so each mapping is Yapfast's:
 - Light themes wash hovers with a dark overlay (black, or the palette's text
   colour) instead of white, sweep skeletons with a white band, and draw the
   tooltip light, since its text is the theme's text colour.
+
+HaloCord adds twelve colour roles to every theme, after the ones above: `focus`
+(a focus ring), `edge-from` and `edge-to` (the hover gradient's ends), `frost`
+(the see-through fill of menus and pop-ups) and `frost-solid` (their fill where
+there's no blur), `dim` (behind a dialog), `shadow`, `success`, `warning`,
+`info`, `code` (a code block's ground) and `shimmer-low` (the loading
+shimmer's low end). A theme that leaves one out gets it worked out from its own
+colours: the accent, link to accent, the sidebar at 60%, and so on
+(`halocord/themes.rs` `roles`).
 
 Bonfire maps Discord's Dark theme from the CSS variables of its web client
 (`.theme-dark` with `.theme-darker`, which is what its settings call Dark;

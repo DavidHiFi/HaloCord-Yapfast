@@ -12,6 +12,7 @@ pub mod copy_user_url;
 pub mod new_user;
 pub mod quick_mention;
 pub mod staff;
+pub mod themes;
 
 use crate::{
     application::{Action, Application, Effect},
