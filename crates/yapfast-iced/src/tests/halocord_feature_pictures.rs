@@ -363,3 +363,43 @@ fn picture_of_build_13_plugins() {
     assert!(shows(&app, "Message click actions"));
     draw(&app, "plugin-click-actions");
 }
+
+#[test]
+#[ignore = "writes pictures for a person to look at"]
+fn picture_of_build_14_plugins() {
+    let (mut app, _folder) = mocha();
+    let _alone = super::plugin_alone();
+    for (plugin, search, name, picture) in [
+        (
+            id::CLICKABLE_ROLES,
+            "clickable roles",
+            "Clickable roles",
+            "plugin-clickable-roles",
+        ),
+        (
+            id::COPY_STATUS_URLS,
+            "status link",
+            "Copy status link",
+            "plugin-copy-status-link",
+        ),
+        (
+            id::COPY_PROFILE_COLORS,
+            "profile colors",
+            "Copy profile colors",
+            "plugin-copy-profile-colors",
+        ),
+        (
+            id::FIND_REPLY,
+            "find reply",
+            "Find reply",
+            "plugin-find-reply",
+        ),
+    ] {
+        turn_on(&mut app, plugin);
+        let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+        let _ = app.update(Message::Settings(Event::Search(search.into())));
+        let _ = app.sync();
+        assert!(shows(&app, name), "{name}");
+        draw(&app, picture);
+    }
+}

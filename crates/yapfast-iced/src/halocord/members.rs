@@ -219,6 +219,23 @@ pub(super) const VIEW_ICONS: Plugin = Plugin {
 
 /// What a click on a profile's picture at `url` sends while View icons is
 /// on: it opens the picture at its biggest.
+pub(super) const CLICKABLE_ROLES: Plugin = Plugin {
+    id: id::CLICKABLE_ROLES,
+    name: "Clickable roles",
+    about: "Click a role on someone's profile to see who else has it.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// What a click on the role `role` (its Discord id) on a profile sends
+/// while Clickable roles is on: its card, in place of the profile.
+pub fn role_press(cx: Ctx<'_>, role: &str) -> Option<Message> {
+    (cx.layout.halocord.is(id::CLICKABLE_ROLES) && !role.is_empty())
+        .then(|| Message::Info(crate::info_cards::Event::ProfileRole(role.to_owned())))
+}
+
 pub fn full_picture(cx: Ctx<'_>, url: Option<&str>) -> Option<Message> {
     let url = url.filter(|_| cx.layout.halocord.is(id::VIEW_ICONS))?;
     Some(Message::Profile(crate::profile::Event::ViewPicture(

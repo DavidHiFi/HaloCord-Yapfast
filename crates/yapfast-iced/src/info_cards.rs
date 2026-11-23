@@ -85,6 +85,9 @@ pub enum Event {
     CloseExpression,
     /// The server an emoji's or sticker's card names.
     OpenServer(String),
+    /// A role on a profile, by id (HaloCord's Clickable roles): its card at
+    /// the press, in place of the profile.
+    ProfileRole(String),
 }
 
 /// The frame of a card over the window (`ground`, the theme's edge and the
@@ -147,7 +150,10 @@ impl Cards {
                 cx.dispatch(Action::CloseProfile);
                 cx.dispatch(Action::Navigate(Navigation::Server(server)));
             }
-            Event::RoleMember(_) | Event::Server(_) | Event::Sticker(..) => {}
+            Event::RoleMember(_)
+            | Event::Server(_)
+            | Event::Sticker(..)
+            | Event::ProfileRole(_) => {}
         }
         cx.touch();
         Task::none()

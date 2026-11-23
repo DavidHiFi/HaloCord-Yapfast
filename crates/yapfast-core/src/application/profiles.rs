@@ -45,6 +45,7 @@ impl Application {
             roles: role
                 .filter(|_| !discord)
                 .map(|name| ProfileRole {
+                    id: String::new(),
                     name: name.into(),
                     color: None,
                 })
@@ -169,12 +170,21 @@ impl Application {
             .iter()
             .flat_map(|message| &message.mentions)
             .find(|mention| mention.target == Target::Role(role.clone()))
-            .map(|mention| mention.text.trim_start_matches('@').to_owned())
+            .map(|mention| mention.text.trim_start_matches('@').to_owned());
+        // Or as the open profile shows it, for a role clicked there.
+        let shown = self
+            .state
+            .profile
+            .as_ref()
+            .and_then(|view| view.profile.roles.iter().find(|shown| shown.id == role));
+        let color = shown.and_then(|shown| shown.color);
+        let name = name
+            .or_else(|| shown.map(|shown| shown.name.clone()))
             .unwrap_or_default();
         self.state.role = Some(RoleView {
             id: role.clone(),
             name,
-            color: None,
+            color,
             members: None,
         });
         if self.state.preview || Network::of(&room) != Network::Discord {
