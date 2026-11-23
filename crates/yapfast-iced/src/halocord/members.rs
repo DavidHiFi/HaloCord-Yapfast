@@ -119,8 +119,7 @@ pub fn server_tip<'a>(
     server: &str,
     name: std::borrow::Cow<'a, str>,
 ) -> std::borrow::Cow<'a, str> {
-    let paused = server
-        .strip_prefix("discord:")
+    let paused = yapfast_core::discord::parse_server(server)
         .is_some_and(yapfast_core::yapfast_discord::halocord::invites_paused);
     if paused && shows_hidden(cx, 1) {
         std::borrow::Cow::Owned(format!("{name} · Invites paused"))

@@ -232,8 +232,6 @@ Window (`yapfast-iced`):
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
   `composer_look` ends the timed-out line with `halocord::timeout_note` (the time left).
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
-- `ready.rs` (`yapfast-discord`): `server` notes whether invites are paused with
-  `halocord::note_invites` (Show hidden things).
 - `message/mod.rs`: after the plugins' tags by an author's name, `halocord::message_timeout`'s
   clock (Show hidden things).
 - `rail.rs`: a server's name when pointed at goes through `halocord::server_tip` (Show hidden
@@ -298,6 +296,8 @@ Discord (`yapfast-discord`):
 - `member_list.rs`: `presence` and the member list's rows call `halocord::note` with the
   presence (one line each).
 - `service/tracker.rs`: `presence` calls `halocord::note` (one line).
+- `ready.rs`: `server` notes whether invites are paused with `halocord::note_invites`
+  (Show hidden things; one line).
 
 Calls (`yapfast-discord`):
 
