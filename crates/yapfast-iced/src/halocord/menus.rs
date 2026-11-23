@@ -44,7 +44,7 @@ pub(super) const COPY_FILE_TEXT: Plugin = Plugin {
 pub(super) const COPY_STICKER_LINK: Plugin = Plugin {
     id: id::COPY_STICKER_LINK,
     name: "Copy sticker link",
-    about: "Adds Copy sticker link to a sticker's right-click menu, in a message and in the sticker picker. It copies the web address of the sticker.",
+    about: "Adds Copy sticker link and Open sticker link to a sticker's right-click menu, in a message and in the sticker picker. Copy copies the web address of the sticker; Open shows it at full size in your browser.",
     on_at_first: false,
     settings: &[],
     apply: |_, _| {},
@@ -365,7 +365,8 @@ pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
     done(app, engine::pick(key, &message))
 }
 
-/// What a chosen row gave: its actions, and its text to copy.
+/// What a chosen row gave: its actions, its text to copy, and a web page to
+/// open in the browser.
 pub(super) fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
     let mentions = picked
         .actions
@@ -375,6 +376,9 @@ pub(super) fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
         app.client.dispatch(action);
     }
     let copied = picked.copy.map_or_else(Task::none, iced::clipboard::write);
+    if let Some(page) = picked.open {
+        crate::browser::open(&page);
+    }
     // A mention changes the message box's text: it takes it in and has focus.
     let focus = if mentions {
         let draft = app.client.state().draft().to_owned();

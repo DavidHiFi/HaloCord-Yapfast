@@ -155,7 +155,7 @@ impl Hooks for CopyFileContents {
                 item: message.item.clone(),
                 index: at,
             }],
-            copy: None,
+            ..Picked::default()
         }
     }
 }

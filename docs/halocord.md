@@ -90,8 +90,9 @@ whole list to carry across.
   are off).
 - `crates/yapfast-iced-kit/icons/halo-desktop.svg`, `halo-phone.svg`, `halo-web.svg`:
   its three marks.
-- `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link in a
-  sticker's menu.
+- `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link and Open
+  sticker link (512 px, lossless where the media server takes it; not for animated Lottie
+  stickers) in a sticker's menu.
 - `crates/yapfast-core/src/halocord/quick_mention.rs`: Mention in a message's menu
   (puts the sender's name in the message box), and `author`, whom the hover bar's @
   button mentions.
