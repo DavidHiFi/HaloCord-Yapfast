@@ -75,3 +75,5 @@ png = "0.18"
 iced_test = "=0.14.0"
 yapfast-core = { path = "../yapfast-core", default-features = false, features = ["discord", "test-fixtures"] }
 tempfile.workspace = true
+# Crops and scales the polish pictures (already built for build.rs).
+image = { version = "0.25", default-features = false, features = ["png"] }

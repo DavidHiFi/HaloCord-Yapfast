@@ -366,9 +366,18 @@ fn this_account_in_a_call_on_another_client_says_so_under_its_channel() {
 fn account_card(app: &App) -> iced_test::Simulator<'_, Message> {
     iced_test::Simulator::with_size(
         iced::Settings::default(),
-        iced::Size::new(300.0, crate::account::HEIGHT + crate::account::INSET),
+        iced::Size::new(
+            300.0,
+            crate::account::full_height(app.ctx()) + crate::account::INSET,
+        ),
         crate::account::view(app.ctx()),
     )
+}
+
+/// How far the name row's middle is down the card: the plugin buttons' row
+/// (the top bar's Restart and Read all, here) sits above it.
+fn middle(app: &App) -> f32 {
+    crate::account::full_height(app.ctx()) - crate::account::HEIGHT + crate::account::HEIGHT / 2.0
 }
 
 /// What a click on the account card's microphone sends: the card is 284
@@ -376,7 +385,7 @@ fn account_card(app: &App) -> iced_test::Simulator<'_, Message> {
 /// devices' toggles with their carets 5 px apart.
 fn account_mic_click(app: &App) -> Vec<Message> {
     let mut ui = account_card(app);
-    ui.point_at(iced::Point::new(148.0, crate::account::HEIGHT / 2.0));
+    ui.point_at(iced::Point::new(148.0, middle(app)));
     ui.simulate(iced_test::simulator::click());
     ui.into_messages().collect()
 }
@@ -454,7 +463,7 @@ fn the_account_cards_avatar_rings_while_its_microphone_carries_voice() {
     let (width, _, _) = quiet;
     let scale = 2;
     let ring = |pixels: &[u8]| {
-        let y = (crate::account::HEIGHT as usize / 2) * scale;
+        let y = middle(&app) as usize * scale;
         let x = 13 * scale + 1;
         let at = (y * width as usize + x) * 4;
         pixels[at..at + 4].to_vec()
@@ -473,7 +482,7 @@ fn the_account_cards_avatar_opens_the_status_popover_only_with_discord_linked() 
     let (mut app, _folder) = preview();
     let click_avatar = |app: &App| -> Vec<Message> {
         let mut ui = account_card(app);
-        ui.point_at(iced::Point::new(36.0, crate::account::HEIGHT / 2.0));
+        ui.point_at(iced::Point::new(36.0, middle(app)));
         ui.simulate(iced_test::simulator::click());
         ui.into_messages().collect()
     };
@@ -498,7 +507,7 @@ fn the_account_cards_cog_opens_settings_where_they_were_last() {
     let click_cog = |app: &mut App| {
         let messages: Vec<Message> = {
             let mut ui = account_card(app);
-            ui.point_at(iced::Point::new(262.0, crate::account::HEIGHT / 2.0));
+            ui.point_at(iced::Point::new(262.0, middle(app)));
             ui.simulate(iced_test::simulator::click());
             ui.into_messages().collect()
         };
@@ -530,7 +539,7 @@ fn the_account_card_without_a_discord_presence_shows_the_previews_dot() {
     let scale = 2.0;
     let (x, y) = (
         16.0 + 27.0 + 7.0,
-        (crate::account::HEIGHT - 40.0) / 2.0 + 27.0 + 7.0,
+        middle(&app) - 20.0 + 27.0 + 7.0,
     );
     let at = (((y * scale) as usize) * width as usize + (x * scale) as usize) * 4;
     let accent = app.look().theme.accent;
@@ -595,7 +604,7 @@ fn the_account_cards_carets_sit_at_the_middle_of_their_toggles() {
     // press 8 px above or below the card's middle is on it.
     for off in [-8.0, 8.0] {
         let mut ui = account_card(&app);
-        ui.point_at(iced::Point::new(174.0, crate::account::HEIGHT / 2.0 + off));
+        ui.point_at(iced::Point::new(174.0, middle(&app) + off));
         ui.simulate(iced_test::simulator::click());
         assert!(
             ui.into_messages()

@@ -213,11 +213,13 @@ impl<'a, M: Clone + 'a> From<Action<'a, M>> for Element<'a, M> {
 /// The style of a button with no face of its own, or `rest`, that shows
 /// `lit` under the pointer: icon buttons, menu and list rows. In the rice
 /// look it's framed too, in the hover edge, the pressed one while held.
+/// `radius` may round only some corners, for a button inside a round card.
 pub fn lit_style(
     rest: Option<Color>,
     lit: Color,
-    radius: f32,
+    radius: impl Into<iced::border::Radius>,
 ) -> impl Fn(&iced::Theme, button::Status) -> button::Style + Copy {
+    let radius: iced::border::Radius = radius.into();
     move |_, status| button::Style {
         background: if lights(status) {
             Some(lit.into())
@@ -1301,7 +1303,24 @@ pub fn choices<'a, M: Clone + 'a>(
     choices_within(theme, options, current, 360.0, on_choose)
 }
 
-/// [`choices`] at most `widest` across, for a row of many.
+/// The room a choice's label needs, with its sides, at size 14: each
+/// character at 0.65 of the size (a little wide of the widest fonts the app
+/// ships), so an estimate never comes out short.
+fn choice_need(label: &str) -> f32 {
+    label.chars().count() as f32 * 14.0 * 0.65 + 16.0
+}
+
+/// Whether `options` fit one row `widest` across: each at the room its label
+/// needs, with the row's padding and the gaps between.
+fn choices_fit(options: &[&str], widest: f32) -> bool {
+    let labels: f32 = options.iter().map(|option| choice_need(option)).sum();
+    let gaps = 3.0 * options.len().saturating_sub(1) as f32;
+    labels + gaps + 6.0 <= widest
+}
+
+/// [`choices`] at most `widest` across, for a row of many. When the labels
+/// don't fit one row they wrap onto more, each option at its label's width,
+/// so none overlaps or is cut off, at any width of the page.
 pub fn choices_within<'a, M: Clone + 'a>(
     theme: &Theme,
     options: &[&'a str],
@@ -1309,7 +1328,9 @@ pub fn choices_within<'a, M: Clone + 'a>(
     widest: f32,
     on_choose: impl Fn(usize) -> M,
 ) -> Element<'a, M> {
+    let one_row = choices_fit(options, widest);
     let mut row = row![].spacing(3).padding(3);
+    let mut wrapped: Vec<Element<'a, M>> = Vec::new();
     for (index, option) in options.iter().enumerate() {
         let chosen = index == current;
         let (active, hover) = (theme.active, theme.hover);
@@ -1318,21 +1339,28 @@ pub fn choices_within<'a, M: Clone + 'a>(
         } else {
             (theme.secondary, theme.text)
         };
-        row = row.push(
-            button(
-                container(
-                    text(*option)
-                        .size(14)
-                        .font(if chosen { BOLD } else { MEDIUM })
-                        .wrapping(text::Wrapping::None),
-                )
+        let label = text(*option)
+            .size(14)
+            .font(if chosen { BOLD } else { MEDIUM })
+            .wrapping(text::Wrapping::None);
+        let face = if one_row {
+            container(label)
                 .center_x(Length::Fill)
                 .height(Length::Fill)
-                .align_y(Alignment::Center),
-            )
-            .padding([0, 4])
-            .width(Length::FillPortion(option.len() as u16 + 6))
-            .height(Length::Fill)
+                .align_y(Alignment::Center)
+        } else {
+            container(label)
+                .height(Length::Fill)
+                .align_y(Alignment::Center)
+        };
+        let choice = button(face)
+            .padding([0, if one_row { 4 } else { 12 }])
+            .width(if one_row {
+                Length::FillPortion(option.len() as u16 + 6)
+            } else {
+                Length::Shrink
+            })
+            .height(if one_row { Length::Fill } else { Length::Fixed(30.0) })
             .on_press(on_choose(index))
             .style(move |_, status| {
                 let lit = lights(status);
@@ -1346,15 +1374,32 @@ pub fn choices_within<'a, M: Clone + 'a>(
                     border: Border::default().rounded(6),
                     ..Default::default()
                 }
-            }),
-        );
+            });
+        if one_row {
+            row = row.push(choice);
+        } else {
+            wrapped.push(choice.into());
+        }
     }
     let sunken = theme.sunken;
-    container(row)
-        .height(36)
-        .max_width(widest)
-        .style(move |_| rounded(sunken, 8))
-        .into()
+    if one_row {
+        return container(row)
+            .height(36)
+            .max_width(widest)
+            .style(move |_| rounded(sunken, 8))
+            .into();
+    }
+    container(
+        iced::widget::Row::with_children(wrapped)
+            .spacing(3)
+            .padding(3)
+            .wrap()
+            .vertical_spacing(3),
+    )
+    .width(Length::Fill)
+    .max_width(widest)
+    .style(move |_| rounded(sunken, 8))
+    .into()
 }
 
 /// A tab with a bar under it while chosen (the full profile's, the voice
@@ -1406,4 +1451,30 @@ pub fn tab<'a, M: Clone + 'a>(tab: Tab<'a>, press: M) -> Element<'a, M> {
         ..Default::default()
     })
     .into()
+}
+
+#[cfg(test)]
+mod choice_tests {
+    use super::*;
+
+    #[test]
+    fn short_numbers_fit_one_row_and_long_labels_wrap() {
+        assert!(choices_fit(&["64", "128", "256", "384", "510"], 360.0));
+        let long = [
+            "30 minutes",
+            "1 hour",
+            "6 hours",
+            "12 hours",
+            "1 day",
+            "7 days",
+            "Never",
+        ];
+        assert!(!choices_fit(&long, 360.0));
+        assert!(choices_fit(&long, 900.0));
+    }
+
+    #[test]
+    fn a_need_grows_with_the_label() {
+        assert!(choice_need("510") < choice_need("30 minutes"));
+    }
 }

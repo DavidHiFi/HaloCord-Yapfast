@@ -264,7 +264,7 @@ impl App {
     /// only while someone may be looking, and counts the open conversation
     /// as read only while the window is in front.
     fn focus_changed(&mut self, focused: bool) {
-        crate::mochacord::set_in_front(focused);
+        crate::mochacord::refresh_effects();
         if std::mem::replace(&mut self.shell.focused, focused) != focused {
             self.client.dispatch(Action::WindowFocused(focused));
             let reads = self.reads();

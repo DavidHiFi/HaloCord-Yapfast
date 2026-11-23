@@ -32,6 +32,11 @@ whole list to carry across.
   and weight, and the one-time switch flag), applying it, the glass fills' alpha
   (`glass`, `Dock`), the first-start switch to the theme, and the Windows backdrop
   (direct `dwmapi` calls, so no new dependency).
+- `crates/yapfast-iced/src/mochacord/blur.rs`: when the glass shows (`glass_shows`:
+  glass asked, a see-through surface, and Windows blurring; never the window's
+  focus), what Windows says about its effects (transparency effects, battery
+  saver), and the accent policy's acrylic blur that keeps blurring behind another
+  window.
 - `crates/yapfast-iced/src/settings/pages/mochacord.rs`: MochaCord's options, drawn in the dialog the Themes page opens.
 - `crates/yapfast-iced/src/halocord/theme_files.rs`: Appearance's Save to file and
   Load from file (a theme as the JSON `layout.json` keeps it in).
@@ -149,7 +154,7 @@ Window (`yapfast-iced`):
 - `sidebar/mod.rs`: the same on the channel list's ground. `window_bar.rs`: the same on
   the title bar's ground.
 - `shell.rs`: `transparent` in `window_settings`; `mochacord::frame(window)` in
-  `opened`; `mochacord::set_in_front` in `focus_changed`.
+  `opened`; `mochacord::refresh_effects` in `focus_changed`.
 - `rail.rs`: `HOME_ROOM` above the home tile, and `logo_tile` (the riced icon).
 - `settings/pages/mod.rs`: `mod mochacord;`, `Pref::MochaCord(Change)` and its arm.
 - `layout.rs`: the `halocord: crate::halocord::Kept` field on `Layout`.
@@ -178,7 +183,9 @@ Window (`yapfast-iced`):
   `Event::Plugin(Change)`, and `view` reads `layout.halocord.dock()` for compact mode
   (smaller, inside the channel list), hidden dropdown arrows and the extra buttons,
   and says "Faking mute" or "Faking deafen" under the name in a call. The Game
-  activity button's `Event::ShowGame` and its arm send `Action::ShowGame`.
+  activity button's `Event::ShowGame` and its arm send `Action::ShowGame`. The
+  plugin buttons (`plugin_buttons`) sit in a row of their own above the name
+  (the kit's `dock_button`), and `full_height` is the card's height with that row.
 - `profile/body.rs`: `member_since` draws both dates through `halocord::exact_day`
   (Better joined date's whole date and days ago on pointing), and `profile_top` asks
   `halocord::full_picture` what a click on the banner, or on the full profile's
@@ -193,7 +200,7 @@ Window (`yapfast-iced`):
 - Core `chat.rs`, `discord_text/render.rs`, `application/profiles.rs` and
   `yapfast-discord/src/ready.rs`: `ProfileRole::id`, which `named_roles` gives, and
   `show_role` names and colours a role from the open profile (Clickable roles).
-- `status.rs`: the popover's bottom uses `account::height(compact)`.
+- `status.rs`: the popover's bottom uses `account::full_height`.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
 - `call/mod.rs`: `Event::Unmute(person)` and its arm, which calls `halocord::unmute`.
@@ -253,6 +260,8 @@ Window (`yapfast-iced`):
   number).
 - `markdown.rs`: inline code and code blocks fill with the theme's `code` role, not
   `panel`.
+- `active_now.rs`: `card_corners` gives the head's and the last row's lit edge the
+  card's round corners (`lit_style` takes per-corner radii).
 - `tests/mod.rs`: `mod halocord_buttons;`, `mod halocord_button_pictures;` and
   `mod halocord_fixes;`.
 
@@ -261,11 +270,12 @@ Kit (`yapfast-iced-kit`) and vendor:
 - `fonts.rs`: `mod pick;`, and a call in `install` before the fallback list.
 - `widgets/pointer.rs`: `DoublePress`, a left double press that leaves the child its
   presses; `widgets/mod.rs`: `Inner::interaction`, the child's pointer look.
-- `style.rs`: `set_corner_scale`, read in `rounded`, `edge` and `round`; `controls.rs` `lit_style` takes its corners from `round`.
+- `style.rs`: `set_corner_scale`, read in `rounded`, `edge` and `round`; `controls.rs` `lit_style` takes its corners from `round`, and its radius may be per corner.
 - `widgets/smooth.rs` and `smooth/bar.rs`: `BarGradient` and `set_bar_look`, drawn in
   `Smooth::draw`.
 - `renderer.rs`: `want_glass`, `glass_wanted`, `glass_active`.
-- `controls.rs`: `field_style` rings a field in the theme's `focus` role.
+- `controls.rs`: `field_style` rings a field in the theme's `focus` role; `choices_within`
+  wraps its options onto more rows when their labels don't fit one (`choices_fit`).
 - `icons.rs`: `Icon::HaloLogo`, `HaloDesktop`, `HaloPhone`, `HaloWeb`.
 - `vendor/iced_wgpu`: `glass.rs` and the glass attempt in `window/compositor.rs` (see
   its `README.yapfast.md`).

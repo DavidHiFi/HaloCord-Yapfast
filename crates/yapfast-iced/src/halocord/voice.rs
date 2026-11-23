@@ -19,15 +19,15 @@ pub(super) const STEREO: Plugin = Plugin {
     on_at_first: true,
     settings: &[Setting {
         key: "bitrate",
-        heading: "MICROPHONE BIT RATE",
+        heading: "MICROPHONE BIT RATE (KBIT/S)",
         note: "How much detail your microphone keeps in calls. 510 kbit/s is the most Discord calls carry. With this plugin off, calls send at Yapfast's own 128 kbit/s.",
         kind: Kind::Choice {
             names: &[
-                "64 kbit/s",
-                "128 kbit/s",
-                "256 kbit/s",
-                "384 kbit/s",
-                "510 kbit/s",
+                "64",
+                "128",
+                "256",
+                "384",
+                "510",
             ],
             values: &engine::BITRATES,
             unless_changed: engine::DEFAULT_BITRATE,

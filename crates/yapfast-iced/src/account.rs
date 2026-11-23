@@ -33,9 +33,27 @@ const COMPACT_HEIGHT: f32 = 44.0;
 const COMPACT_AVATAR: f32 = 30.0;
 const COMPACT_BUTTON: f32 = 28.0;
 
-/// The card's height, compact or not.
+/// The card's height, compact or not, without the plugin buttons' row.
 pub fn height(compact: bool) -> f32 {
     if compact { COMPACT_HEIGHT } else { HEIGHT }
+}
+
+/// The plugin buttons' row above the name: its buttons' height, the gap
+/// above them and the inset from the card's sides.
+const PLUGIN_BUTTON: f32 = 32.0;
+const PLUGIN_TOP: f32 = 6.0;
+const PLUGIN_INSET: f32 = 8.0;
+
+/// What the card takes in all: its height, and the plugin buttons' row when
+/// one is on.
+pub fn full_height(ctx: crate::ctx::Ctx<'_>) -> f32 {
+    let compact = ctx.layout.halocord.dock().compact;
+    height(compact)
+        + if plugin_buttons(ctx).is_empty() {
+            0.0
+        } else {
+            PLUGIN_BUTTON + PLUGIN_TOP
+        }
 }
 
 /// What the card shows of the account.
@@ -450,99 +468,31 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     ]
     .spacing(5)
     .align_y(Alignment::Center);
-    // The plugin buttons the User area switches on: a plugin's switch, lit
-    // in the accent while it is on.
-    let kept = &ctx.layout.halocord;
-    let switch_button = |id: &str, icon: Icon, on_label: &'static str, off_label: &'static str| {
-        let on = kept.is(id);
-        let message = crate::halocord::place(id).map(|plugin| {
-            Message::Account(Event::Plugin(crate::halocord::Change::Switch {
-                plugin,
-                on: !on,
-            }))
-        });
-        tinted_button(
-            ctx,
-            icon,
-            if on { on_label } else { off_label },
-            if on { theme.accent } else { theme.text },
-            glyph(20),
-            side,
-            message,
-        )
-    };
-    let mut controls = controls;
-    if dock.fake_mute {
-        controls = controls.push(switch_button(
-            crate::halocord::FAKE_MUTE,
-            Icon::MicOff,
-            "Stop faking mute",
-            "Fake mute",
-        ));
-    }
-    if dock.fake_deafen {
-        controls = controls.push(switch_button(
-            crate::halocord::FAKE_DEAFEN,
-            Icon::HeadphoneOff,
-            "Stop faking deafen",
-            "Fake deafen",
-        ));
-    }
-    if dock.stereo {
-        controls = controls.push(switch_button(
-            crate::halocord::STEREO,
-            Icon::Music,
-            "Turn stereo off",
-            "Turn stereo on",
-        ));
-    }
-    if dock.stats {
-        controls = controls.push(tinted_button(
-            ctx,
-            Icon::ChartBar,
-            "Call stats",
-            theme.text,
-            glyph(20),
-            side,
-            (account.in_call && account.ready).then_some(Message::Call(crate::call::Event::Open(
-                crate::call::Popup::Link,
-            ))),
-        ));
-    }
-    if dock.game {
-        // Lit while the game is shared; it needs the Discord account.
-        let shown = ctx.state.discord_show_game;
-        controls = controls.push(tinted_button(
-            ctx,
-            Icon::Gamepad,
-            if shown {
-                "Stop sharing your game"
-            } else {
-                "Share your game"
-            },
-            if shown { theme.accent } else { theme.text },
-            glyph(20),
-            side,
-            ctx.state
-                .discord_user
-                .is_some()
-                .then_some(Message::Account(Event::ShowGame)),
-        ));
-    }
-    // Plugin buttons that sit in the top bar when Yapfast draws one.
-    if !ctx.own_title_bar {
-        for (icon, label, press) in crate::halocord::presses(kept) {
-            controls = controls.push(tinted_button(
-                ctx,
-                icon,
+    // The plugin buttons (the User area's, and the top bar's when Yapfast
+    // draws none) go in a row of their own above the name, so the name keeps
+    // its room.
+    let extras = plugin_buttons(ctx);
+    let plugins: Option<Element<'a, Message>> = (!extras.is_empty()).then(|| {
+        let mut line = row![].spacing(4).align_y(Alignment::Center);
+        for (icon, label, ink, message) in extras {
+            line = line.push(crate::controls::dock_button(
+                ctx.look.glyph(icon, 20, ink),
                 label,
-                theme.text,
-                glyph(20),
-                side,
-                Some(Message::Bar(crate::window_bar::Event::Halo(press))),
+                false,
+                theme,
+                message,
             ));
         }
-    }
+        container(line)
+            .padding(Padding {
+                left: PLUGIN_INSET,
+                right: PLUGIN_INSET,
+                top: PLUGIN_TOP,
+                bottom: 0.0,
+            })
+            .width(Length::Fill)
+            .into()
+    });
     // Offline, Reconnect before Settings.
     let state = ctx.state;
     let controls = if !state.preview && !state.online {
@@ -609,8 +559,12 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
                 .into(),
             None => card.into(),
         };
+    let mut stacked = column![];
+    if let Some(plugins) = plugins {
+        stacked = stacked.push(plugins);
+    }
     container(
-        container(card)
+        container(stacked.push(card))
             .clip(true)
             .style(move |_| rounded(ground, 8)),
     )
@@ -690,4 +644,96 @@ fn tinted_button<'a>(
 ) -> Element<'a, Message> {
     let face = Pic::square(ctx.look.icon(icon, glyph, rgb(ink)), glyph as f32);
     ctx.look.face_button(face, side, label, message).into()
+}
+
+/// The plugin buttons the card carries, in order: icon, tip, ink and what a
+/// press sends (none while it can't act). The User area's switches, the
+/// call stats and game buttons, then the top bar's plugin buttons when
+/// Yapfast draws no bar of its own.
+fn plugin_buttons(
+    ctx: crate::ctx::Ctx<'_>,
+) -> Vec<(Icon, &'static str, iced::Color, Option<Message>)> {
+    let theme = ctx.look.theme;
+    let account = ctx.account;
+    let kept = &ctx.layout.halocord;
+    let dock = kept.dock();
+    let mut buttons = Vec::new();
+    // A plugin's switch, lit in the accent while it is on.
+    let mut switch = |id: &str, icon: Icon, on_label: &'static str, off_label: &'static str| {
+        let on = kept.is(id);
+        let message = crate::halocord::place(id).map(|plugin| {
+            Message::Account(Event::Plugin(crate::halocord::Change::Switch {
+                plugin,
+                on: !on,
+            }))
+        });
+        buttons.push((
+            icon,
+            if on { on_label } else { off_label },
+            if on { theme.accent } else { theme.text },
+            message,
+        ));
+    };
+    if dock.fake_mute {
+        switch(
+            crate::halocord::FAKE_MUTE,
+            Icon::MicOff,
+            "Stop faking mute",
+            "Fake mute",
+        );
+    }
+    if dock.fake_deafen {
+        switch(
+            crate::halocord::FAKE_DEAFEN,
+            Icon::HeadphoneOff,
+            "Stop faking deafen",
+            "Fake deafen",
+        );
+    }
+    if dock.stereo {
+        switch(
+            crate::halocord::STEREO,
+            Icon::Music,
+            "Turn stereo off",
+            "Turn stereo on",
+        );
+    }
+    if dock.stats {
+        buttons.push((
+            Icon::ChartBar,
+            "Call stats",
+            theme.text,
+            (account.in_call && account.ready).then_some(Message::Call(crate::call::Event::Open(
+                crate::call::Popup::Link,
+            ))),
+        ));
+    }
+    if dock.game {
+        // Lit while the game is shared; it needs the Discord account.
+        let shown = ctx.state.discord_show_game;
+        buttons.push((
+            Icon::Gamepad,
+            if shown {
+                "Stop sharing your game"
+            } else {
+                "Share your game"
+            },
+            if shown { theme.accent } else { theme.text },
+            ctx.state
+                .discord_user
+                .is_some()
+                .then_some(Message::Account(Event::ShowGame)),
+        ));
+    }
+    if !ctx.own_title_bar {
+        for (icon, label, press) in crate::halocord::presses(kept) {
+            buttons.push((
+                icon,
+                label,
+                theme.text,
+                Some(Message::Bar(crate::window_bar::Event::Halo(press))),
+            ));
+        }
+    }
+    buttons
 }
