@@ -210,6 +210,11 @@ impl Application {
             std::borrow::Cow::Owned(wired) => std::borrow::Cow::Owned(wired),
             std::borrow::Cow::Borrowed(_) => text,
         };
+        // HaloCord's Embedded URLs.
+        let text = match crate::halocord::embedded_urls::wire(&text) {
+            std::borrow::Cow::Owned(wired) => std::borrow::Cow::Owned(wired),
+            std::borrow::Cow::Borrowed(_) => text,
+        };
         if self.state.preview {
             return text.into_owned();
         }

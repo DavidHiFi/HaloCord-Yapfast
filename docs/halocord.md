@@ -64,6 +64,8 @@ whole list to carry across.
   `<t:13:30>` goes up as a Discord timestamp) and its tests.
 - `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
   `.jfif` photo goes up as `.jpg`) and its tests.
+- `crates/yapfast-core/src/halocord/embedded_urls.rs`: Embedded URLs (a post's link goes
+  up with an embed fixer's site in its place) and its tests.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -214,7 +216,8 @@ Window (`yapfast-iced`):
   the item sought is the channel's own id (Jump to start).
 - Core `application/tests/unread.rs`: the Jump to start test.
 - Core `application/compose.rs`: `outgoing_body` runs the text through
-  `halocord::send_timestamps::wire` first (Send timestamps).
+  `halocord::send_timestamps::wire` first (Send timestamps), then
+  `halocord::embedded_urls::wire` (Embedded URLs).
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
   `halocord::fix_file_extensions::name` first (Fix file extensions).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
