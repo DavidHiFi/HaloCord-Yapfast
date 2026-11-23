@@ -137,6 +137,7 @@ pub mod id {
     pub const HIDE_CHAT_BUTTONS: &str = "hide-chat-buttons";
     pub const HOME_TYPING: &str = "home-typing";
     pub const SEARCH_MENU: &str = "full-search-context";
+    pub const UNIVERSAL_MENTION: &str = "universal-mention";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -193,6 +194,7 @@ pub static PLUGINS: &[Plugin] = &[
     chat::HIDE_CHAT_BUTTONS,
     servers::HOME_TYPING,
     menus::SEARCH_MENU,
+    chat::UNIVERSAL_MENTION,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
