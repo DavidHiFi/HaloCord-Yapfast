@@ -386,9 +386,8 @@ Window (`yapfast-iced`):
   clock (Show hidden things).
 - `rail.rs`: a server's name when pointed at goes through `halocord::server_tip` (Show hidden
   things: Invites paused).
-- `activity.rs` (`yapfast-discord`): `subline` names the song with `halocord::song_name` in
-  place of the app's name while Show song name is on; `looks.rs`: `LooksMadeWith`'s
-  `song_names`, so switching it makes the member list's lines again.
+- `looks.rs`: `LooksMadeWith`'s `song_names`, so switching Show song name makes the member
+  list's lines again.
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
 - `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
   `self.theme_event` (it gives a task now).
@@ -488,7 +487,8 @@ Discord (`yapfast-discord`):
   key (Custom RPC).
 - `ready.rs`: `server` notes whether invites are paused with `halocord::note_invites`
   (Show hidden things; one line).
-
+- `activity.rs`: `subline` names the song with `halocord::song_name` in place of the app's
+  name while Show song name is on (one line).
 
 Calls (`yapfast-discord`):
 
