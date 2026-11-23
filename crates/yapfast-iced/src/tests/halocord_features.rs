@@ -1019,28 +1019,47 @@ fn song_link_offers_song_link_for_a_song() {
         link,
         "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
     );
+    // The link goes into song.link's address encoded; a country only when
+    // one is set.
+    assert_eq!(
+        song_page(link, ""),
+        "https://song.link/https%3A%2F%2Fopen.spotify.com%2Ftrack%2F4uLU6hMCjMI75M1A2tKUQC"
+    );
     assert_eq!(
         song_page(link, "us"),
-        "https://song.link/https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?userCountry=US"
+        "https://song.link/https%3A%2F%2Fopen.spotify.com%2Ftrack%2F4uLU6hMCjMI75M1A2tKUQC?userCountry=US"
     );
     assert_eq!(
-        song_page("https://music.youtube.com/watch?v=abc", "GB"),
-        "https://song.link/https://music.youtube.com/watch?v=abc&userCountry=GB"
+        song_page("https://music.youtube.com/watch?v=abc&list=x", "nowhere"),
+        "https://song.link/https%3A%2F%2Fmusic.youtube.com%2Fwatch%3Fv%3Dabc%26list%3Dx",
+        "its & stays its own; not two letters, no country"
     );
+    // Spotify's share id is left off.
     assert_eq!(
-        song_page("https://tidal.com/track/1", "nowhere"),
-        "https://song.link/https://tidal.com/track/1",
-        "not two letters: no country"
+        song_page("https://open.spotify.com/track/1?si=abc", ""),
+        "https://song.link/https%3A%2F%2Fopen.spotify.com%2Ftrack%2F1"
     );
     assert_eq!(
         song_links(
-            "https://music.apple.com/au/album/x/123?i=4 https://music.youtube.com/watch?v=abc https://tidal.com/track/1/u"
+            "https://open.spotify.com/intl-de/track/2 https://tidal.com/browse/track/3 \
+             https://listen.tidal.com/track/4 https://music.apple.com/au/song/x/5 \
+             https://music.apple.com/au/album/x/123?i=4 https://music.youtube.com/watch?v=abc"
         ),
         [
+            "https://open.spotify.com/intl-de/track/2",
+            "https://tidal.com/browse/track/3",
+            "https://listen.tidal.com/track/4",
+            "https://music.apple.com/au/song/x/5",
             "https://music.apple.com/au/album/x/123?i=4",
-            "https://music.youtube.com/watch?v=abc",
-            "https://tidal.com/track/1/u"
+            "https://music.youtube.com/watch?v=abc"
         ]
+    );
+    assert!(
+        song_links(
+            "https://open.spotify.com/album/1 https://open.spotify.com/artist/1 https://music.youtube.com/channel/1"
+        )
+        .is_empty(),
+        "Spotify's albums and artists and YouTube Music's channels aren't songs; Apple shares a song as its album's link"
     );
     // An artist's page isn't a song.
     super::change(&mut app, |state| {
@@ -1080,5 +1099,71 @@ fn favorite_anything_switches_the_core() {
         },
     );
     assert!(!is_on());
+}
 
+/// Song link's buttons: under a message with a song, "Song links" while
+/// the plugin is on; a press asks song.link (not run in tests) and its
+/// answer is kept by the link; the "Buttons under a song" switch off takes
+/// them away.
+#[test]
+fn song_link_buttons_ask_once_pressed_and_keep_the_answer() {
+    use yapfast_core::yapfast_discord::halocord::SongPlatform;
+
+    use crate::halocord::{Event, song_buttons};
+    let (mut app, _folder) = preview();
+    let link = "https://open.spotify.com/track/halo-test-buttons";
+    super::change(&mut app, |state| {
+        std::sync::Arc::make_mut(&mut std::sync::Arc::make_mut(&mut state.messages)[0]).body =
+            format!("hear {link}?si=abc");
+    });
+    let message = |app: &App| (*app.client.state().messages[0]).clone();
+    assert!(song_buttons(app.ctx(), &message(&app)).is_none(), "off");
+    turn_on(&mut app, id::SONG_LINK);
+    assert!(
+        song_buttons(app.ctx(), &message(&app)).is_some(),
+        "Song links"
+    );
+    // Pressed: asked for the link without Spotify's share id.
+    let _ = app.update(Message::HaloCord(Event::SongLinks(link.into())));
+    assert_eq!(crate::halocord::song_buttons_known(link), None, "waiting");
+    let found = vec![
+        SongPlatform {
+            key: "spotify".into(),
+            url: link.into(),
+            native: Some("spotify:track:1".into()),
+        },
+        SongPlatform {
+            key: "deezer".into(),
+            url: "https://www.deezer.com/track/2".into(),
+            native: None,
+        },
+    ];
+    let _ = app.update(Message::HaloCord(Event::SongLinksFound(
+        link.into(),
+        Ok(found),
+    )));
+    assert_eq!(crate::halocord::song_buttons_known(link), Some(2));
+    assert!(
+        song_buttons(app.ctx(), &message(&app)).is_some(),
+        "a button each"
+    );
+    let plugin = place(id::SONG_LINK).expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 1,
+            on: false,
+        },
+    );
+    assert!(
+        song_buttons(app.ctx(), &message(&app)).is_none(),
+        "its switch off"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
 }

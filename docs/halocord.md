@@ -84,6 +84,9 @@ whole list to carry across.
   file's menu (downloads it as Copy Image does; the window copies it as text).
 - `crates/yapfast-discord/src/halocord/invites.rs`: Show hidden things' record of the
   servers whose invites are paused.
+- `crates/yapfast-discord/src/halocord/song_link.rs`: Song link's buttons ask song.link's
+  public API (`api.song.link/v1-alpha.1/links`) where a song is, only when pressed.
+- `crates/yapfast-iced/src/halocord/song_buttons.rs`: the buttons, and song.link's answers.
 - `crates/yapfast-discord/src/halocord.rs`: Show song name's switch and `song_name`, and
   Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
@@ -240,6 +243,8 @@ Window (`yapfast-iced`):
 - `menus.rs`: `open_menu` lets `halocord::kept_deleted` rows open a menu, and
   `takes_apps` excludes `halocord::is_fake_row`.
 - `client.rs`: plug-in point 2, one match arm in `execute`.
+- `message/mod.rs`: after the cards, `halocord::song_buttons` (Song link's buttons under a
+  song).
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines; `open_menu`
   adds `halocord::message_rows` (the engine's rows, then Find reply's, then Song link's
@@ -349,8 +354,13 @@ Window (`yapfast-iced`):
   `halocord::embedded_urls::wire` (Embedded URLs).
 - Core `discord_text/render.rs`: `notification` runs the author's name through
   `halocord::notification_title::author` (Notification title).
-- Core `discord_text/gifs.rs`: `favorite_gif` asks `halocord::favorite_anything::is_on`
-  (`favorite_gif_with`), and its test `halocord_favorite_anything_stars_stills_and_videos`.
+- Core `discord_text/gifs.rs`: `favorite_gif` asks `halocord::favorite_anything::offered`
+  whether an attachment can be a favourite, and its favourite's id (Favorite anything).
+- Core `discord_text/open_channel.rs`: `Rendering`'s `favorite_anything` (and its line in
+  `alike`), so switching Favorite anything renders the open channel's rows again.
+- Core `discord_text/tests.rs`: `Rendering`'s new field in
+  `messages_render_again_once_what_they_show_changes`, and
+  `halocord_favorite_anything_reaches_rows_already_shown`.
 - `message/attachments.rs`: the GIF corner leaves out a still picture's favourite
   (`halocord::favorite_anything::still`). Switching Favorite anything on or off changes
   only the messages shown afterwards.
@@ -386,9 +396,8 @@ Window (`yapfast-iced`):
   clock (Show hidden things).
 - `rail.rs`: a server's name when pointed at goes through `halocord::server_tip` (Show hidden
   things: Invites paused).
-- `activity.rs` (`yapfast-discord`): `subline` names the song with `halocord::song_name` in
-  place of the app's name while Show song name is on; `looks.rs`: `LooksMadeWith`'s
-  `song_names`, so switching it makes the member list's lines again.
+- `looks.rs`: `LooksMadeWith`'s `song_names`, so switching Show song name makes the member
+  list's lines again.
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
 - `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
   `self.theme_event` (it gives a task now).
@@ -488,7 +497,8 @@ Discord (`yapfast-discord`):
   key (Custom RPC).
 - `ready.rs`: `server` notes whether invites are paused with `halocord::note_invites`
   (Show hidden things; one line).
-
+- `activity.rs`: `subline` names the song with `halocord::song_name` in place of the app's
+  name while Show song name is on (one line).
 
 Calls (`yapfast-discord`):
 

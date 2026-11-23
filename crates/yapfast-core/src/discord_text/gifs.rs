@@ -665,32 +665,17 @@ fn thumbnail(url: &str, download: &std::path::Path, width: u32) -> Option<PathBu
 /// client offers it on any picture that moves: by the address it was linked
 /// by, a GIF's page or the picture's own, or an attached file's address.
 pub(crate) fn favorite_gif(attachment: &yapfast_discord::message::Attachment) -> Option<Gif> {
-    favorite_gif_with(attachment, crate::halocord::favorite_anything::is_on())
-}
-
-/// [`favorite_gif`], with HaloCord's Favorite anything on (`anything`) or
-/// off.
-fn favorite_gif_with(
-    attachment: &yapfast_discord::message::Attachment,
-    anything: bool,
-) -> Option<Gif> {
     // Messages kept before Yapfast knew what moves have the name to go by.
     let moves = attachment.animated
         || attachment.link_url.is_some()
         || attachment.name.to_lowercase().ends_with(".gif");
-    // HaloCord's Favorite anything (docs/halocord.md): still pictures and
-    // attached videos too; a video is kept as Discord keeps a video GIF.
-    let video = anything
-        && attachment.video_url.is_some()
-        && attachment.shown == yapfast_discord::message::Shown::Message;
-    let still = anything && !moves && !video;
-    if !(attachment.image || video) || !(moves || still || video) {
-        return None;
-    }
+    // HaloCord's Favorite anything (docs/halocord.md): which can be a
+    // favourite, and the id its favourite carries.
+    let id = crate::halocord::favorite_anything::offered(attachment, moves)?;
     let (width, height) = attachment.dimensions.unwrap_or_default();
     let url = attachment.link_url.as_deref().unwrap_or(&attachment.url);
     Some(Gif {
-        id: still.then(|| crate::halocord::favorite_anything::STILL.to_owned()),
+        id,
         url: favorite_key(url),
         src: favorite_key(&attachment.url),
         gif_src: String::new(),
@@ -902,15 +887,12 @@ mod tests {
             ],
         }))
         .unwrap();
-        let favorites = |anything| -> Vec<_> {
-            message
-                .attachments
-                .iter()
-                .map(|attachment| favorite_gif_with(attachment, anything))
-                .collect()
-        };
-        assert!(favorites(false).iter().all(Option::is_none), "off");
-        let on = favorites(true);
+        use crate::halocord::favorite_anything::set;
+        let favorites = || -> Vec<_> { message.attachments.iter().map(favorite_gif).collect() };
+        assert!(favorites().iter().all(Option::is_none), "off");
+        set(true);
+        let on = favorites();
+        set(false);
         let still = on[0].as_ref().expect("the still picture");
         assert!(crate::halocord::favorite_anything::still(still));
         let video = on[1].as_ref().expect("the video");
