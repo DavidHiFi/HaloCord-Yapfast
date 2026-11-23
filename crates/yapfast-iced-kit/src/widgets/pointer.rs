@@ -1,5 +1,6 @@
 //! What the pointer does to a child: the timeline's presses ([`Watch`]),
-//! a right press ([`RightPress`]), what shows under it ([`Hover`]), where a
+//! a right press ([`RightPress`]), a left double press ([`DoublePress`]),
+//! what shows under it ([`Hover`]), where a
 //! button is as it's pressed ([`Spot`]), the wheel with Ctrl
 //! ([`CtrlWheel`]), and a child that keeps the pointer's moves over it from
 //! what it floats over ([`Holds`]).
@@ -65,6 +66,58 @@ impl<M: Clone> Hooks<M> for Watch<M> {
                 }
             }
             _ => {}
+        }
+    }
+}
+
+/// Its child, and what a left double press over it says, unless the
+/// pointer is on something the child shows can be pressed (a link, a
+/// button) or a layer over it took the press. The child gets both
+/// presses as ever, so a double press on text still selects a word.
+pub struct DoublePress<M> {
+    on_double: M,
+}
+
+impl<M: Clone> DoublePress<M> {
+    pub fn new<'a>(child: impl Into<Element<'a, M>>, on_double: M) -> Wrap<'a, Self, M> {
+        Wrap::new(child, Self { on_double })
+    }
+}
+
+/// The last left press, which the next makes a double one.
+#[derive(Default)]
+pub struct DoublePressState {
+    last: Option<mouse::Click>,
+}
+
+impl<M: Clone> Hooks<M> for DoublePress<M> {
+    type State = DoublePressState;
+
+    fn update(
+        &mut self,
+        state: &mut DoublePressState,
+        event: &iced::Event,
+        at: At,
+        shell: &mut Shell<'_, M>,
+        child: &mut Inner<'_, '_, M>,
+    ) {
+        let iced::Event::Mouse(mouse::Event::ButtonPressed(mouse::Button::Left)) = event else {
+            child.update(shell);
+            return;
+        };
+        let taken = shell.is_event_captured() || child.interaction() == mouse::Interaction::Pointer;
+        child.update(shell);
+        let Some(position) = at.cursor.position_over(at.bounds) else {
+            return;
+        };
+        if taken {
+            state.last = None;
+            return;
+        }
+        let click = mouse::Click::new(position, mouse::Button::Left, state.last);
+        state.last = Some(click);
+        if click.kind() == mouse::click::Kind::Double {
+            shell.publish(self.on_double.clone());
         }
     }
 }

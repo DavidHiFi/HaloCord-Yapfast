@@ -189,10 +189,18 @@ Window (`yapfast-iced`):
   is on, and a spoiler click reveals the message's other spoilers while Reveal all
   spoilers is on (one `if` each).
 - `rail.rs`: `folder_face` draws the open face while Plain folder icon is on.
+- `header.rs`: `header_buttons` pushes `halocord::start_button` (Jump to start)
+  before the search field (one `if let`).
+- `timeline/view.rs`: `timeline_row` wraps the row in the kit's `DoublePress` when
+  `halocord::double_click` has a message for it (Message click actions).
 - `sync.rs`: `make_lists` drops friend requests from the DM home's count and the count
   beside Friends while No pending count is on (one `if` each).
 - Core `application/places.rs`: `open_invite` starts a new link with
   `halocord::first_invite()` (Invite defaults) in place of 7 days and no limit.
+- Core `application.rs` and `application/messages.rs`: `Action::JumpToStart`, and
+  `jump_to_start` and `start_item`; `seek` shows a channel's first message when
+  the item sought is the channel's own id (Jump to start).
+- Core `application/tests/unread.rs`: the Jump to start test.
 - Core `application/compose.rs`: `outgoing_body` runs the text through
   `halocord::send_timestamps::wire` first (Send timestamps).
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
@@ -224,6 +232,8 @@ Window (`yapfast-iced`):
 Kit (`yapfast-iced-kit`) and vendor:
 
 - `fonts.rs`: `mod pick;`, and a call in `install` before the fallback list.
+- `widgets/pointer.rs`: `DoublePress`, a left double press that leaves the child its
+  presses; `widgets/mod.rs`: `Inner::interaction`, the child's pointer look.
 - `style.rs`: `set_corner_scale`, read in `rounded`, `edge` and `round`; `controls.rs` `lit_style` takes its corners from `round`.
 - `widgets/smooth.rs` and `smooth/bar.rs`: `BarGradient` and `set_bar_look`, drawn in
   `Smooth::draw`.

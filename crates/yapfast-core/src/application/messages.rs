@@ -757,6 +757,30 @@ impl Application {
         self.focus(item)
     }
 
+    /// Brings the selected channel's first message into view (HaloCord's
+    /// Jump to start): the messages around the channel's own id, which no
+    /// message in it is older than, load in place of the timeline.
+    pub(super) fn jump_to_start(&mut self) -> Vec<Effect> {
+        if self.state.preview {
+            if let Some(first) = self.state.messages.first() {
+                let count = self.state.jump.as_ref().map_or(0, |(_, count)| count + 1);
+                self.state.jump = Some((first.item.clone(), count));
+            }
+            return vec![];
+        }
+        let Some(item) = self.start_item() else {
+            return vec![];
+        };
+        self.jump(item, false)
+    }
+
+    /// The item a jump to the selected Discord channel's start seeks.
+    fn start_item(&self) -> Option<String> {
+        let (_, channel) = discord::parse_room(self.state.selected.as_deref()?)?;
+        channel.parse::<u64>().ok()?;
+        Some(format!("d:{channel}"))
+    }
+
     /// Opens a room, unless it's open, and brings its message into view.
     pub(super) fn jump_in_room(&mut self, room: String, item: String) -> Vec<Effect> {
         let mut effects = vec![];
@@ -913,17 +937,29 @@ impl Application {
         let Some(seeking) = self.seeking.take() else {
             return vec![];
         };
-        if self
+        let found = if self
             .state
             .messages
             .iter()
             .any(|message| message.item == seeking.item)
         {
+            Some(seeking.item.clone())
+        } else if self.start_item().as_deref() == Some(seeking.item.as_str()) {
+            // A channel's start: its first message, or none in an empty one.
+            let first = self.state.messages.first();
+            let Some(first) = first else {
+                return vec![];
+            };
+            Some(first.item.clone())
+        } else {
+            None
+        };
+        if let Some(item) = found {
             if seeking.unread {
                 self.state.unread_jump += 1;
             } else {
                 let count = self.state.jump.as_ref().map_or(0, |(_, count)| count + 1);
-                self.state.jump = Some((seeking.item, count));
+                self.state.jump = Some((item, count));
             }
         } else if !seeking.unread {
             self.state.notice =

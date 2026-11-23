@@ -944,6 +944,72 @@ fn the_game_button_switches_sharing_the_game() {
     );
 }
 
+/// Jump to start: its button shows while it is on, and shows the first message.
+#[test]
+fn jump_to_start_shows_the_first_message() {
+    use crate::halocord::{Change, JUMP_TO_START, Press, changed, place, start_button};
+    let (mut app, _folder) = preview();
+    assert!(start_button(app.ctx()).is_none(), "off at first");
+    let plugin = place(JUMP_TO_START).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let (_, label, _) = start_button(app.ctx()).expect("the button");
+    assert_eq!(label, "Jump to start");
+    let first = app.client.state().messages.first().unwrap().item.clone();
+    let _ = app.update(Message::Bar(crate::window_bar::Event::Halo(
+        Press::JumpStart,
+    )));
+    assert!(matches!(&app.client.state().jump, Some((item, _)) if *item == first));
+}
+
+/// Message click actions: a double-click edits one's own message and
+/// replies to others', and replies to one's own with its setting off.
+#[test]
+fn message_click_actions_edit_own_and_reply_to_others() {
+    use crate::{
+        halocord::{CLICK_ACTIONS, Change, changed, double_click, place},
+        menus::MenuAct,
+    };
+    let (mut app, _folder) = preview();
+    let rows = app.client.state().messages.len();
+    let row = |app: &crate::app::App, own: bool| {
+        (0..rows)
+            .find(|&row| {
+                app.ctx().row_message(row).is_some_and(|message| {
+                    message.own == own && !message.deleted && message.can_reply
+                })
+            })
+            .expect("a message")
+    };
+    let (own, other) = (row(&app, true), row(&app, false));
+    assert!(double_click(app.ctx(), own).is_none(), "off at first");
+    let plugin = place(CLICK_ACTIONS).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let act = |app: &crate::app::App, row| match double_click(app.ctx(), row) {
+        Some(Message::Menu(crate::menus::Event::Act(act, ..))) => Some(act),
+        _ => None,
+    };
+    assert_eq!(act(&app, own), Some(MenuAct::Edit));
+    assert_eq!(act(&app, other), Some(MenuAct::Reply));
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: false,
+        },
+    );
+    assert_eq!(act(&app, own), Some(MenuAct::Reply));
+}
+
 /// View icons: a profile's pictures open at their biggest only while it is on.
 #[test]
 fn view_icons_opens_a_profile_picture_full_size() {
