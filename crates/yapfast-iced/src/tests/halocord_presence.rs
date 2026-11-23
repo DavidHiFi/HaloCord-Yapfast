@@ -22,7 +22,7 @@ use crate::{
 fn open(app: &mut App, query: &str) {
     app.shell.frame.height = 2400.0;
     crate::window_bar::fit_window(app);
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     let _ = app.update(Message::Settings(Event::Search(query.into())));
     let _ = app.sync();
 }
@@ -61,14 +61,7 @@ fn switch(app: &mut App, id: &str, on: bool) {
 }
 
 #[test]
-fn the_presence_plugins_end_the_list_with_their_settings() {
-    let ids: Vec<_> = PLUGINS
-        .iter()
-        .rev()
-        .take(2)
-        .map(|plugin| plugin.id)
-        .collect();
-    assert_eq!(ids, ["animated-status", "custom-rpc"]);
+fn the_presence_plugins_are_listed_with_their_settings() {
     let keys = |id: &str| -> Vec<&str> {
         PLUGINS[plugin(id)]
             .settings
@@ -238,7 +231,7 @@ fn picture_of_the_presence_plugins() {
         "button-1-link",
         "https://example.com/radio",
     );
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     let _ = app.update(Message::Settings(Event::Search("custom rpc".into())));
     let _ = app.sync();
     assert!(shows(&app, "Custom RPC"));

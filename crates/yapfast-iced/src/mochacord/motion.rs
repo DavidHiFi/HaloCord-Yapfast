@@ -28,6 +28,7 @@ pub struct System {
 
 impl System {
     /// Nothing set: on, at the normal speed.
+    #[cfg(any(test, not(windows)))]
     pub const NORMAL: Self = Self {
         still: false,
         percent: 100,

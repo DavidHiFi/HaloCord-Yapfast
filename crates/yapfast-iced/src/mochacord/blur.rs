@@ -21,6 +21,7 @@ pub struct Effects {
 
 impl Effects {
     /// Nothing known to switch the blur off.
+    #[cfg(any(test, not(windows)))]
     pub const ALL_ON: Self = Self {
         transparency: true,
         battery_saver: false,
