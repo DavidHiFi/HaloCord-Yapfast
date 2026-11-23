@@ -215,8 +215,8 @@ Window (`yapfast-iced`):
   `jump_to_start` and `start_item`; `seek` shows a channel's first message when
   the item sought is the channel's own id (Jump to start).
 - Core `application/tests/unread.rs`: the Jump to start test.
-- Core `application/messages.rs`: `forward` opens the one conversation forwarded to only
-  unless `halocord::better_forwards::stays()` (Better forwards).
+- Core `application/messages.rs`: `forward` opens the one conversation forwarded to unless
+  `halocord::better_forwards::stays()` (Better forwards).
 - Core `application/compose.rs`: `outgoing_body` runs the text through
   `halocord::send_timestamps::wire` first (Send timestamps).
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
