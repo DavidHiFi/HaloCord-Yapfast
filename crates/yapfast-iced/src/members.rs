@@ -701,6 +701,11 @@ impl<'a> View<'a> {
         if let Some(mark) = crate::halocord::in_voice_mark(self.cx, &look.id) {
             name_line = name_line.push(mark);
         }
+        if let Some(marks) =
+            crate::halocord::name_marks(self.cx, &look.id, crate::halocord::Place::MemberList)
+        {
+            name_line = name_line.push(marks);
+        }
         if let Some(marks) = crate::halocord::platform_marks(self.cx, &look.id) {
             name_line = name_line.push(marks);
         }

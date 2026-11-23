@@ -119,6 +119,8 @@ pub enum Place {
     Voice,
     /// The line under a profile's name.
     Profile,
+    /// A member's row in the member list.
+    MemberList,
 }
 
 /// What plugins add by a person's name in `place`, by their Discord user
@@ -129,10 +131,11 @@ pub fn name_marks<'a>(cx: Ctx<'a>, user: &str, place: Place) -> Option<Element<'
     let voice = match place {
         Place::Message => super::voice::message_voice_mark(cx, user),
         Place::Profile => super::voice::profile_voice_mark(cx, user),
-        Place::Dms | Place::Voice => None,
+        Place::Dms | Place::Voice | Place::MemberList => None,
     };
-    let marks: Vec<Element<'a, Message>> = voice
+    let marks: Vec<Element<'a, Message>> = super::chat::staff_mark(cx, user, place)
         .into_iter()
+        .chain(voice)
         .chain(place_platforms(cx, user, place))
         .collect();
     (!marks.is_empty()).then(|| iced::widget::Row::with_children(marks).spacing(4).into())
@@ -146,6 +149,8 @@ fn place_platforms<'a>(cx: Ctx<'a>, user: &str, place: Place) -> Option<Element<
         Place::Message => 1,
         Place::Voice => 2,
         Place::Profile => 3,
+        // The member list's own call draws them.
+        Place::MemberList => return None,
     };
     if !kept.flag(&PLATFORMS, &PLATFORMS.settings[setting]) {
         return None;

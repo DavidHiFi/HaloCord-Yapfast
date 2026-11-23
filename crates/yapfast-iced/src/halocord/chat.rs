@@ -33,6 +33,21 @@ pub(super) const STAFF_TAG: Plugin = Plugin {
                 unless_changed: true,
             },
         },
+        off(
+            "member_list",
+            "In the member list",
+            "Admins and mods by their names in the member list (the owner already has its crown there).",
+        ),
+        off(
+            "voice",
+            "Under voice channels",
+            "By the names of people in a voice channel in the channel list.",
+        ),
+        off(
+            "profiles",
+            "On profiles",
+            "After the username on someone's profile, in the server you're in.",
+        ),
     ],
     apply: |kept, plugin| {
         engine::staff::set_crown(kept.flag(plugin, &plugin.settings[0]));
@@ -153,6 +168,32 @@ pub fn tag<'a>(ctx: Ctx<'a>, tag: Tag) -> Element<'a, Message> {
         .align_y(Alignment::Center)
         .style(move |_| rounded(faded(ink, 0.18), 4))
         .into()
+}
+
+/// Staff tag by `user`'s name outside chat, in the server on screen, while
+/// its switch for `place` is on. `None` for the member list's owner, who
+/// has the list's own crown.
+pub(super) fn staff_mark<'a>(
+    ctx: Ctx<'a>,
+    user: &str,
+    place: super::Place,
+) -> Option<Element<'a, Message>> {
+    let kept = &ctx.layout.halocord;
+    let setting = match place {
+        super::Place::MemberList => 2,
+        super::Place::Voice => 3,
+        super::Place::Profile => 4,
+        super::Place::Dms | super::Place::Message => return None,
+    };
+    if !kept.on(&STAFF_TAG) || !kept.flag(&STAFF_TAG, &STAFF_TAG.settings[setting]) {
+        return None;
+    }
+    let server = ctx.state.selected.as_deref()?;
+    let found = engine::staff::tag_of(ctx.app, server, user, None)?;
+    if place == super::Place::MemberList && found.text == "Owner" {
+        return None;
+    }
+    Some(tag(ctx, found))
 }
 
 /// How full the message box is.
