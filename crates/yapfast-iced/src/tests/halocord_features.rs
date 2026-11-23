@@ -514,3 +514,64 @@ fn hide_chat_buttons_hides_the_message_boxs_buttons_and_shows_them() {
         Change::Switch { plugin, on: false },
     );
 }
+
+/// Home typing: the DM home shows typing dots only while the plugin is on
+/// and someone types in a DM.
+#[test]
+fn home_typing_shows_dots_on_the_dm_home_while_someone_types() {
+    use crate::halocord::home_face;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let dm = app
+        .client
+        .state()
+        .rooms
+        .iter()
+        .find(|room| room.direct)
+        .map(|room| room.id.clone())
+        .expect("a DM");
+    let server_room = app
+        .client
+        .state()
+        .rooms
+        .iter()
+        .find(|room| !room.direct)
+        .map(|room| room.id.clone())
+        .expect("a server's channel");
+    let types = |app: &mut App, room: &str, someone: bool| {
+        let room = room.to_owned();
+        super::change(app, move |state| {
+            state.typing.clear();
+            if someone {
+                state.typing.insert(room, vec!["Sam".into()]);
+            }
+        });
+    };
+    types(&mut app, &dm, true);
+    assert!(home_face(app.ctx(), false).is_none(), "off at first");
+    turn_on(&mut app, id::HOME_TYPING);
+    assert!(
+        home_face(app.ctx(), false).is_some(),
+        "dots while Sam types"
+    );
+    assert!(home_face(app.ctx(), true).is_some(), "on the lit tile too");
+    let _ = app.view();
+    types(&mut app, &server_room, true);
+    assert!(
+        home_face(app.ctx(), false).is_none(),
+        "not for a server's channel"
+    );
+    types(&mut app, &dm, false);
+    assert!(
+        home_face(app.ctx(), false).is_none(),
+        "the logo once nobody types"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::HOME_TYPING).expect("the plugin"),
+            on: false,
+        },
+    );
+}

@@ -1,5 +1,6 @@
-//! Server and home plugins: what a new invite link starts with, and the
-//! friend request count left off the DM home and Friends.
+//! Server and home plugins: what a new invite link starts with, the
+//! friend request count left off the DM home and Friends, and the DM home's
+//! typing dots.
 
 use yapfast_core::{
     application::{AppState, INVITE_AGES, INVITE_USES},
@@ -77,4 +78,44 @@ pub fn no_request_badge(rows: &mut [SideRow]) {
             badge.clear();
         }
     }
+}
+
+pub(super) const HOME_TYPING: Plugin = Plugin {
+    id: id::HOME_TYPING,
+    name: "Home typing",
+    about: "The Direct Messages button shows typing dots while someone is typing to you in a DM.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// Hook: the DM home's face while Home typing is on and someone types in a
+/// DM: typing dots on the tile's own ground; `None` otherwise, for the logo.
+pub fn home_face<'a>(
+    cx: crate::ctx::Ctx<'a>,
+    lit: bool,
+) -> Option<iced::Element<'a, crate::app::Message>> {
+    if !cx.layout.halocord.is(id::HOME_TYPING) {
+        return None;
+    }
+    let state = cx.state;
+    let typing = state.rooms.iter().any(|room| {
+        room.direct
+            && state
+                .typing
+                .get(&room.id)
+                .is_some_and(|names| !names.is_empty())
+    });
+    if !typing {
+        return None;
+    }
+    let theme = cx.look.theme;
+    let ground = if lit { theme.active } else { theme.raised };
+    Some(
+        iced::widget::container(crate::typing::dots(theme.accent, cx.plays))
+            .center(crate::rail::TILE)
+            .style(move |_| crate::style::rounded(ground, 12.0))
+            .into(),
+    )
 }
