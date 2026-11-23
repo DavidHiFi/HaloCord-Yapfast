@@ -166,7 +166,10 @@ Window (`yapfast-iced`):
 - `account.rs`: the User area plugin's options. `height(compact)` beside `HEIGHT`,
   `Event::Plugin(Change)`, and `view` reads `layout.halocord.dock()` for compact mode
   (smaller, inside the channel list), hidden dropdown arrows and the extra buttons,
-  and says "Faking mute" or "Faking deafen" under the name in a call.
+  and says "Faking mute" or "Faking deafen" under the name in a call. The Game
+  activity button's `Event::ShowGame` and its arm send `Action::ShowGame`.
+- `profile/body.rs`: `member_since` draws both dates through `halocord::exact_day`
+  (Better joined date's whole date and days ago on pointing).
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.

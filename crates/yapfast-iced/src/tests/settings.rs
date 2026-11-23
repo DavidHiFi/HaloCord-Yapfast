@@ -905,3 +905,41 @@ fn the_dock_hides_arrows_and_draws_its_extra_buttons() {
         "the fake mute button switches the plugin on"
     );
 }
+
+/// The Game activity button draws beside the cog when its option is on,
+/// and switches sharing the game only once the Discord account is in.
+#[test]
+fn the_game_button_switches_sharing_the_game() {
+    use crate::{
+        account::Event,
+        halocord::{Change, USER_AREA, changed, place},
+    };
+    let shares = |messages: &[Message]| {
+        messages
+            .iter()
+            .any(|message| matches!(message, Message::Account(Event::ShowGame)))
+    };
+    let (mut app, _folder) = preview();
+    app.shell.own_title_bar = true;
+    assert!(!shares(&dock_click(&app, 225.0)), "no button yet");
+    let plugin = place(USER_AREA).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 6,
+            on: true,
+        },
+    );
+    assert!(app.layout.halocord.dock().game);
+    assert!(
+        !shares(&dock_click(&app, 225.0)),
+        "it waits for the Discord account"
+    );
+    change(&mut app, |state| state.discord_user = Some("42".into()));
+    assert!(
+        shares(&dock_click(&app, 225.0)),
+        "the button sends its switch"
+    );
+}
