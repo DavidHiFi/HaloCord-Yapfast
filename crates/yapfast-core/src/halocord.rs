@@ -271,11 +271,13 @@ pub trait Hooks: Sync {
     }
 }
 
-/// What a plugin's menu row does: actions for the app, and text to copy.
+/// What a plugin's menu row does: actions for the app, text to copy, and a
+/// web page to open in the browser.
 #[derive(Default)]
 pub struct Picked {
     pub actions: Vec<Action>,
     pub copy: Option<String>,
+    pub open: Option<String>,
 }
 
 #[cfg(not(test))]
