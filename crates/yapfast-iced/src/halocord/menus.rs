@@ -4,7 +4,7 @@
 use iced::Task;
 use yapfast_core::{application::Action, chat::ChatMessage, halocord as engine};
 
-use super::{Plugin, id};
+use super::{Kind, Plugin, Setting, id};
 use crate::{
     app::{App, Message},
     menus::{MenuAct, MenuRow},
@@ -178,7 +178,70 @@ pub fn message_rows(app: &App, message: &ChatMessage) -> Vec<MenuRow> {
     if app.layout.halocord.is(id::FIND_REPLY) && first_reply(app, &message.item).is_some() {
         rows.push(own_row("Jump to reply", Icon::Reply, id::FIND_REPLY));
     }
+    if app.layout.halocord.is(id::SONG_LINK) && !song_links(&message.body).is_empty() {
+        rows.push(own_row("Open on song.link", Icon::Music, id::SONG_LINK));
+    }
     set_apart(rows)
+}
+
+pub(super) const SONG_LINK: Plugin = Plugin {
+    id: id::SONG_LINK,
+    name: "Song link",
+    about: "\"Open on song.link\" in the menu of a message with a Spotify, Apple Music, YouTube Music or TIDAL song link opens song.link's page for it, which links the song on every service.",
+    on_at_first: false,
+    settings: &[Setting {
+        key: "country",
+        heading: "Country",
+        note: "Two letters, for the services' links in your country.",
+        kind: Kind::Text {
+            placeholder: "US",
+            unless_changed: "US",
+        },
+    }],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// Song link: the song links in `body` it knows: Spotify's, Apple Music's
+/// and iTunes', YouTube Music's and TIDAL's.
+pub fn song_links(body: &str) -> Vec<&str> {
+    let mut found: Vec<&str> = body
+        .split(|char: char| char.is_whitespace() || char == '<' || char == '>')
+        .map(|word| word.trim_end_matches([')', '.', ',', '!', '?']))
+        .filter(|word| {
+            let rest = word.strip_prefix("https://").unwrap_or_default();
+            ["open.spotify.com/track/", "play.spotify.com/track/"]
+                .iter()
+                .any(|start| rest.starts_with(start))
+                || ((rest.starts_with("music.apple.com/") || rest.starts_with("itunes.apple.com/"))
+                    && rest.contains("/album/"))
+                || rest.starts_with("music.youtube.com/watch?v=")
+                || rest.starts_with("tidal.com/track/")
+        })
+        .collect();
+    found.dedup();
+    found
+}
+
+/// Song link: song.link's page for `link`, for `country` when that's two
+/// letters.
+pub fn song_page(link: &str, country: &str) -> String {
+    let country = country.trim().to_uppercase();
+    let page = format!("https://song.link/{link}");
+    if country.len() == 2 && country.bytes().all(|byte| byte.is_ascii_alphabetic()) {
+        let join = if link.contains('?') { '&' } else { '?' };
+        format!("{page}{join}userCountry={country}")
+    } else {
+        page
+    }
+}
+
+/// Song link: the page for the first song link of the message `item`.
+fn song_link_page(app: &App, item: &str) -> Option<String> {
+    let message = app.client.state().message(item)?;
+    let link = *song_links(&message.body).first()?;
+    let country = app.layout.halocord.text(&SONG_LINK, &SONG_LINK.settings[0]);
+    Some(song_page(link, country))
 }
 
 /// What a pick of one of the window's own plugin rows does, if it's one.
@@ -186,6 +249,12 @@ fn own_pick(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Option
     let copy = match (key, place) {
         (id::COPY_STATUS_URLS, Some(user)) => status_link(app, user),
         (id::COPY_PROFILE_COLORS, Some(user)) => profile_colors(app, user),
+        (id::SONG_LINK, None) => {
+            if let Some(page) = song_link_page(app, item) {
+                crate::browser::open(&page);
+            }
+            return Some(Task::none());
+        }
         (id::FIND_REPLY, None) => {
             if let Some(reply) = first_reply(app, item) {
                 app.client.dispatch(Action::Jump(reply));
