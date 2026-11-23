@@ -153,6 +153,8 @@ pub enum Message {
     Shell(crate::shell::Event),
     /// The window's own title bar (`window_bar.rs`).
     Bar(crate::window_bar::Event),
+    /// One of HaloCord's plugins (`halocord::Event`, `docs/halocord.md`).
+    HaloCord(crate::halocord::Event),
 }
 
 /// The backend's events, up to [`EVENT_BATCH`] at a time; iced applies all
