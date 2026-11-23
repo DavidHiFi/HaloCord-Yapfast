@@ -243,3 +243,41 @@ fn the_member_count_adds_one_line_first_counting_everyone_but_offline_as_online(
     add_member_count(&app.layout.halocord, &mut none);
     assert!(none.is_empty(), "nobody to count");
 }
+
+/// Member count's switch for the server list's tooltips: off at first; on,
+/// a server's tooltip name says how many members it has, with thousands.
+#[test]
+fn member_count_adds_the_count_to_a_servers_tooltip() {
+    use std::borrow::Cow;
+    let (mut app, _folder) = preview();
+    let plugin = place(crate::halocord::MEMBER_COUNT).expect("the plugin");
+    let tip = |app: &crate::app::App| {
+        crate::halocord::tip_member_count(app.ctx(), "discord:10", Cow::Borrowed("Test"))
+            .into_owned()
+    };
+    app.client.app = yapfast_core::application::member_server(&[]);
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    assert_eq!(tip(&app), "Test", "the tooltip switch is off at first");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: true,
+        },
+    );
+    let count = app.client.app.server_member_count("discord:10");
+    match count {
+        Some(total) => assert!(
+            tip(&app).starts_with("Test \u{b7} "),
+            "{total}: {}",
+            tip(&app)
+        ),
+        None => assert_eq!(tip(&app), "Test", "no count known, the name alone"),
+    }
+}

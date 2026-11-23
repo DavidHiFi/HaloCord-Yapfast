@@ -39,6 +39,7 @@ pub use members::role_press;
 pub use members::time_left;
 pub use members::{
     add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
+    tip_member_count,
 };
 pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
 pub use servers::{home_mentions, no_request_badge};

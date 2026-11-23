@@ -202,6 +202,8 @@ Window (`yapfast-iced`):
   before the search field (one `if let`).
 - `timeline/view.rs`: `timeline_row` wraps the row in the kit's `DoublePress` when
   `halocord::double_click` has a message for it (Message click actions).
+- `rail.rs`: a server tile's tooltip name goes through `halocord::tip_member_count` (Member
+  count's "· 1,234 members", one line).
 - `sync.rs`: `make_lists` drops friend requests from the DM home's count and the count
   beside Friends while No pending count is on (one `if` each).
 - Core `application/places.rs`: `open_invite` starts a new link with
@@ -262,6 +264,8 @@ Core (`yapfast-core`):
 
 - `lib.rs`: `pub mod halocord;`.
 - `application.rs`: plug-in point 1, two checks and two `after` calls.
+- `application/server.rs`: `server_member_count(place)`, how many members a Discord server
+  has (Member count's tooltip reads it).
 - `application/members.rs`: `member_standing(place, user)`, whether a member owns the
   server and what it lets them do (the staff tag reads it).
 - `volume.rs`: `most()` in place of `MAX` in `set` (`MAX`, or what the Volume booster's cap
