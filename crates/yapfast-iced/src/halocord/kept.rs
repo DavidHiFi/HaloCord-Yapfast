@@ -212,17 +212,21 @@ impl Kept {
             .is_some_and(|plugin| self.on(plugin))
     }
 
-    /// Tells the core what every plugin does, as the window opens. Fake mute
-    /// and Fake deafen start off at each launch, as Fake deafen did in
-    /// HaloCord: one left on would otherwise carry into the next start, and
-    /// the account would join later calls showing muted or deafened without
-    /// knowing.
-    pub fn apply(&mut self) {
+    /// Fake mute and Fake deafen start off at each launch, as Fake deafen
+    /// did in HaloCord: one left on would otherwise carry into the next
+    /// start, and the account would join later calls showing muted or
+    /// deafened without knowing. Only the start calls this, so restoring a
+    /// backup leaves them as they were.
+    pub fn start_off(&mut self) {
         for id in [id::FAKE_MUTE, id::FAKE_DEAFEN] {
             if let Some(state) = self.plugins.get_mut(id) {
                 state.on = None;
             }
         }
+    }
+
+    /// Tells the core what every plugin does, as the window opens.
+    pub fn apply(&mut self) {
         for plugin in PLUGINS {
             self.tell(plugin);
         }

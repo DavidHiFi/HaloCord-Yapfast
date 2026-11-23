@@ -242,6 +242,7 @@ impl App {
         // How calls send and play, as Voice's settings keep it; message
         // times on the clock Messages chose; the games named by hand.
         yapfast_core::halocord::fake_dms::open(client.root());
+        layout.halocord.start_off();
         layout.halocord.apply();
         layout.voice.apply();
         layout.mochacord.apply();

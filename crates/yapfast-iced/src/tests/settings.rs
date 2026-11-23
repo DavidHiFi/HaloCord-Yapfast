@@ -823,6 +823,30 @@ fn fake_voice_starts_off_at_each_launch() {
     assert!(!again.layout.halocord.is(FAKE_DEAFEN));
 }
 
+/// Telling the core again, as restoring a backup does, leaves Fake mute and
+/// Fake deafen as they are: only the start switches them off.
+#[test]
+fn applying_the_plugins_again_keeps_the_fake_voice() {
+    use crate::halocord::{Change, FAKE_DEAFEN, FAKE_MUTE, changed, place};
+    let (mut app, _folder) = preview();
+    for id in [FAKE_MUTE, FAKE_DEAFEN] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Switch {
+                plugin: place(id).unwrap(),
+                on: true,
+            },
+        );
+    }
+    app.layout.halocord.apply();
+    assert!(app.layout.halocord.is(FAKE_MUTE));
+    assert!(app.layout.halocord.is(FAKE_DEAFEN));
+    app.layout.halocord.start_off();
+    assert!(!app.layout.halocord.is(FAKE_MUTE));
+    assert!(!app.layout.halocord.is(FAKE_DEAFEN));
+}
+
 /// The user area keeps its options and shows them as the dock.
 #[test]
 fn the_user_area_options_make_the_dock() {
