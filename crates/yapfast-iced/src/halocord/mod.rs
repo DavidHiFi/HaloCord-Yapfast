@@ -29,10 +29,12 @@ mod areas;
 pub mod backup;
 mod buttons;
 mod chat;
+mod fake_dialog;
 mod kept;
 mod members;
 mod menus;
 mod presence;
+mod messages;
 mod servers;
 pub mod theme_files;
 mod voice;
@@ -41,6 +43,7 @@ pub use areas::{Area, area};
 pub use buttons::{Press, press, presses, start_button};
 use chat::thousands;
 pub use chat::{count_color, count_words, double_click, tag};
+pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 #[cfg(test)]
@@ -50,6 +53,7 @@ pub use members::{
 };
 pub use members::{role_press, zoom_size, zoomable};
 pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
+pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
 pub use servers::{home_mentions, no_request_badge};
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
 
@@ -111,6 +115,8 @@ pub mod id {
     pub const IMAGE_ZOOM: &str = "image-zoom";
     pub const CUSTOM_RPC: &str = "custom-rpc";
     pub const ANIMATED_STATUS: &str = "animated-status";
+    pub const FAKE_DMS: &str = "fake-dms";
+    pub const MESSAGE_LOGGER: &str = "message-logger";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -157,6 +163,8 @@ pub static PLUGINS: &[Plugin] = &[
     members::IMAGE_ZOOM,
     presence::CUSTOM_RPC,
     presence::ANIMATED_STATUS,
+    messages::FAKE_DMS,
+    messages::MESSAGE_LOGGER,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
@@ -221,6 +229,38 @@ mod tests {
         assert_eq!(names("crown"), ["Staff tag"]);
         assert!(names("zzz").is_empty());
         assert!(any_found("staff") && !any_found("zzz"));
+    }
+
+    #[test]
+    fn the_message_plugins_exist_with_their_settings_and_a_search_finds_them() {
+        let find = |query: &str| -> Vec<&str> {
+            PLUGINS
+                .iter()
+                .filter(|plugin| found(plugin, query))
+                .map(|plugin| plugin.name)
+                .collect()
+        };
+        let fake = PLUGINS.iter().find(|p| p.id == FAKE_DMS).unwrap();
+        assert_eq!(fake.settings.len(), 1);
+        let logger = PLUGINS.iter().find(|p| p.id == MESSAGE_LOGGER).unwrap();
+        let headings: Vec<_> = logger.settings.iter().map(|s| s.heading).collect();
+        assert_eq!(
+            headings,
+            [
+                "Ignore bots",
+                "Ignore your own messages",
+                "Keep deleted messages",
+                "Keep edit history",
+                "Collapse deleted messages"
+            ]
+        );
+        assert!(find("fake dm").contains(&"Fake DMs"));
+        assert!(find("local mark").contains(&"Fake DMs"));
+        assert!(find("edit history").contains(&"Message logger"));
+        assert!(find("collapse").contains(&"Message logger"));
+        // Both are added last, so the page's order before them is untouched.
+        let last: Vec<_> = PLUGINS.iter().rev().take(2).map(|p| p.id).collect();
+        assert_eq!(last, [MESSAGE_LOGGER, FAKE_DMS]);
     }
 
     /// Files HaloCord owns outright; `docs/halocord.md` lists them by area.

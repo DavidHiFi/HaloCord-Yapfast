@@ -218,6 +218,10 @@ impl App {
                 Layer::LinkDialog,
                 crate::link_dialogs::view(&self.link_dialogs, self.ctx()),
             ),
+            (
+                Layer::FakeDm,
+                crate::halocord::fake_view(&self.fake_dm, self.ctx()),
+            ),
         ] {
             if let Some(dialog) = dialog {
                 layers = layers.push(self.popup(L(layer), dialog));

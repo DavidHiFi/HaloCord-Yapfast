@@ -129,6 +129,9 @@ pub fn message_content<'a>(
     {
         return blocked_row(ctx, look);
     }
+    if let Some(row) = crate::halocord::collapsed_row(ctx, message, look) {
+        return row;
+    }
     let theme = ctx.look.theme;
     let header = message.reply.is_some() || message.used.is_some();
     let mut content = column![].width(Length::Fill);
@@ -159,6 +162,7 @@ pub fn message_content<'a>(
     } else {
         theme.text
     };
+    let ink = crate::halocord::message_ink(theme, message, ink);
     let editing = ctx.composer.editing.as_deref() == Some(message.item.as_str());
     if editing {
         content = content.push(crate::edit::inline_edit(ctx));
@@ -185,6 +189,7 @@ pub fn message_content<'a>(
     if message.edited && message.notice.is_none() && !editing {
         content = content.push(text("(edited)").size(10).color(theme.muted));
     }
+    content = crate::halocord::notes(ctx, message, content);
     let gallery = Gallery::of(
         &message.attachments,
         Placement::Message,

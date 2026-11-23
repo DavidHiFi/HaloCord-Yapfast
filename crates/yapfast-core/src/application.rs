@@ -1867,6 +1867,9 @@ pub enum Action {
     /// Show the selected Discord channel's first messages (HaloCord's
     /// Jump to start).
     JumpToStart,
+    /// Draw the selected chat again, as HaloCord's Fake DMs asks after it
+    /// changes the chat's fake messages.
+    Republish,
     /// Download pictures that show outside the state, such as the emoji
     /// picker's; see [`DiscordCommand::Pictures`].
     LoadPictures(Vec<String>),
@@ -3624,6 +3627,7 @@ impl Application {
             Action::Later => self.later(),
             Action::JumpToPresent => self.jump_to_present(),
             Action::JumpToStart => self.jump_to_start(),
+            Action::Republish => crate::halocord::fake_dms::republish(self),
             Action::LoadPictures(urls) => self.load_pictures(urls),
             Action::LoadPicturesFirst(urls) => self.load_pictures_first(urls),
             Action::UnloadEmojiPictures => self.unload_emoji_pictures(),

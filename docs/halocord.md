@@ -19,6 +19,16 @@ whole list to carry across.
     point 5 (`menu_rows`, `pick`).
   - `presence.rs`: Custom RPC and Animated status, what each tells the Discord
     service (`set_custom_rpc`, `set_animated`).
+  - `fake_dialog.rs`: Fake DMs' box (who says it, the text, when, Add) and its
+    event; `messages.rs`: the Fake DMs and Message logger plugins, the chat's
+    button for the box, and what the timeline draws for them (the danger tone and
+    "Deleted" mark, earlier wordings, the folded line).
+- `crates/yapfast-core/src/halocord/fake_dms.rs`: Fake DMs: messages kept in
+  `halocord-fake-dms.json` in the data folder, merged into a chat as it is
+  published, with the "Local" mark, the menu rows and `parse_when`. Never sent.
+- `crates/yapfast-core/src/halocord/message_logger.rs`: Message logger: the
+  bounded log (2,000 messages) of what was deleted and the earlier wordings of
+  what was edited, and its menu row.
 - `crates/yapfast-iced/src/settings/pages/halocord.rs`: Settings' HaloCord group: the
   overview, the Plugins page (filter, All/On/Off, area chips and the plugins as
   cards drawn from `PLUGINS`), the plugin and MochaCord dialogs, and Backup &
@@ -188,6 +198,16 @@ Window (`yapfast-iced`):
 - `settings/pages/mod.rs`: `mod halocord;`, `Pref::HaloCord(Change)`, and its arm in
   the change handler, which calls `halocord::changed` (keeps it under `halocord`,
   and sends the voice state again when a fake mute or deafen switch changes in a call).
+- `app/mod.rs`, `app/message.rs`, `app/layers.rs`, `app/view.rs` (Fake DMs' box): the
+  `fake_dm` field and its `Message::FakeDm` arm, `Layer::FakeDm` (in `LAYERS`, `moves`,
+  `field_keeps_escape`, `is_open`, `layer_key` and `shut`), its line in the dialog list,
+  and `fake_dms::open(client.root())` before `layout.halocord.apply()`.
+- `header.rs`: `header_buttons` pushes `halocord::fake_button` (Fake DMs) after
+  Jump to start.
+- `message/mod.rs` (Message logger and Fake DMs): `collapsed_row` before the body,
+  `message_ink` after `ink`, and `notes` after `(edited)`.
+- `menus.rs`: `open_menu` lets `halocord::kept_deleted` rows open a menu, and
+  `takes_apps` excludes `halocord::is_fake_row`.
 - `client.rs`: plug-in point 2, one match arm in `execute`.
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines; `open_menu`
@@ -309,13 +329,18 @@ Kit (`yapfast-iced-kit`) and vendor:
 Core (`yapfast-core`):
 
 - `lib.rs`: `pub mod halocord;`.
-- `application.rs`: plug-in point 1, two checks and two `after` calls.
+- `application.rs`: plug-in point 1, two checks and two `after` calls; `Action::Republish`
+  (draws a chat again from what is held, for Fake DMs and Message logger).
+- `chat.rs`: `DiscordCommand::Republish`, the command that arm sends.
+- `discord_text/open_channel.rs`: `message_logger` calls where a message is deleted or
+  edited, `fake_dms::merge` in `publish`, and `message_logger::mark` in `render`.
 - `application/members.rs`: `member_standing(place, user)`, whether a member owns the
   server and what it lets them do (the staff tag reads it).
 - `volume.rs`: `most()` in place of `MAX` in `set` (`MAX`, or what the Volume booster's cap
   allows), and `from_slider` / `to_slider` carry on in a line past 200.
 - `discord_voice.rs`: both `set_self` calls send `halocord::voice_state(muted, deafened)`.
-- `discord_text/commands.rs`: plug-in point 3, `halocord::live` in `live`.
+- `discord_text/commands.rs`: plug-in point 3, `halocord::live` in `live`; the
+  `Republish` command publishes the chat again.
 - `discord_audio.rs`:
   - In `mix`, while `halocord::mono()` (Force mono), a person's voice goes through
     `halocord::add_mono` and the loop moves on (four lines). Stream and Matrix
@@ -405,6 +430,11 @@ Yapfast's own fix for it lands (its test still passes without ours).
 - Window `halocord::tests`: point 5's rows, point 6's kinds, the stereo loader's
   saved values, and `every_hook_is_in_the_docs`, which fails when a Yapfast file
   calls into HaloCord or MochaCord and this page doesn't name it.
+- Core `halocord::fake_dms::tests` and `halocord::message_logger::tests`: sorting,
+  saving, time words, the send path, kept deletes, edit order, the ignore switches and
+  the cap.
+- Window `tests/halocord_messages.rs`: Fake DMs and Message logger in a chat, their
+  menu rows, and ignored tests that draw them into `audit/hc17/messages/`.
 - Window `tests/halocord_menu_pictures.rs`: ignored tests that draw each right-click
   plugin's row into `audit/plugins/menus-<plugin>.png`.
 

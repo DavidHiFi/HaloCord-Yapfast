@@ -32,6 +32,12 @@ pub fn command(
         send_poll(discord, room, poll, events);
         return;
     }
+    if let Command::Discord(DiscordCommand::Republish { room }) = &command {
+        if let (Ok(discord), Some(channel)) = (discord, channels.shown_mut(room)) {
+            publish(channel, discord, done, events);
+        }
+        return;
+    }
     if let Command::Discord(DiscordCommand::DismissEphemeral { room, item }) = &command {
         if let (Ok(discord), Some(channel)) = (discord, channels.shown_mut(room))
             && channel.dismiss(item)

@@ -495,6 +495,9 @@ fn header_buttons<'a>(ctx: crate::ctx::Ctx<'a>) -> Vec<Element<'a, Message>> {
     if let Some((icon, label, message)) = crate::halocord::start_button(ctx) {
         buttons.push(header_icon_button(ctx, icon, label, message, false));
     }
+    if let Some((icon, label, message)) = crate::halocord::fake_button(ctx) {
+        buttons.push(header_icon_button(ctx, icon, label, message, false));
+    }
     if let Some(placeholder) = &header.search {
         buttons.push(crate::search::header_search(
             ctx.searching,
