@@ -46,6 +46,11 @@ pub(super) const USER_AREA: Plugin = Plugin {
             "Stereo button",
             "A button that switches the Stereo loader on and off.",
         ),
+        off(
+            "game_button",
+            "Game activity button",
+            "A button that switches sharing the game you play on and off.",
+        ),
     ],
     apply: |_, _| {},
     hooks: None,
@@ -90,6 +95,7 @@ pub struct Dock {
     pub fake_deafen: bool,
     pub stats: bool,
     pub stereo: bool,
+    pub game: bool,
 }
 
 impl Kept {
@@ -115,6 +121,7 @@ impl Kept {
             fake_deafen: flag("fake_deafen_button"),
             stats: flag("stats_button"),
             stereo: flag("stereo_button"),
+            game: flag("game_button"),
         }
     }
 }

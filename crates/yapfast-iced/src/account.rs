@@ -190,6 +190,8 @@ pub enum Event {
     Deafen,
     /// Offline: connect again now, not when the backend next tries.
     Reconnect,
+    /// The Game activity button: share the game played, or stop.
+    ShowGame,
     /// One of the card's plugin buttons: a plugin switched.
     Plugin(crate::halocord::Change),
 }
@@ -220,6 +222,11 @@ pub fn update(app: &mut App, event: Event) -> iced::Task<Message> {
         Event::Mute | Event::Deafen => {
             crate::call::toggle_on_join(app, matches!(event, Event::Deafen));
             return iced::Task::none();
+        }
+        Event::ShowGame => {
+            let shown = app.client.state().discord_show_game;
+            app.client
+                .dispatch(yapfast_core::application::Action::ShowGame(!shown));
         }
         Event::Plugin(change) => {
             crate::halocord::changed(&mut app.layout, &mut app.client, change);
@@ -500,6 +507,26 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             (account.in_call && account.ready).then_some(Message::Call(crate::call::Event::Open(
                 crate::call::Popup::Link,
             ))),
+        ));
+    }
+    if dock.game {
+        // Lit while the game is shared; it needs the Discord account.
+        let shown = ctx.state.discord_show_game;
+        controls = controls.push(tinted_button(
+            ctx,
+            Icon::Gamepad,
+            if shown {
+                "Stop sharing your game"
+            } else {
+                "Share your game"
+            },
+            if shown { theme.accent } else { theme.text },
+            glyph(20),
+            side,
+            ctx.state
+                .discord_user
+                .is_some()
+                .then_some(Message::Account(Event::ShowGame)),
         ));
     }
     // Plugin buttons that sit in the top bar when Yapfast draws one.
