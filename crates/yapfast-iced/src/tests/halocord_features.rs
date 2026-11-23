@@ -174,3 +174,36 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Hide chat buttons: the arrow hides the message box's buttons and shows
+/// them again, and "Shown at first" off starts them hidden.
+#[test]
+fn hide_chat_buttons_hides_the_message_boxs_buttons_and_shows_them() {
+    use crate::halocord::{Press, chat_buttons_hidden};
+    let arrow = || Message::Bar(crate::window_bar::Event::Halo(Press::ChatButtons));
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::HIDE_CHAT_BUTTONS);
+    assert!(!chat_buttons_hidden(), "shown at first");
+    let _ = app.update(arrow());
+    assert!(chat_buttons_hidden());
+    let _ = app.view();
+    let _ = app.update(arrow());
+    assert!(!chat_buttons_hidden());
+    let plugin = place(id::HIDE_CHAT_BUTTONS).expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: false,
+        },
+    );
+    assert!(chat_buttons_hidden(), "hidden at first, as set");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}

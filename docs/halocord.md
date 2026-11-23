@@ -228,6 +228,8 @@ Window (`yapfast-iced`):
 - `account.rs`: the same buttons beside Settings, when the window has no title bar of
   its own.
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
+  It also hands its buttons to `halocord::chat_buttons` (Hide chat buttons' arrow, before
+  them, or alone while they're hidden).
   `composer_look` ends the timed-out line with `halocord::timeout_note` (the time left).
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.

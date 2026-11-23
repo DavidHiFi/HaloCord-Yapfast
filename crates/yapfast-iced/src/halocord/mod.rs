@@ -31,7 +31,7 @@ mod voice;
 
 pub use buttons::{Press, press, presses, start_button};
 use chat::thousands;
-pub use chat::{count_color, count_words, double_click, tag};
+pub use chat::{chat_buttons, count_color, count_words, double_click, tag};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 #[cfg(test)]
@@ -50,7 +50,7 @@ pub use buttons::Dock;
 #[cfg(test)]
 pub(crate) use buttons::{close_dm_actions, read_all_actions};
 #[cfg(test)]
-pub use chat::{Fill, counter_words};
+pub use chat::{Fill, chat_buttons_hidden, counter_words};
 #[cfg(test)]
 pub use members::member_totals;
 #[cfg(test)]
@@ -100,6 +100,7 @@ pub mod id {
     pub const COPY_PROFILE_COLORS: &str = "copy-profile-colors";
     pub const FIND_REPLY: &str = "find-reply";
     pub const IMAGE_ZOOM: &str = "image-zoom";
+    pub const HIDE_CHAT_BUTTONS: &str = "hide-chat-buttons";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -144,6 +145,7 @@ pub static PLUGINS: &[Plugin] = &[
     menus::COPY_PROFILE_COLORS,
     menus::FIND_REPLY,
     members::IMAGE_ZOOM,
+    chat::HIDE_CHAT_BUTTONS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
