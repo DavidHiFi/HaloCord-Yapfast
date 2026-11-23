@@ -178,7 +178,7 @@ impl Settings {
             Event::New => self.new_theme(cx),
             Event::Edit(id) => {
                 let Some(custom) = cx.themes.custom.iter().find(|custom| custom.id == id) else {
-                    return;
+                    return iced::Task::none();
                 };
                 let editor = Editor::new(
                     Some(custom.id.clone()),
@@ -193,10 +193,10 @@ impl Settings {
                     .map(|start| (start.base, start.theme, copy_name(start.name)))
                     .collect();
                 let Some(editor) = self.editor.as_mut() else {
-                    return;
+                    return iced::Task::none();
                 };
                 let Some((base, theme, name)) = starts.get(index).cloned() else {
-                    return;
+                    return iced::Task::none();
                 };
                 // It takes the new start's name too, unless the person
                 // named it.
@@ -715,7 +715,11 @@ fn file_note<'a>(theme: &crate::theme::Theme, note: Option<Note>) -> Element<'a,
     match note {
         Some(note) => text(note.words())
             .size(13)
-            .color(if note.bad() { theme.danger } else { theme.secondary })
+            .color(if note.bad() {
+                theme.danger
+            } else {
+                theme.secondary
+            })
             .into(),
         None => Space::new().height(0).into(),
     }

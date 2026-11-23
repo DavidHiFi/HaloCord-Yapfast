@@ -225,3 +225,50 @@ fn halocord_demo4_frames() {
     );
     reel.frame(&app, "copy-file-text");
 }
+
+/// Build 7's themes: the Appearance tiles, three of the new themes on the
+/// whole window, and the theme editor with its file buttons. Writes to
+/// `audit/release7/demo/`.
+#[test]
+#[ignore = "writes theme pictures for the owner to look at"]
+fn halocord_theme_frames() {
+    let (mut app, _folder) = preview();
+    let mut reel = Reel::into("release7");
+    app.shell.frame = Size::new(1280.0, 1400.0);
+    let _ = app.update(Message::Settings(Event::Open(Section::Appearance)));
+    let _ = app.sync();
+    reel.frame(&app, "appearance-tiles");
+    for id in ["tokyo-night", "rose-pine", "catppuccin-latte"] {
+        let _ = app.update(crate::settings::appearance_event(
+            crate::settings::ThemeEvent::Choose(id.into()),
+        ));
+        let _ = app.sync();
+        reel.frame(&app, &format!("appearance-{id}"));
+    }
+    let _ = app.update(crate::settings::appearance_event(
+        crate::settings::ThemeEvent::Choose("mochacord".into()),
+    ));
+    let _ = app.update(crate::settings::appearance_event(
+        crate::settings::ThemeEvent::New,
+    ));
+    let _ = app.sync();
+    assert!(
+        shows(&app, "Save to file"),
+        "the editor has the file buttons"
+    );
+    reel.frame(&app, "theme-editor");
+    for id in ["kanagawa", "everforest"] {
+        let _ = app.update(crate::settings::appearance_event(
+            crate::settings::ThemeEvent::Cancel,
+        ));
+        let _ = app.update(crate::settings::appearance_event(
+            crate::settings::ThemeEvent::Choose(id.into()),
+        ));
+        close_settings(&mut app);
+        app.shell.frame = FRAME;
+        let _ = app.sync();
+        reel.frame(&app, &format!("window-{id}"));
+        let _ = app.update(Message::Settings(Event::Open(Section::Appearance)));
+        app.shell.frame = Size::new(1280.0, 1400.0);
+    }
+}

@@ -47,10 +47,11 @@ pub fn read(text: &str, custom: &[Custom]) -> Option<Custom> {
     let value: serde_json::Value = serde_json::from_str(text).ok()?;
     let colours = value.get("colours")?.as_object()?;
     // A file with none of the colours Yapfast knows is something else.
-    if !colours
-        .keys()
-        .any(|token| palette::Theme::NAMES.iter().any(|name| palette::token(name) == *token))
-    {
+    if !colours.keys().any(|token| {
+        palette::Theme::NAMES
+            .iter()
+            .any(|name| palette::token(name) == *token)
+    }) {
         return None;
     }
     let mut theme: Custom = serde_json::from_value(value).ok()?;
@@ -66,7 +67,13 @@ pub fn read(text: &str, custom: &[Custom]) -> Option<Custom> {
 pub fn file_name(name: &str) -> String {
     let kept: String = name
         .chars()
-        .map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == ' ' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     match kept.trim() {
         "" => "theme.json".to_owned(),
@@ -91,7 +98,11 @@ pub fn save(custom: &Custom) -> Task<Message> {
                 .await?;
             Some(std::fs::write(file.path(), contents).is_ok())
         },
-        |written| message(Event::FileDone(written.map(|ok| if ok { Note::Saved } else { Note::NotSaved }))),
+        |written| {
+            message(Event::FileDone(
+                written.map(|ok| if ok { Note::Saved } else { Note::NotSaved }),
+            ))
+        },
     )
 }
 
@@ -146,15 +157,18 @@ mod tests {
 
     #[test]
     fn a_file_missing_colours_takes_its_bases_and_other_files_are_refused() {
-        let loaded = read(r##"{"name":"Short","base":"dracula","colours":{"chat":"#102030"}}"##, &[])
-            .unwrap();
+        let loaded = read(
+            r##"{"name":"Short","base":"dracula","colours":{"chat":"#102030"}}"##,
+            &[],
+        )
+        .unwrap();
         let dracula = palette::find("dracula").unwrap().theme;
         assert_eq!(loaded.theme.chat, palette::parse("#102030").unwrap());
         assert_eq!(loaded.theme.rail, dracula.rail);
         assert_eq!(loaded.theme.focus, dracula.focus);
         assert!(read("not json", &[]).is_none());
         assert!(read(r#"{"name":"x"}"#, &[]).is_none());
-        assert!(read(r#"{"colours":{"nothing":"#fff"}}"#, &[]).is_none());
+        assert!(read(r##"{"colours":{"nothing":"#fff"}}"##, &[]).is_none());
     }
 
     #[test]
