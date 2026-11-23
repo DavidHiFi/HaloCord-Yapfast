@@ -38,7 +38,7 @@ pub(super) const STEREO: Plugin = Plugin {
 pub(super) const FAKE_MUTE: Plugin = Plugin {
     id: id::FAKE_MUTE,
     name: "Fake mute",
-    about: "Others see you muted in calls while you can still talk. Your own microphone stays as you set it.",
+    about: "Others see you muted in calls while you can still talk. Your own microphone stays as you set it. It starts off each time Yapfast opens.",
     on_at_first: false,
     settings: &[],
     apply: tell_voice,
@@ -48,7 +48,7 @@ pub(super) const FAKE_MUTE: Plugin = Plugin {
 pub(super) const FAKE_DEAFEN: Plugin = Plugin {
     id: id::FAKE_DEAFEN,
     name: "Fake deafen",
-    about: "Others see you deafened in calls while you still hear everyone. They see you muted too, as a real deafen shows.",
+    about: "Others see you deafened in calls while you still hear everyone. They see you muted too, as a real deafen shows, and your microphone sends nothing meanwhile, as with a real deafen. It starts off each time Yapfast opens.",
     on_at_first: false,
     settings: &[],
     apply: tell_voice,
@@ -102,7 +102,18 @@ pub(super) const USER_VOICE_SHOW: Plugin = Plugin {
     name: "User voice show",
     about: "Marks a member in the member list while they are in a voice channel, and says which one.",
     on_at_first: false,
-    settings: &[],
+    settings: &[
+        off(
+            "messages",
+            "On messages",
+            "The speaker by the author's name on each message while they're in voice.",
+        ),
+        off(
+            "profiles",
+            "On profiles",
+            "\"In voice: channel\" on someone's profile while they're in voice; a click opens the channel.",
+        ),
+    ],
     apply: |_, _| {},
     hooks: None,
 };
@@ -170,6 +181,52 @@ pub fn in_voice_mark<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message>
     )
 }
 
+/// The voice channel `user` is in, by its room id and name.
+fn voice_room_and_name<'a>(cx: Ctx<'a>, user: &str) -> Option<(&'a str, &'a str)> {
+    cx.state
+        .rooms
+        .iter()
+        .find(|room| room.voice && room.people.iter().any(|person| person.id == user))
+        .map(|room| (room.id.as_str(), room.name.as_str()))
+}
+
+/// User voice show's speaker by an author's name on a message, while its
+/// switch for messages is on.
+pub(super) fn message_voice_mark<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message>> {
+    let kept = &cx.layout.halocord;
+    if !kept.on(&USER_VOICE_SHOW) || !kept.flag(&USER_VOICE_SHOW, &USER_VOICE_SHOW.settings[0]) {
+        return None;
+    }
+    in_voice_mark(cx, user)
+}
+
+/// User voice show on a profile, while its switch for profiles is on: the
+/// speaker and "In voice: channel", which opens the channel.
+pub(super) fn profile_voice_mark<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message>> {
+    let kept = &cx.layout.halocord;
+    if !kept.on(&USER_VOICE_SHOW) || !kept.flag(&USER_VOICE_SHOW, &USER_VOICE_SHOW.settings[1]) {
+        return None;
+    }
+    let (room, name) = voice_room_and_name(cx, user)?;
+    let theme = cx.look.theme;
+    Some(
+        iced::widget::button(
+            iced::widget::row![
+                cx.look.glyph(Icon::Volume, 14, theme.muted),
+                text(format!("In voice: {name}"))
+                    .size(12)
+                    .color(theme.muted),
+            ]
+            .spacing(4)
+            .align_y(iced::Alignment::Center),
+        )
+        .padding(0)
+        .style(iced::widget::button::text)
+        .on_press(Message::Side(crate::sidebar::Event::Open(room.to_owned())))
+        .into(),
+    )
+}
+
 /// How many people are in a voice channel, for the end of its row, while
 /// Voice count is on (an empty one only when the plugin's setting says so).
 pub fn voice_count<'a>(cx: Ctx<'a>, people: usize) -> Option<Element<'a, Message>> {
@@ -206,7 +263,7 @@ pub fn unmute_mark<'a>(
     let theme = cx.look.theme;
     let mark = cx.look.glyph(Icon::VolumeOff, 16, theme.danger);
     let area = iced::widget::mouse_area(mark)
-        .on_press(Message::Call(crate::call::Event::Unmute(key)))
+        .on_press(Message::HaloCord(super::Event::Unmute(key)))
         .interaction(iced::mouse::Interaction::Pointer);
     Some(
         iced::widget::tooltip(
@@ -221,7 +278,7 @@ pub fn unmute_mark<'a>(
 
 /// Unmutes `person` for this account, as their voice menu's Mute box does,
 /// and keeps it (Click to unmute).
-pub fn unmute(app: &mut App, person: &str) {
+pub(super) fn unmute(app: &mut App, person: &str) {
     yapfast_core::volume::mute(person, false);
     let people = &mut app.layout.voice.muted_people;
     people.remove(person);

@@ -728,7 +728,9 @@ impl<'a> View<'a> {
     fn home_tile(self) -> Element<'a, Message> {
         let home = &self.s.home;
         let pointed = self.cx.pointed.rail.as_deref() == Some("");
-        let face = self.logo_tile(home.selected || pointed);
+        // HaloCord's Home typing (docs/halocord.md).
+        let face = crate::halocord::home_face(self.cx, home.selected || pointed)
+            .unwrap_or_else(|| self.logo_tile(home.selected || pointed));
         let marks = Marks {
             selected: home.selected,
             unread: home.unread,
@@ -959,6 +961,10 @@ impl<'a> View<'a> {
         } else {
             Cow::Borrowed(item.name.as_str())
         };
+        let name = crate::halocord::tip_member_count(self.cx, &item.id, name);
+        // HaloCord's Show hidden things (docs/halocord.md): invites paused.
+        let name = crate::halocord::server_tip(self.cx, &item.id, name);
+
         // Who is in which voice channel, made only under the pointer.
         let tip = if pointed && !item.busy.0.is_empty() {
             self.voice_card(name, &item.busy.0)

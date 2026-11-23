@@ -283,6 +283,131 @@ fn picked(source: Source) -> Source {
     }
 }
 
+/// What was picked last: while sharing, what's shared.
+pub fn current_pick() -> Source {
+    picked(Source::Screen)
+}
+
+/// A screen of the desktop, by the id [`shareable`] lists it with: where it
+/// sits, how big it is, and whether it's the main one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ScreenPlace {
+    pub id: u64,
+    pub x: i32,
+    pub y: i32,
+    pub width: u32,
+    pub height: u32,
+    pub primary: bool,
+}
+
+/// The screens [`shareable`] lists, with where each sits. Windows says
+/// where; libwebrtc only lists them again when Windows' list changes, as
+/// that takes a capturer. Empty where Yapfast doesn't know where they sit.
+pub fn screen_places() -> Vec<ScreenPlace> {
+    static KNOWN: Mutex<Option<(Vec<ScreenPlace>, Vec<ScreenPlace>)>> = Mutex::new(None);
+    let desktop = desktop_screens();
+    let mut known = KNOWN.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    if let Some((was, joined)) = known.as_ref()
+        && *was == desktop
+    {
+        return joined.clone();
+    }
+    let listed: Vec<u64> = if desktop.is_empty() || portal_picks() {
+        Vec::new()
+    } else {
+        use livekit::webrtc::desktop_capturer::DesktopCaptureSourceType;
+        sources(DesktopCaptureSourceType::Screen)
+            .iter()
+            .map(|screen| screen.id())
+            .collect()
+    };
+    let joined = join_screens(&desktop, &listed);
+    // A list that failed is asked for again next time.
+    if !listed.is_empty() {
+        *known = Some((desktop, joined.clone()));
+    }
+    joined
+}
+
+/// Gives each of Windows' `desktop` screens the id libwebrtc `listed` it
+/// with, in libwebrtc's order. Its screen lists number Windows' active
+/// display devices as Windows does, so the ids match; a capturer that
+/// counts its own way lists them in the same order.
+fn join_screens(desktop: &[ScreenPlace], listed: &[u64]) -> Vec<ScreenPlace> {
+    let by_id: Vec<ScreenPlace> = listed
+        .iter()
+        .filter_map(|id| desktop.iter().find(|place| place.id == *id).copied())
+        .collect();
+    if by_id.len() == listed.len() {
+        return by_id;
+    }
+    desktop
+        .iter()
+        .zip(listed)
+        .map(|(place, id)| ScreenPlace { id: *id, ..*place })
+        .collect()
+}
+
+/// Windows' active screens, each by its number among the display devices.
+#[cfg(windows)]
+fn desktop_screens() -> Vec<ScreenPlace> {
+    use windows::{
+        Win32::Graphics::Gdi::{
+            DEVMODEW, DISPLAY_DEVICE_ACTIVE, DISPLAY_DEVICE_PRIMARY_DEVICE, DISPLAY_DEVICEW,
+            ENUM_CURRENT_SETTINGS, ENUM_DISPLAY_SETTINGS_FLAGS, EnumDisplayDevicesW,
+            EnumDisplaySettingsExW,
+        },
+        core::PCWSTR,
+    };
+    let mut screens = Vec::new();
+    for index in 0..64u32 {
+        let mut device = DISPLAY_DEVICEW {
+            cb: size_of::<DISPLAY_DEVICEW>() as u32,
+            ..Default::default()
+        };
+        // SAFETY: `device` is a DISPLAY_DEVICEW with its size set, as asked.
+        if !unsafe { EnumDisplayDevicesW(PCWSTR::null(), index, &mut device, 0) }.as_bool() {
+            break;
+        }
+        if !device.StateFlags.contains(DISPLAY_DEVICE_ACTIVE) {
+            continue;
+        }
+        let mut mode = DEVMODEW {
+            dmSize: size_of::<DEVMODEW>() as u16,
+            ..Default::default()
+        };
+        // SAFETY: the name is the device's own, ending in a nul, and `mode`
+        // is a DEVMODEW with its size set.
+        let read = unsafe {
+            EnumDisplaySettingsExW(
+                PCWSTR(device.DeviceName.as_ptr()),
+                ENUM_CURRENT_SETTINGS,
+                &mut mode,
+                ENUM_DISPLAY_SETTINGS_FLAGS(0),
+            )
+        };
+        if !read.as_bool() {
+            continue;
+        }
+        // SAFETY: a display's settings fill in the display half of the union.
+        let at = unsafe { mode.Anonymous1.Anonymous2.dmPosition };
+        screens.push(ScreenPlace {
+            id: u64::from(index),
+            x: at.x,
+            y: at.y,
+            width: mode.dmPelsWidth,
+            height: mode.dmPelsHeight,
+            primary: device.StateFlags.contains(DISPLAY_DEVICE_PRIMARY_DEVICE),
+        });
+    }
+    screens
+}
+
+#[cfg(not(windows))]
+fn desktop_screens() -> Vec<ScreenPlace> {
+    Vec::new()
+}
+
 /// What Yapfast tells a running job.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -1788,6 +1913,53 @@ impl Drop for Worker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn place(id: u64, x: i32) -> ScreenPlace {
+        ScreenPlace {
+            id,
+            x,
+            y: 0,
+            width: 1920,
+            height: 1080,
+            primary: id == 0,
+        }
+    }
+
+    /// libwebrtc's ids are Windows' device numbers, which skip a device
+    /// that isn't on; its order wins.
+    #[test]
+    fn joins_screens_by_id() {
+        let desktop = [place(0, 0), place(2, 1920), place(3, -1920)];
+        let joined = join_screens(&desktop, &[3, 0, 2]);
+        assert_eq!(joined, vec![desktop[2], desktop[0], desktop[1]]);
+    }
+
+    /// A capturer that counts from 0 lists them in Windows' order.
+    #[test]
+    fn joins_screens_in_order_when_ids_differ() {
+        let desktop = [place(0, 0), place(2, 1920), place(3, -1920)];
+        let joined = join_screens(&desktop, &[0, 1, 2]);
+        assert_eq!(joined.iter().map(|p| p.id).collect::<Vec<_>>(), [0, 1, 2]);
+        assert_eq!(joined.iter().map(|p| p.x).collect::<Vec<_>>(), [0, 1920, -1920]);
+        assert!(join_screens(&desktop, &[]).is_empty());
+    }
+
+    /// What Windows and libwebrtc say about this desktop's screens, to look
+    /// over by eye: `cargo test -p yapfast-core lists_screen_places --
+    /// --ignored --nocapture`.
+    #[test]
+    #[ignore = "needs a desktop"]
+    fn lists_screen_places() {
+        use livekit::webrtc::desktop_capturer::DesktopCaptureSourceType;
+        eprintln!("windows: {:#?}", desktop_screens());
+        let listed: Vec<u64> = sources(DesktopCaptureSourceType::Screen)
+            .iter()
+            .map(|screen| screen.id())
+            .collect();
+        eprintln!("libwebrtc: {listed:?}");
+        eprintln!("joined: {:#?}", screen_places());
+        assert!(!screen_places().is_empty());
+    }
 
     /// A worker that dies without a [`Report::Ended`] logs a warning with
     /// how it ended and the job it had, and the UI still gets the popup's

@@ -60,6 +60,9 @@ impl App {
             crate::window_bar::history_keys(),
             Self::shell_subscription(),
         ];
+        // HaloCord's Message click actions: Backspace held, while a
+        // Backspace click is set.
+        subscriptions.extend(crate::halocord::click_keys(self));
         // A look at the releases every six hours while the check is on.
         if self.layout.prefs.check_for_updates {
             subscriptions.push(
@@ -137,6 +140,8 @@ impl App {
         subscriptions.extend(crate::arrange::arrange_subscription(self));
         subscriptions.extend(crate::rail_drag::subscription(self));
         subscriptions.extend(crate::uploads::follow_subscription(self));
+        // HaloCord's Stream Deck keys, while that plugin is on.
+        subscriptions.extend(crate::halocord::deck::subscription(self));
         subscriptions.push(crate::away::away_subscription(self));
         subscriptions.push(crate::keybinds::window_talk_keys());
         if self.call.grab.is_some() {

@@ -114,6 +114,8 @@ pub struct App {
     pub reporting: bool,
     /// The message the keyboard is stepping on (`timeline/keys.rs`), by item.
     pub keyed: Option<String>,
+    /// HaloCord's Message click actions: the presses counted so far.
+    pub halocord_clicks: crate::halocord::Clicks,
     /// What the timeline's voice messages and videos show of their playing.
     pub playback: crate::playback::Playback,
     /// A masked link clicked, while the question before it shows.
@@ -131,6 +133,9 @@ pub struct App {
     pub link_spot: std::cell::Cell<iced::Rectangle>,
     /// A role's or a mutual server's card, open where it was clicked.
     pub cards: crate::info_cards::Cards,
+    /// HaloCord's Keep current channel: the conversation it keeps and waits
+    /// to open.
+    pub halocord_kept: crate::halocord::KeptChannel,
     /// The friends list's and the requests' own state, and Active Now's
     /// cards while the friends list shows.
     pub friends: crate::friends::Friends,
@@ -237,6 +242,7 @@ impl App {
         // How calls send and play, as Voice's settings keep it; message
         // times on the clock Messages chose; the games named by hand.
         yapfast_core::halocord::fake_dms::open(client.root());
+        layout.halocord.start_off();
         layout.halocord.apply();
         layout.voice.apply();
         layout.mochacord.apply();
@@ -283,6 +289,7 @@ impl App {
             forward: Default::default(),
             confirm_focus: true,
             asking: false,
+            halocord_clicks: Default::default(),
             reporting: false,
             keyed: None,
             playback: Default::default(),
@@ -292,6 +299,7 @@ impl App {
             link_spot: Default::default(),
             header_spot: Default::default(),
             cards: Default::default(),
+            halocord_kept: Default::default(),
             friends: Default::default(),
             active_now: Vec::new(),
             active_now_made: None,
@@ -401,6 +409,7 @@ impl App {
                 self.mfa.update(event, &mut cx)
             }
             Message::Control(command) => crate::control_file::control(self, &command),
+            Message::Deck(asked) => crate::halocord::deck::asked(self, asked),
             Message::Timeline(event) => crate::timeline::update(self, event),
             Message::DismissNotice => crate::banners::dismiss_notice(self),
             Message::Link(link, at) => crate::links::follow_link(self, &link, at),
@@ -560,6 +569,7 @@ impl App {
             Message::Switcher(event) => self.switcher_event(event),
             Message::Shell(event) => self.shell_event(event),
             Message::Bar(event) => crate::window_bar::update(self, event),
+            Message::HaloCord(event) => crate::halocord::update(self, event),
         }
     }
 

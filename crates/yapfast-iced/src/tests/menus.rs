@@ -899,3 +899,128 @@ fn halocord_rows_in_a_persons_menu_have_icons_too() {
         assert!(row.is_some_and(|row| row.icon.is_some()), "{label}");
     }
 }
+
+/// Find reply's switches: off, only replies to the message count; "Also
+/// replies to the author" counts a later reply to the author's earlier
+/// message, and "Also messages that mention the author" a later mention.
+#[test]
+fn find_replys_switches_widen_it_to_the_author() {
+    use std::sync::Arc;
+    use yapfast_core::{
+        chat::{ChatMessage, Reply},
+        mention::{Mentioned, Target},
+    };
+
+    use crate::halocord::{Change, changed, id, place};
+    let (mut app, _folder) = discord_server(0, |_, _| {});
+    let _alone = super::plugin_alone();
+    app.client
+        .dispatch(Action::Navigate(Navigation::Server(SERVER.into())));
+    app.client.dispatch(Action::SelectRoom(GENERAL.into()));
+    let said = |item: &str, (author, user): (&str, &str)| ChatMessage {
+        item: item.into(),
+        author: author.into(),
+        sender: format!("discord:{user}"),
+        body: format!("message {item}"),
+        timestamp: 1,
+        ..Default::default()
+    };
+    let replying = |item: &str, to: &str| ChatMessage {
+        reply: Some(Reply {
+            author: "Sam".into(),
+            avatar: None,
+            body: String::new(),
+            item: Some(to.into()),
+            color: None,
+            tag: None,
+        }),
+        ..said(item, ("Al", "8"))
+    };
+    let (sam, al) = (("Sam", "7"), ("Al", "8"));
+    super::change(&mut app, |state| {
+        state.messages = Arc::new(
+            [
+                said("m0", sam),
+                replying("m1", "m0"),
+                said("m2", sam),
+                ChatMessage {
+                    mentions: vec![Mentioned {
+                        text: "@Sam".into(),
+                        target: Target::User("7".into()),
+                        color: None,
+                        at: vec![0],
+                    }],
+                    ..said("m3", al)
+                },
+                replying("m4", "m0"),
+            ]
+            .into_iter()
+            .map(Arc::new)
+            .collect(),
+        );
+    });
+    let shows_jump = |app: &mut App, index: usize| {
+        app.win.menu = None;
+        let _ = crate::menus::open_menu(app, index, Point::new(400.0, 300.0));
+        labels(app)
+            .iter()
+            .position(|label| label == "Jump to reply")
+    };
+    assert_eq!(shows_jump(&mut app, 0), None, "off at first");
+    let plugin = place(id::FIND_REPLY).expect("the plugin");
+    let change = |app: &mut App, change| {
+        changed(&mut app.layout, &mut app.client, change);
+    };
+    change(&mut app, Change::Switch { plugin, on: true });
+    let at = shows_jump(&mut app, 0).expect("m0 has a reply");
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(at)));
+    assert_eq!(
+        app.client
+            .state()
+            .jump
+            .as_ref()
+            .map(|(item, _)| item.as_str()),
+        Some("m1"),
+        "the first reply"
+    );
+    assert_eq!(shows_jump(&mut app, 2), None, "nothing replies to m2");
+    change(
+        &mut app,
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: true,
+        },
+    );
+    let at = shows_jump(&mut app, 2).expect("a later reply to Sam");
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(at)));
+    assert_eq!(
+        app.client
+            .state()
+            .jump
+            .as_ref()
+            .map(|(item, _)| item.as_str()),
+        Some("m4")
+    );
+    change(
+        &mut app,
+        Change::Flag {
+            plugin,
+            setting: 1,
+            on: true,
+        },
+    );
+    let at = shows_jump(&mut app, 2).expect("a mention of Sam");
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(at)));
+    assert_eq!(
+        app.client
+            .state()
+            .jump
+            .as_ref()
+            .map(|(item, _)| item.as_str()),
+        Some("m3"),
+        "the mention comes first"
+    );
+    assert_eq!(shows_jump(&mut app, 4), None, "nothing after the last");
+    change(&mut app, Change::Switch { plugin, on: false });
+}

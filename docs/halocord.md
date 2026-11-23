@@ -10,7 +10,8 @@ whole list to carry across.
 - `crates/yapfast-iced/src/halocord/`: the window's side of the plugins, one file
   per area, matching the core's `halocord/`.
   - `mod.rs`: the plugin ids (`id`), the plugin list (`PLUGINS`, which only names
-    each plugin in the page's order), and search.
+    each plugin in the page's order), search, and the plugins' own messages
+    (`Event`, carried by `Message::HaloCord`, and `update`).
   - `kept.rs`: what a plugin is, its settings (a choice, a switch, a slider or a
     text), what `layout.json` keeps (`halocord.plugins.<id>`) and `changed`.
   - `voice.rs`, `chat.rs`, `menus.rs`, `buttons.rs`, `members.rs`, `servers.rs`: the plugins of
@@ -37,6 +38,13 @@ whole list to carry across.
   theme tiles, the editor's page, the MochaCord tile's cog.
 - `crates/yapfast-iced/src/halocord/areas.rs`: which area each plugin belongs to, for
   the chips (a table by id, so `Plugin` has no area field).
+- `crates/yapfast-iced/src/halocord/deck.rs`: the Stream Deck plugin: a small server on
+  `127.0.0.1:47830` while it's on (`subscription`), what the keys draw (`/state`) and
+  each press (`/press/<key>`, answered by `asked`). Only requests with the
+  `X-HaloCord-Deck: 1` header, this computer's host name and no origin get in. Screen
+  keys 1 to 4 are the screens left of the main one, the main one, right of it and above
+  it (`slots`). The deck's own plugin, `com.davidhifi.yapfast`, lives in
+  `packaging/streamdeck/` (its README says how to build, test and install it).
 - `crates/yapfast-iced/src/halocord/backup.rs`: Backup & Restore's file: the plugins,
   MochaCord's options, the person's own themes and the theme chosen.
 - `crates/yapfast-iced/src/mochacord.rs`: MochaCord's look: what `layout.json` keeps
@@ -66,14 +74,18 @@ whole list to carry across.
   and the plug-in points: the `Hooks` a plugin writes, `plug` to put
   them in or take them out, and the calls each hook below makes.
 - `crates/yapfast-core/src/halocord/staff.rs`: the staff tag plugin's hook (owner,
-  admin and mod by names in chat) and its crown and role-colour switches.
+  admin and mod by names in chat), its crown and role-colour switches, and `tag_of`, the
+  tag by a name outside chat (member list, voice channels, profiles).
 - `crates/yapfast-core/src/halocord/copy_user_mention.rs`: Copy mention in a
   Discord user's menu.
 - `crates/yapfast-core/src/halocord/copy_media_link.rs`: Copy file link in a file's
   menu.
 - `crates/yapfast-core/src/halocord/copy_file_contents.rs`: Copy file text in a text
   file's menu (downloads it as Copy Image does; the window copies it as text).
-- `crates/yapfast-discord/src/halocord.rs`: Platform indicators' record of which of
+- `crates/yapfast-discord/src/halocord/invites.rs`: Show hidden things' record of the
+  servers whose invites are paused.
+- `crates/yapfast-discord/src/halocord.rs`: Show song name's switch and `song_name`, and
+  Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
 - `crates/yapfast-discord/src/halocord/presence.rs`: Custom RPC's activity (type
   numbers, timer, pictures, buttons), Animated status's lines, the outside
@@ -81,19 +93,35 @@ whole list to carry across.
   presence it sends and to say when to send again (one timer, idle while both
   are off).
 - `crates/yapfast-iced-kit/icons/halo-desktop.svg`, `halo-phone.svg`, `halo-web.svg`:
-  its three marks.
-- `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link in a
-  sticker's menu.
+  its marks; a console (`embedded`) takes the kit's own `gamepad.svg`.
+- `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link and Open
+  sticker link (512 px, lossless where the media server takes it; not for animated Lottie
+  stickers) in a sticker's menu.
 - `crates/yapfast-core/src/halocord/quick_mention.rs`: Mention in a message's menu
-  (puts the sender's name in the message box).
+  (puts the sender's name in the message box), and `author`, whom the hover bar's @
+  button mentions.
 - `crates/yapfast-core/src/halocord/copy_user_url.rs`: Copy profile link in a
   Discord user's menu.
 - `crates/yapfast-core/src/halocord/new_user.rs`: the new account tag plugin's hook (an amber tag by
-  accounts younger than N days, read from the Discord id) and its day count.
+  accounts younger than N days, read from the Discord id), its day count, and
+  `new_for_days`, for the tag in the member list and on profiles.
 - `crates/yapfast-core/src/halocord/send_timestamps.rs`: Send timestamps (a written
   `<t:13:30>` goes up as a Discord timestamp) and its tests.
+- `crates/yapfast-core/src/halocord/notification_title.rs`: Notification title (a reply's
+  notification names whom it replies to).
+- `crates/yapfast-core/src/halocord/favorite_anything.rs`: Favorite anything (still
+  pictures and attached videos as favourites). Turning it on or off only affects messages
+  shown afterwards.
 - `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
   `.jfif` photo goes up as `.jpg`) and its tests.
+- `crates/yapfast-core/src/halocord/embedded_urls.rs`: Embedded URLs (a post's link goes
+  up with an embed fixer's site in its place) and its tests.
+- `crates/yapfast-core/src/halocord/auto_zipper.rs`: Auto zipper (a listed file goes up
+  as a stored ZIP of it, made in memory) and its tests.
+- `crates/yapfast-core/src/halocord/better_forwards.rs`: Better forwards' switch (a forward
+  to one conversation stays where it is).
+- `crates/yapfast-core/src/halocord/universal_mention.rs`: Universal mention (the people of
+  this account's DMs among `@`'s suggestions on Discord).
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -119,7 +147,10 @@ whole list to carry across.
    };
    ```
 
-4. Put it in `PLUGINS` where it belongs on the page.
+4. Put it in `PLUGINS` where it belongs on the page. If the window side needs
+   messages of its own (a press on something it draws, a task's reply), add a
+   variant to `Event` in `halocord/mod.rs` and its arm in `update`; buttons send
+   `Message::HaloCord(..)`, so no Yapfast file changes for them.
 5. Tests: one for what the hook does (core), and one that switches it on through
    `changed` and checks the window (`tests/halocord_buttons.rs` has examples).
 6. If a Yapfast file has to call in, add the call and name the file under "Hooks in
@@ -211,12 +242,24 @@ Window (`yapfast-iced`):
 - `client.rs`: plug-in point 2, one match arm in `execute`.
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines; `open_menu`
-  adds `halocord::message_rows` (the engine's rows, then Find reply's).
+  adds `halocord::message_rows` (the engine's rows, then Find reply's, then Song link's
+  "Open on song.link" while that plugin is on and the message has a Spotify, Apple Music,
+  YouTube Music or TIDAL song link). Song link's hook is `halocord::chosen`, which sends the
+  pick to `menus.rs`'s `own_pick`; that opens the outside site song.link in the browser, with
+  the message's first song link and the country code set in the plugin (`halocord::song_page`
+  and `song_links`). The song link and the country code therefore go to song.link when it is
+  clicked, and nowhere before.
+- `message/hover_bar.rs`: `hover_bar` pushes `halocord::mention_button` after Edit or
+  Reply (Quick mention's @, one `if let`).
+- `search.rs`: a result's message goes through `halocord::search_result` (Search result
+  menu's right click, one call around `found_view`).
 - `person_menu.rs`: plug-in point 5, `open_person_menu` adds `halocord::person_rows`
   (two lines, `rows` is `mut`), which adds Copy status link's and Copy profile
   colors' rows after the engine's.
 - `message/attachments.rs`: plug-in point 5, `file_card` and `stickers` wrap what they draw in a
   right click (`RightPress`, `Event::Attachment`; a few lines each).
+- `picker/stickers.rs`: a sticker tile's `mouse_area` goes through `halocord::sticker_tile`,
+  which adds Copy sticker link's right click while it's on (one line).
 - `image_viewer.rs`: the `Event::Attachment` variant and its empty arm.
 - `app/screens.rs`: one arm in `image_event` calling `halocord::attachment_menu`.
 - `account.rs`: the User area plugin's options. `height(compact)` beside `HEIGHT`,
@@ -241,16 +284,34 @@ Window (`yapfast-iced`):
   `yapfast-discord/src/ready.rs`: `ProfileRole::id`, which `named_roles` gives, and
   `show_role` names and colours a role from the open profile (Clickable roles).
 - `status.rs`: the popover's bottom uses `account::full_height`.
+- `rail.rs`: `home_tile` asks `halocord::home_face` first (Home typing's dots while someone
+  types in a DM), else draws the logo; `typing.rs`: `dots`, the typing line's dots on their
+  own, `pub(crate)` for it.
+- `app/settle.rs`: `settle` starts with `halocord::keep_channel` (Keep current channel: the
+  conversation kept in `halocord-channel` in the app's folder opens once listed, if the plugin
+  was on as the window started and nothing else was opened first, and the one open is kept);
+  `app/mod.rs`: the `halocord_kept` field it keeps its state in.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
-- `call/mod.rs`: `Event::Unmute(person)` and its arm, which calls `halocord::unmute`.
+- `app/message.rs`: `Message::HaloCord(halocord::Event)`, the plugins' own messages
+  (Click to unmute's click, and any plugin's press or reply); `app/mod.rs`: its arm in
+  `update`, which calls `halocord::update`.
 - `sidebar/voice.rs`: `voice_person` ends its marks with `halocord::unmute_mark`, a click-to-unmute
   mark beside someone muted for this account (one `if let`).
 - `sidebar/channels.rs`: `room_row` pushes `halocord::voice_count` (the Voice count plugin's number)
   before the badge on a voice channel's row (one `if let`).
 - `members.rs`: `member_row` draws the timed-out clock with `halocord::timeout_clock` (Show
   timeout duration's time left on pointing), pushes `halocord::in_voice_mark` after it, then
+  `halocord::name_marks` with `Place::MemberList` (Staff tag's admins and mods,
+  New account tag), then
   `halocord::platform_marks` (one `if let` each).
+- `sidebar/dms.rs` (a DM's row, after its tags, through `halocord::dm_marks` by the room),
+  `message/mod.rs` (`author_line`, after the
+  plugins' tags), `sidebar/voice.rs` (`voice_person`, after the unmute mark) and
+  `profile/body.rs` (`handle_line`, after the badges): `halocord::name_marks` with the
+  place, what plugins put by a name there (Platform indicators' marks while its switch
+  for that place is on, and User voice show's speaker on messages and profiles; one
+  `if let` each).
 - `shell.rs`: in `shell_sync`, a copied download goes through `halocord::copied_text` first:
   text Copy file text asked for goes on the clipboard as text, anything else as a picture.
 - `links.rs`: `follow_link` opens a masked link with no question while Always trust links
@@ -259,8 +320,16 @@ Window (`yapfast-iced`):
 - `rail.rs`: `folder_face` draws the open face while Plain folder icon is on.
 - `header.rs`: `header_buttons` pushes `halocord::start_button` (Jump to start)
   before the search field (one `if let`).
-- `timeline/view.rs`: `timeline_row` wraps the row in the kit's `DoublePress` when
-  `halocord::double_click` has a message for it (Message click actions).
+- `timeline/view.rs`: `timeline_row` hands the row to `halocord::click_row` (Message click
+  actions), which wraps it in the kit's `DoublePress`: with `halocord::double_click`'s
+  message, or, while a triple or Backspace click is set, saying each press.
+- `rail.rs`: a server tile's tooltip name goes through `halocord::tip_member_count` (Member
+  count's "· 1,234 members", one line).
+- `app/subscription.rs`: `subscription` adds `halocord::click_keys` (Backspace held and let
+  go, while a Backspace click is set).
+- `app/mod.rs`: the `halocord_clicks` field (Message click actions' presses counted so far).
+- Kit `widgets/pointer.rs`: `DoublePress::presses`, which says each press on the same
+  terms as a double press.
 - `sync.rs`: `make_lists` drops friend requests from the DM home's count and the count
   beside Friends while No pending count is on (one `if` each).
 - Core `application/places.rs`: `open_invite` starts a new link with
@@ -269,23 +338,57 @@ Window (`yapfast-iced`):
   `jump_to_start` and `start_item`; `seek` shows a channel's first message when
   the item sought is the channel's own id (Jump to start).
 - Core `application/tests/unread.rs`: the Jump to start test.
+- Core `application/messages.rs`: `forward` opens the one conversation forwarded to unless
+  `halocord::better_forwards::stays()` (Better forwards).
+- Core `application.rs`: `mention_candidates` adds `halocord::universal_mention::add`'s people
+  on Discord, before the groups (Universal mention), through `marked_mention_candidates`,
+  which says where they are; `mention_suggestions` offers the conversation's own people
+  first, then them.
 - Core `application/compose.rs`: `outgoing_body` runs the text through
-  `halocord::send_timestamps::wire` first (Send timestamps).
+  `halocord::send_timestamps::wire` first (Send timestamps), then
+  `halocord::embedded_urls::wire` (Embedded URLs).
+- Core `discord_text/render.rs`: `notification` runs the author's name through
+  `halocord::notification_title::author` (Notification title).
+- Core `discord_text/gifs.rs`: `favorite_gif` asks `halocord::favorite_anything::is_on`
+  (`favorite_gif_with`), and its test `halocord_favorite_anything_stars_stills_and_videos`.
+- `message/attachments.rs`: the GIF corner leaves out a still picture's favourite
+  (`halocord::favorite_anything::still`). Switching Favorite anything on or off changes
+  only the messages shown afterwards.
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
-  `halocord::fix_file_extensions::name` first (Fix file extensions).
+  `halocord::fix_file_extensions::name` first (Fix file extensions), and
+  `start_send` runs each file's name and bytes through `halocord::auto_zipper::zipped`
+  before naming it (Auto zipper).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
 - `tests/calls.rs`, `tests/media.rs`, `tests/menus.rs`, `tests/navigation.rs`,
   `tests/writing.rs`: tests of the Volume booster, the copy rows, the buttons beside
   Settings and Show timeout duration, in Yapfast's own test files.
 - Core `application/tests/servers.rs`: the invite test's Invite defaults lines.
+- Core `application/tests/mentions.rs`: `halocord_universal_mention_suggests_the_people_of_dms`,
+  `halocord_universal_mention_ranks_the_conversations_people_first`.
 - `window_bar.rs`: `Event::Halo(Press)` with its arm in `update` (a plugin's button
   pressed), and the buttons `halocord::presses` lists, pushed before Inbox in
   `window_bar`.
 - `account.rs`: the same buttons beside Settings, when the window has no title bar of
   its own.
+- `picker/gifs.rs`: `gif_pick` asks `halocord::inserts_gif` whether a GIF goes into the
+  message box (GIF paste swaps Shift's meaning), in place of reading Shift itself.
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
+  It also hands its buttons to `halocord::chat_buttons` (Hide chat buttons' arrow, before
+  them, or alone while they're hidden), and the result to `halocord::timestamp_button`
+  (Send timestamps' clock, before them while its picker is on).
   `composer_look` ends the timed-out line with `halocord::timeout_note` (the time left).
+  Better upload button: `plus` opens the file dialog when `halocord::uploads_first`
+  (through `plus_uploads`, which also picks the +'s tip, "Attach files (right click for more)"), and the menu moved to `plus_menu`;
+  `composer_box` wraps the + in `halocord::upload_button`, whose right click sends the new
+  `Event::PlusMenu`, with its arm.
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
+- `message/mod.rs`: after the plugins' tags by an author's name, `halocord::message_timeout`'s
+  clock (Show hidden things).
+- `rail.rs`: a server's name when pointed at goes through `halocord::server_tip` (Show hidden
+  things: Invites paused).
+- `activity.rs` (`yapfast-discord`): `subline` names the song with `halocord::song_name` in
+  place of the app's name while Show song name is on; `looks.rs`: `LooksMadeWith`'s
+  `song_names`, so switching it makes the member list's lines again.
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
 - `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
   `self.theme_event` (it gives a task now).
@@ -317,6 +420,12 @@ Kit (`yapfast-iced-kit`) and vendor:
 - `controls.rs`: `field_style` rings a field in the theme's `focus` role; `choices_within`
   wraps its options onto more rows when their labels don't fit one (`choices_fit`).
 - `icons.rs`: `Icon::HaloLogo`, `HaloDesktop`, `HaloPhone`, `HaloWeb`.
+- `app/message.rs`: `Message::Deck(halocord::deck::Asked)`; `app/mod.rs`: its arm, which
+  calls `halocord::deck::asked`; `app/subscription.rs`: `halocord::deck::subscription`
+  (the Stream Deck server, while its plugin is on).
+- `keybinds.rs`: `toggled` is `pub(crate)`, for the deck's voice mode key.
+- `account.rs`: `shown_muted` and `shown_deafened` are `pub(crate)`, for what the deck's
+  keys draw.
 - `vendor/iced_wgpu`: `glass.rs` and the glass attempt in `window/compositor.rs` (see
   its `README.yapfast.md`).
 - Core `theme.rs`: the `MOCHACORD` built-in theme (`pub(crate)`); HaloCord's colour
@@ -329,8 +438,14 @@ Kit (`yapfast-iced-kit`) and vendor:
 Core (`yapfast-core`):
 
 - `lib.rs`: `pub mod halocord;`.
+- `stream_worker.rs`: `current_pick`, and `screen_places` (each screen's id as the
+  share list gives it, with its place on the desktop and whether it's the main one, from
+  `EnumDisplayDevicesW`), for the Stream Deck's screen keys. `Cargo.toml`: the
+  `Win32_Graphics_Gdi` feature for it.
 - `application.rs`: plug-in point 1, two checks and two `after` calls; `Action::Republish`
   (draws a chat again from what is held, for Fake DMs and Message logger).
+- `application/server.rs`: `server_member_count(place)`, how many members a Discord server
+  has (Member count's tooltip reads it).
 - `chat.rs`: `DiscordCommand::Republish`, the command that arm sends.
 - `discord_text/open_channel.rs`: `message_logger` calls where a message is deleted or
   edited, `fake_dms::merge` in `publish`, and `message_logger::mark` in `render`.
@@ -353,6 +468,8 @@ Core (`yapfast-core`):
   - `GateMeter` calls `flat::measure(...)` in place of `measure(...)`.
   - The loops in `CaptureRequest::run` and `measure` also end on `flat::on()`, so
     the flat path takes over within a block.
+  - `Processing::pair` sends nothing while `halocord::fake_deafened()`, as while a
+    push-to-mute key is held (the flat microphone's `talking` does the same).
 
 Discord (`yapfast-discord`):
 
@@ -364,9 +481,14 @@ Discord (`yapfast-discord`):
   (made beside `away_changes`), a select arm that waits on `halo.due()` and sends
   the presence again, `halo.apply(&mut presence)` after `own_activity::merge` in
   `show_presence`, and `halocord::presence::identify` after the merge before the
-  gateway connects (Custom RPC, Animated status).
+  gateway connects (Custom RPC, Animated status). `Request::Join` says `self_deaf` as
+  `halocord::fake_deafened()`, so a call is joined showing Fake deafen from its first
+  voice state.
 - `api.rs`: `external_assets`, the call that gives an outside picture's `mp:`
   key (Custom RPC).
+- `ready.rs`: `server` notes whether invites are paused with `halocord::note_invites`
+  (Show hidden things; one line).
+
 
 Calls (`yapfast-discord`):
 

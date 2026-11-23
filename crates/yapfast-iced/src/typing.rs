@@ -34,6 +34,12 @@ const DOTS: f32 = 32.0;
 /// How often the dots move: a gentle wave needs no more.
 const FRAME: Duration = Duration::from_millis(50);
 
+/// Three dots in a row, rising in turn while `plays`, in `ink`: HaloCord's
+/// Home typing draws them on the DM home.
+pub(crate) fn dots<'a>(ink: Color, plays: bool) -> Element<'a, Message> {
+    Dots { ink, plays }.into()
+}
+
 /// Three dots in a row, rising in turn while `plays`.
 struct Dots {
     ink: Color,

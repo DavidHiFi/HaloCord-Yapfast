@@ -564,7 +564,13 @@ impl OpenChannel {
             return None;
         }
         let newest = &self.latest.as_ref().unwrap_or(&self.shown).messages;
-        let kept = || newest.values().filter(|message| !message.ephemeral);
+        // A deleted message the Message Logger holds back isn't live: kept on
+        // disk, it would come back as one after a restart.
+        let kept = || {
+            newest.values().filter(|message| {
+                !message.ephemeral && !crate::halocord::message_logger::is_deleted(&message.id)
+            })
+        };
         let skip = kept()
             .count()
             .saturating_sub(yapfast_discord::cache::CHANNEL_MESSAGES);
@@ -658,7 +664,31 @@ impl OpenChannel {
     /// were rendered, as a member list teaches them; it's dirty if so.
     pub(super) fn names_changed(&mut self, discord: &Discord) -> bool {
         let changed = discord.names_version() != self.rendered_with.names;
+        let changed = self.settle_kept_deleted() | changed;
         self.dirty |= changed;
+        changed
+    }
+
+    /// With the Message Logger off, or not keeping deletions, the messages
+    /// it held back as deleted are gone, as Discord has them; returns
+    /// whether any went.
+    pub(super) fn settle_kept_deleted(&mut self) -> bool {
+        if crate::halocord::message_logger::keeps_deletions() {
+            return false;
+        }
+        let gone = |messages: &mut std::collections::BTreeMap<u64, Message>| {
+            let before = messages.len();
+            messages.retain(|_, message| !crate::halocord::message_logger::is_deleted(&message.id));
+            before != messages.len()
+        };
+        let mut changed = gone(&mut self.shown.messages);
+        if let Some(latest) = &mut self.latest {
+            changed |= gone(&mut latest.messages);
+        }
+        if changed {
+            self.rendered.clear();
+            self.dirty = true;
+        }
         changed
     }
 
@@ -804,6 +834,8 @@ impl OpenChannel {
                     let data = tokio::fs::read(&path)
                         .await
                         .map_err(|_| format!("Yapfast could not read {name}."))?;
+                    // HaloCord's Auto zipper.
+                    let (name, data) = crate::halocord::auto_zipper::zipped(name, data);
                     read.push((upload_name(&name, spoiler), data));
                 }
                 let sending = yapfast_discord::api::Sending {

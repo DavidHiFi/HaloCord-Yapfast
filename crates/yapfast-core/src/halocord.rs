@@ -4,19 +4,25 @@
 
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
+pub mod auto_zipper;
+pub mod better_forwards;
 pub mod copy_file_contents;
 pub mod copy_media_link;
 pub mod copy_sticker_link;
 pub mod copy_user_mention;
 pub mod copy_user_url;
+pub mod embedded_urls;
 pub mod fake_dms;
+pub mod favorite_anything;
 pub mod fix_file_extensions;
 pub mod message_logger;
 pub mod new_user;
+pub mod notification_title;
 pub mod quick_mention;
 pub mod send_timestamps;
 pub mod staff;
 pub mod themes;
+pub mod universal_mention;
 
 use crate::{
     application::{Action, Application, Effect, INVITE_AGES, INVITE_USES},
@@ -146,12 +152,28 @@ static FAKE_DEAF: AtomicBool = AtomicBool::new(false);
 
 /// Makes others see this account muted, or muted and deafened, in calls,
 /// whatever it really is: the voice state sent to Discord says so, while the
-/// microphone and the sound stay as the account set them. See
+/// sound stays as the account set it. A fake mute leaves the microphone as
+/// it is; a fake deafen stops it sending (see [`fake_deafened`]). See
 /// [`voice_state`].
 pub fn set_fake_voice(mute: bool, deaf: bool) {
     FAKE_MUTE.store(mute, Ordering::Relaxed);
     FAKE_DEAF.store(deaf, Ordering::Relaxed);
+    // A call joined meanwhile says deafened from its first voice state.
+    #[cfg(feature = "discord")]
+    yapfast_discord::halocord::set_fake_deafen(deaf);
 }
+
+/// Whether a fake deafen is on. While it is, the microphone sends nothing,
+/// as while a push-to-mute key is held: others are told this account is
+/// deafened, and a deafened Discord client sends no voice, so no one hears
+/// it from an account that shows deafened.
+pub fn fake_deafened() -> bool {
+    FAKE_DEAF.load(Ordering::Relaxed)
+}
+
+/// Held by every test that sets the fake voice state, which is global.
+#[cfg(test)]
+pub(crate) static FAKE_VOICE_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// What the voice state sent to Discord says, from the real mute and
 /// deafen: (self mute, self deaf). A fake deafen shows as Discord shows a
@@ -275,11 +297,13 @@ pub trait Hooks: Sync {
     }
 }
 
-/// What a plugin's menu row does: actions for the app, and text to copy.
+/// What a plugin's menu row does: actions for the app, text to copy, and a
+/// web page to open in the browser.
 #[derive(Default)]
 pub struct Picked {
     pub actions: Vec<Action>,
     pub copy: Option<String>,
+    pub open: Option<String>,
 }
 
 #[cfg(not(test))]
@@ -545,6 +569,9 @@ mod tests {
     /// real `deafened`, and only `voice_state`'s answer goes to Discord.
     #[test]
     fn a_fake_deafen_sends_self_deaf_while_the_real_deafen_stays_off() {
+        let _alone = FAKE_VOICE_TESTS
+            .lock()
+            .unwrap_or_else(|held| held.into_inner());
         let real_deafened = false;
         let real_muted = false;
         set_fake_voice(false, true);

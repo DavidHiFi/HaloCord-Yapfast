@@ -20,6 +20,26 @@ pub(super) fn notification(
             &message.author_id,
         )
         .unwrap_or_else(|| message.author.clone());
+    // HaloCord's Notification title (docs/halocord.md): "Sam replied to
+    // Lena", or "to you".
+    let author = crate::halocord::notification_title::author(author, || {
+        use crate::halocord::notification_title::Replied;
+        match &message.reply {
+            Some(yapfast_discord::message::Reply::Message { author_id, .. })
+                if snapshot.user_id.as_deref() == Some(author_id.as_str()) =>
+            {
+                Some(Replied::You)
+            }
+            Some(yapfast_discord::message::Reply::Message {
+                author_id, author, ..
+            }) => Some(Replied::Named(
+                discord
+                    .name(guild.unwrap_or(yapfast_discord::ready::PRIVATE), author_id)
+                    .unwrap_or_else(|| author.clone()),
+            )),
+            _ => None,
+        }
+    });
     // A message of components says what its first text does.
     let text = match message.content.as_str() {
         "" => message

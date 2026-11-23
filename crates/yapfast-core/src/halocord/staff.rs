@@ -98,6 +98,20 @@ pub fn tag(rank: Rank, color: Option<u32>) -> Tag {
     }
 }
 
+/// The tag of `user` in the server `place` is in, for names drawn outside
+/// chat (the member list, voice channels, profiles), where they have a rank.
+/// Without Discord there are no ranks, so no tag.
+#[cfg_attr(not(feature = "discord"), allow(unused_variables))]
+pub fn tag_of(app: &Application, place: &str, user: &str, color: Option<u32>) -> Option<Tag> {
+    #[cfg(feature = "discord")]
+    {
+        let (owner, permissions) = app.member_standing(place, user)?;
+        rank(owner, permissions).map(|rank| tag(rank, color))
+    }
+    #[cfg(not(feature = "discord"))]
+    None
+}
+
 /// The plugin's hook: its tags in a server's chat.
 pub struct Staff;
 

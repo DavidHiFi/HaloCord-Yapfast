@@ -665,17 +665,32 @@ fn thumbnail(url: &str, download: &std::path::Path, width: u32) -> Option<PathBu
 /// client offers it on any picture that moves: by the address it was linked
 /// by, a GIF's page or the picture's own, or an attached file's address.
 pub(crate) fn favorite_gif(attachment: &yapfast_discord::message::Attachment) -> Option<Gif> {
+    favorite_gif_with(attachment, crate::halocord::favorite_anything::is_on())
+}
+
+/// [`favorite_gif`], with HaloCord's Favorite anything on (`anything`) or
+/// off.
+fn favorite_gif_with(
+    attachment: &yapfast_discord::message::Attachment,
+    anything: bool,
+) -> Option<Gif> {
     // Messages kept before Yapfast knew what moves have the name to go by.
     let moves = attachment.animated
         || attachment.link_url.is_some()
         || attachment.name.to_lowercase().ends_with(".gif");
-    if !attachment.image || !moves {
+    // HaloCord's Favorite anything (docs/halocord.md): still pictures and
+    // attached videos too; a video is kept as Discord keeps a video GIF.
+    let video = anything
+        && attachment.video_url.is_some()
+        && attachment.shown == yapfast_discord::message::Shown::Message;
+    let still = anything && !moves && !video;
+    if !(attachment.image || video) || !(moves || still || video) {
         return None;
     }
     let (width, height) = attachment.dimensions.unwrap_or_default();
     let url = attachment.link_url.as_deref().unwrap_or(&attachment.url);
     Some(Gif {
-        id: None,
+        id: still.then(|| crate::halocord::favorite_anything::STILL.to_owned()),
         url: favorite_key(url),
         src: favorite_key(&attachment.url),
         gif_src: String::new(),
@@ -863,6 +878,50 @@ mod tests {
         ] {
             assert_eq!(favorite_key(kept), kept);
         }
+    }
+
+    #[test]
+    fn halocord_favorite_anything_stars_stills_and_videos() {
+        let message = yapfast_discord::message::parse(&serde_json::json!({
+            "id": "10", "channel_id": "2", "content": "",
+            "author": {"id": "3", "username": "sam"},
+            "timestamp": "2024-01-01T00:00:00+00:00",
+            "attachments": [
+                {"id": "5", "filename": "still.png", "size": 1000, "width": 64, "height": 64,
+                 "url": "https://cdn.discordapp.com/attachments/2/5/still.png",
+                 "proxy_url": "https://media.discordapp.net/attachments/2/5/still.png",
+                 "content_type": "image/png"},
+                {"id": "6", "filename": "clip.mp4", "size": 9000, "width": 640, "height": 360,
+                 "url": "https://cdn.discordapp.com/attachments/2/6/clip.mp4?ex=1",
+                 "proxy_url": "https://media.discordapp.net/attachments/2/6/clip.mp4",
+                 "content_type": "video/mp4"},
+                {"id": "7", "filename": "notes.pdf", "size": 9000,
+                 "url": "https://cdn.discordapp.com/attachments/2/7/notes.pdf",
+                 "proxy_url": "https://media.discordapp.net/attachments/2/7/notes.pdf",
+                 "content_type": "application/pdf"},
+            ],
+        }))
+        .unwrap();
+        let favorites = |anything| -> Vec<_> {
+            message
+                .attachments
+                .iter()
+                .map(|attachment| favorite_gif_with(attachment, anything))
+                .collect()
+        };
+        assert!(favorites(false).iter().all(Option::is_none), "off");
+        let on = favorites(true);
+        let still = on[0].as_ref().expect("the still picture");
+        assert!(crate::halocord::favorite_anything::still(still));
+        let video = on[1].as_ref().expect("the video");
+        assert_eq!(
+            video.url,
+            "https://cdn.discordapp.com/attachments/2/6/clip.mp4"
+        );
+        assert_eq!(video.id, None, "kept as a video GIF");
+        assert!(FavoriteGif::of(video, &[]).video);
+        assert!(!FavoriteGif::of(still, &[]).video);
+        assert!(on[2].is_none(), "a file has nothing to show in the picker");
     }
 
     #[test]

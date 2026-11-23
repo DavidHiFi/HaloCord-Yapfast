@@ -752,9 +752,9 @@ fn click_to_unmute_marks_the_muted_and_unmutes_on_a_click() {
     yapfast_core::volume::mute("unmute-dana", true);
     app.layout.voice.muted_people.insert("unmute-dana".into());
     assert!(unmute_mark(app.ctx(), &dana, None).is_some(), "the mark");
-    let _ = app.update(crate::app::Message::Call(Event::Unmute(
-        "unmute-dana".into(),
-    )));
+    let _ = app.update(crate::app::Message::HaloCord(
+        crate::halocord::Event::Unmute("unmute-dana".into()),
+    ));
     assert!(!yapfast_core::volume::muted("unmute-dana"));
     assert!(!app.layout.voice.muted_people.contains("unmute-dana"));
     crate::layout::flush(folder.path());
@@ -907,4 +907,218 @@ fn platform_indicators_mark_people_by_the_apps_they_are_on() {
         platform_marks(app.ctx(), "halo-platform-nobody").is_none(),
         "unseen"
     );
+}
+
+/// Platform indicators' other places: each one's switch, off at first, puts
+/// the same marks by the name in the DM list, on messages, under voice
+/// channels and on profiles.
+#[test]
+fn platform_indicators_show_in_each_place_switched_on() {
+    use crate::halocord::{Change, PLATFORMS, Place, changed, name_marks, place};
+    use yapfast_core::yapfast_discord::halocord::note;
+    let (mut app, _folder) = super::preview();
+    note(
+        "platform-places-sam",
+        &serde_json::json!({"client_status": {"mobile": "idle"}}),
+    );
+    let plugin = place(PLATFORMS).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let places = [Place::Dms, Place::Message, Place::Voice, Place::Profile];
+    for at in places {
+        assert!(
+            name_marks(app.ctx(), "platform-places-sam", at).is_none(),
+            "{at:?} is off at first"
+        );
+    }
+    for (setting, at) in places.into_iter().enumerate() {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting,
+                on: true,
+            },
+        );
+        assert!(
+            name_marks(app.ctx(), "platform-places-sam", at).is_some(),
+            "{at:?}"
+        );
+        assert!(
+            name_marks(app.ctx(), "platform-places-nobody", at).is_none(),
+            "{at:?}: someone never seen"
+        );
+    }
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert!(
+        name_marks(app.ctx(), "platform-places-sam", Place::Dms).is_none(),
+        "the plugin off"
+    );
+}
+
+/// User voice show's switches for messages and profiles, off at first: on,
+/// someone in a voice channel gets the speaker by their name on a message,
+/// and "In voice: channel" on their profile.
+#[test]
+fn user_voice_show_marks_messages_and_profiles() {
+    use crate::halocord::{Change, Place, USER_VOICE_SHOW, changed, name_marks, place};
+    let (mut app, _folder) = super::preview();
+    let lounge = app
+        .client
+        .state()
+        .rooms
+        .iter()
+        .find(|room| room.voice)
+        .expect("a voice channel")
+        .clone();
+    let someone = "voice-show-sam";
+    super::change(&mut app, |state| {
+        for room in state.rooms.iter_mut() {
+            if room.id == lounge.id {
+                std::sync::Arc::make_mut(room)
+                    .people
+                    .push(yapfast_core::chat::VoicePerson {
+                        id: someone.into(),
+                        name: "Sam".into(),
+                        ..Default::default()
+                    });
+            }
+        }
+    });
+    let plugin = place(USER_VOICE_SHOW).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    for at in [Place::Message, Place::Profile] {
+        assert!(
+            name_marks(app.ctx(), someone, at).is_none(),
+            "{at:?} is off at first"
+        );
+    }
+    for setting in [0, 1] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting,
+                on: true,
+            },
+        );
+    }
+    assert!(name_marks(app.ctx(), someone, Place::Message).is_some());
+    assert!(name_marks(app.ctx(), someone, Place::Profile).is_some());
+    assert!(
+        name_marks(app.ctx(), "voice-show-nobody", Place::Message).is_none(),
+        "someone not in voice"
+    );
+}
+
+/// Staff tag outside chat: each place's switch, off at first, puts the tag
+/// by an admin's name in the member list, under voice channels and on
+/// profiles; the owner gets none in the member list, which crowns them, but
+/// does under voice channels; an ordinary member gets none.
+#[test]
+fn staff_tag_shows_in_each_place_switched_on() {
+    use crate::halocord::{Change, Place, STAFF_TAG, changed, name_marks, place};
+    let (mut app, _folder) = super::preview();
+    app.client.app = yapfast_core::application::member_server(&["30"]);
+    app.client.app.state.account = Some("1".into());
+    app.client.app.state.selected = Some("discord:10:12".into());
+    let _ = app.sync();
+    let plugin = place(STAFF_TAG).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let places = [Place::MemberList, Place::Voice, Place::Profile];
+    for at in places {
+        assert!(
+            name_marks(app.ctx(), "6", at).is_none(),
+            "{at:?} off at first"
+        );
+    }
+    for setting in [2, 3, 4] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting,
+                on: true,
+            },
+        );
+    }
+    for at in places {
+        assert!(
+            name_marks(app.ctx(), "6", at).is_some(),
+            "Gus, an admin: {at:?}"
+        );
+        assert!(
+            name_marks(app.ctx(), "3", at).is_none(),
+            "Cara, no rank: {at:?}"
+        );
+    }
+    assert!(
+        name_marks(app.ctx(), "99", Place::MemberList).is_none(),
+        "the owner's crown"
+    );
+    assert!(
+        name_marks(app.ctx(), "99", Place::Voice).is_some(),
+        "the owner elsewhere"
+    );
+}
+
+/// New account tag outside chat: its switches for the member list and
+/// profiles, off at first, put the tag by an account younger than its days,
+/// and not by an old one.
+#[test]
+fn new_account_tag_shows_in_the_member_list_and_on_profiles() {
+    use crate::halocord::{Change, NEW_USER, Place, changed, name_marks, place};
+    let (mut app, _folder) = super::preview();
+    // A Discord id made two days ago, and one from 2015.
+    let made = yapfast_core::clock::now_ms() - 2 * 86_400_000 - 1_420_070_400_000;
+    let young = (made << 22).to_string();
+    let old = "100000000000000000";
+    let plugin = place(NEW_USER).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    for at in [Place::MemberList, Place::Profile] {
+        assert!(
+            name_marks(app.ctx(), &young, at).is_none(),
+            "{at:?} off at first"
+        );
+    }
+    for setting in [1, 2] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting,
+                on: true,
+            },
+        );
+    }
+    for at in [Place::MemberList, Place::Profile] {
+        assert!(name_marks(app.ctx(), &young, at).is_some(), "{at:?}");
+        assert!(
+            name_marks(app.ctx(), old, at).is_none(),
+            "an old account: {at:?}"
+        );
+    }
 }

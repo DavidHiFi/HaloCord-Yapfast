@@ -1,19 +1,36 @@
 //! Member list plugins: the member count line, Platform indicators, Show
-//! timeout duration, Better joined date and View icons.
+//! timeout duration, Better joined date, View icons, Show hidden things and Show song
+//! name.
 
 use iced::Element;
 
 use chrono::NaiveDate;
 
-use super::{Kept, Plugin, id, thousands};
+use super::{Kept, Kind, Plugin, Setting, id, thousands};
 use crate::{app::Message, ctx::Ctx, pictures::Icon, style::hex};
+
+pub(super) const SHOW_SONG_NAME: Plugin = Plugin {
+    id: id::SHOW_SONG_NAME,
+    name: "Show song name",
+    about: "Someone listening to Spotify shows the song's name under their name in the member list, not \"Spotify\".",
+    on_at_first: false,
+    settings: &[],
+    apply: |kept, plugin| {
+        yapfast_core::yapfast_discord::halocord::set_song_names(kept.on(plugin));
+    },
+    hooks: None,
+};
 
 pub(super) const MEMBER_COUNT: Plugin = Plugin {
     id: id::MEMBER_COUNT,
     name: "Member count",
     about: "Shows how many people are online and how many have joined, in a line at the top of the member list.",
     on_at_first: false,
-    settings: &[],
+    settings: &[super::off(
+        "tooltip",
+        "In the server list's tooltips",
+        "Adds how many members a server has after its name when you point at it in the server list.",
+    )],
     apply: |_, _| {},
     hooks: None,
 };
@@ -59,6 +76,75 @@ pub fn timeout_clock<'a>(cx: Ctx<'a>, until: u64) -> Element<'a, Message> {
     .into()
 }
 
+pub(super) const SHOW_HIDDEN: Plugin = Plugin {
+    id: id::SHOW_HIDDEN,
+    name: "Show hidden things",
+    about: "Shows what Discord's client shows only to moderators: the clock by a timed out member's name on their messages too, not only in the member list, and \"Invites paused\" in a server's name when you point at it in the server list.",
+    on_at_first: false,
+    settings: &[
+        Setting {
+            key: "timeouts",
+            heading: "Timeouts on messages",
+            note: "The clock by a timed out member's name on their messages.",
+            kind: Kind::Switch {
+                unless_changed: true,
+            },
+        },
+        Setting {
+            key: "invites",
+            heading: "Invites paused",
+            note: "In a server's name when you point at it in the server list.",
+            kind: Kind::Switch {
+                unless_changed: true,
+            },
+        },
+    ],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// Whether Show hidden things is on with its switch `setting` on.
+fn shows_hidden(cx: Ctx<'_>, setting: usize) -> bool {
+    let kept = &cx.layout.halocord;
+    kept.on(&SHOW_HIDDEN) && kept.flag(&SHOW_HIDDEN, &SHOW_HIDDEN.settings[setting])
+}
+
+/// Hook: the clock by a timed out member's name on their message, as the
+/// member list has it, while Show hidden things shows timeouts there.
+pub fn message_timeout<'a>(cx: Ctx<'a>, person: &str) -> Option<Element<'a, Message>> {
+    if !shows_hidden(cx, 0) {
+        return None;
+    }
+    // A message's sender is `discord:` and the member's id.
+    let person = yapfast_core::discord::sender_user(person).unwrap_or(person);
+    let now = yapfast_core::clock::now_ms();
+    let Some(Ok(members)) = &cx.state.members else {
+        return None;
+    };
+    let until = members
+        .iter()
+        .find(|member| member.id == person)
+        .and_then(|member| member.timed_out_until)
+        .filter(|until| *until > now)?;
+    Some(timeout_clock(cx, until))
+}
+
+/// Hook: a server's name as the server list names it when pointed at, with
+/// "Invites paused" after it while they are and Show hidden things says so.
+pub fn server_tip<'a>(
+    cx: Ctx<'_>,
+    server: &str,
+    name: std::borrow::Cow<'a, str>,
+) -> std::borrow::Cow<'a, str> {
+    let paused = yapfast_core::discord::parse_server(server)
+        .is_some_and(yapfast_core::yapfast_discord::halocord::invites_paused);
+    if paused && shows_hidden(cx, 1) {
+        std::borrow::Cow::Owned(format!("{name} · Invites paused"))
+    } else {
+        name
+    }
+}
+
 /// What the message box adds after when a timeout ends, while Show timeout
 /// duration is on: how long is left.
 pub fn timeout_note(cx: Ctx<'_>, until: u64) -> String {
@@ -75,12 +161,103 @@ pub fn timeout_note(cx: Ctx<'_>, until: u64) -> String {
 pub(super) const PLATFORMS: Plugin = Plugin {
     id: id::PLATFORMS,
     name: "Platform indicators",
-    about: "Shows which of Discord's apps a member is on, desktop, phone or web, beside their name in the member list, coloured by their status there.",
+    about: "Shows which of Discord's apps a member is on, desktop, phone, web or a console, beside their name in the member list, coloured by their status there.",
     on_at_first: false,
-    settings: &[],
+    settings: &[
+        super::off(
+            "dms",
+            "In the DM list",
+            "The marks by each friend's name in your direct messages.",
+        ),
+        super::off(
+            "messages",
+            "On messages",
+            "The marks by the author's name on each message.",
+        ),
+        super::off(
+            "voice",
+            "Under voice channels",
+            "The marks by each person in a voice channel in the channel list.",
+        ),
+        super::off(
+            "profiles",
+            "On profiles",
+            "The marks after the username on someone's profile.",
+        ),
+    ],
     apply: |_, _| {},
     hooks: None,
 };
+
+/// Where a person's name is drawn, besides the member list, for the marks
+/// plugins add by it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Place {
+    /// A direct message's row in the DM list.
+    Dms,
+    /// A message's author line.
+    Message,
+    /// A person under a voice channel in the channel list.
+    Voice,
+    /// The line under a profile's name.
+    Profile,
+    /// A member's row in the member list.
+    MemberList,
+}
+
+/// What plugins add by a person's name in `place`, by their Discord user
+/// id: User voice show's speaker on messages and profiles, then Platform
+/// indicators' marks, each while its switch for the place is on. None when
+/// there's nothing.
+pub fn name_marks<'a>(cx: Ctx<'a>, user: &str, place: Place) -> Option<Element<'a, Message>> {
+    let voice = match place {
+        Place::Message => super::voice::message_voice_mark(cx, user),
+        Place::Profile => super::voice::profile_voice_mark(cx, user),
+        Place::Dms | Place::Voice | Place::MemberList => None,
+    };
+    let marks: Vec<Element<'a, Message>> = super::chat::staff_mark(cx, user, place)
+        .into_iter()
+        .chain(super::chat::new_account_mark(cx, user, place))
+        .chain(voice)
+        .chain(place_platforms(cx, user, place))
+        .collect();
+    (!marks.is_empty()).then(|| iced::widget::Row::with_children(marks).spacing(4).into())
+}
+
+/// Platform indicators' marks in `place`, while its switch for it is on.
+fn place_platforms<'a>(cx: Ctx<'a>, user: &str, place: Place) -> Option<Element<'a, Message>> {
+    let kept = &cx.layout.halocord;
+    let setting = match place {
+        Place::Dms => 0,
+        Place::Message => 1,
+        Place::Voice => 2,
+        Place::Profile => 3,
+        // The member list's own call draws them.
+        Place::MemberList => return None,
+    };
+    if !kept.flag(&PLATFORMS, &PLATFORMS.settings[setting]) {
+        return None;
+    }
+    platform_marks(cx, user)
+}
+
+/// What plugins add by the name of the person a direct message is with, by
+/// the DM's room id ([`name_marks`] in the DM list).
+pub fn dm_marks<'a>(cx: Ctx<'a>, room: &str) -> Option<Element<'a, Message>> {
+    // Nothing to look up while no plugin draws by DM names.
+    let kept = &cx.layout.halocord;
+    if !kept.on(&PLATFORMS) || !kept.flag(&PLATFORMS, &PLATFORMS.settings[0]) {
+        return None;
+    }
+    let person = cx
+        .state
+        .rooms
+        .iter()
+        .find(|listed| listed.id == room)?
+        .person
+        .as_deref()?;
+    name_marks(cx, person, Place::Dms)
+}
 
 /// The marks after a member's name for each of Discord's apps they're on
 /// (Platform indicators), each in its status's colour and named when it's
@@ -96,6 +273,7 @@ pub fn platform_marks<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message
         (seen.desktop, Icon::HaloDesktop, "Desktop"),
         (seen.mobile, Icon::HaloPhone, "Phone"),
         (seen.web, Icon::HaloWeb, "Web"),
+        (seen.console, Icon::Gamepad, "Console"),
     ]
     .into_iter()
     .filter_map(|(status, icon, app)| {
@@ -138,6 +316,33 @@ pub fn member_totals(lines: &[crate::looks::MemberLine]) -> (usize, usize) {
         }
     }
     (online, all)
+}
+
+/// Member count's tooltip on a server's icon, while its switch for it is on:
+/// the name, then "· 1,234 members".
+pub fn tip_member_count<'a>(
+    cx: crate::ctx::Ctx<'_>,
+    place: &str,
+    name: std::borrow::Cow<'a, str>,
+) -> std::borrow::Cow<'a, str> {
+    let kept = &cx.layout.halocord;
+    if !kept.on(&MEMBER_COUNT) || !kept.flag(&MEMBER_COUNT, &MEMBER_COUNT.settings[0]) {
+        return name;
+    }
+    // As of sign-in: Discord's count isn't updated until the next one.
+    match cx.app.server_member_count(place) {
+        Some(total) => std::borrow::Cow::Owned(member_tip(&name, total)),
+        None => name,
+    }
+}
+
+/// A server's name with its member count after it.
+fn member_tip(name: &str, total: u64) -> String {
+    format!(
+        "{name} \u{b7} {} member{}",
+        thousands(total as usize),
+        if total == 1 { "" } else { "s" }
+    )
 }
 
 /// Puts the count's line first in a member list, when its plugin is on and
@@ -360,5 +565,16 @@ mod day_tests {
         for unread in ["", "soon", "Dec 1, 2026"] {
             assert_eq!(day_words(unread, today), None, "{unread}");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_servers_tooltip_says_its_member_count() {
+        assert_eq!(member_tip("Test", 1234), "Test \u{b7} 1,234 members");
+        assert_eq!(member_tip("Test", 1), "Test \u{b7} 1 member");
     }
 }

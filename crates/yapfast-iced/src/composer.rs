@@ -89,6 +89,9 @@ pub enum Event {
     Answer(bool),
     /// The +.
     Plus,
+    /// A right click on the + while HaloCord's Better upload button is on:
+    /// its menu.
+    PlusMenu,
     /// The edit's hint: cancel or save; its emoji button.
     CancelEdit,
     SaveEdit,
@@ -203,6 +206,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             Task::batch([app.sync(), refocus(app)])
         }
         Event::Plus => plus(app),
+        Event::PlusMenu => plus_menu(app),
         Event::CancelEdit => {
             app.client.dispatch(Action::CancelEdit);
             Task::batch([app.sync(), operation::focus(COMPOSER)])
@@ -530,6 +534,20 @@ fn paste(app: &App, which: Writing) -> Task<Message> {
 /// The + opens Discord's menu where threads or polls can start, and the
 /// file dialog elsewhere.
 fn plus(app: &mut App) -> Task<Message> {
+    if plus_uploads(app.ctx(), &composer_look(app.ctx())) {
+        return crate::uploads::attach(app);
+    }
+    plus_menu(app)
+}
+
+/// Whether a click on the + opens the file dialog: away from Discord's
+/// menu, or with HaloCord's Better upload button on where files can go.
+fn plus_uploads(ctx: crate::ctx::Ctx<'_>, look: &Look) -> bool {
+    !look.plus || (look.attach && crate::halocord::uploads_first(&ctx.layout.halocord))
+}
+
+/// The +'s menu: Upload a File, then threads and polls where they start.
+fn plus_menu(app: &mut App) -> Task<Message> {
     let look = composer_look(app.ctx());
     if !look.plus {
         return crate::uploads::attach(app);
@@ -888,14 +906,24 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
     let plus = composer_button(
         ctx,
         Icon::Add,
-        if look.plus {
-            "More options"
-        } else {
+        if !look.plus {
             "Attach files"
+        } else if plus_uploads(ctx, look) {
+            // HaloCord's Better upload button: the menu is a right click.
+            "Attach files (right click for more)"
+        } else {
+            "More options"
         },
         27,
         theme.secondary,
         (look.attach || look.plus).then_some(Message::Write(Event::Plus)),
+    );
+    // HaloCord's Better upload button (docs/halocord.md): the menu on a
+    // right click.
+    let plus = crate::halocord::upload_button(
+        ctx,
+        plus,
+        look.plus.then_some(Message::Write(Event::PlusMenu)),
     );
     let opens = |tab: Tab| {
         look.enabled
@@ -951,6 +979,10 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
             )
         },
     );
+    // HaloCord's Hide chat buttons (docs/halocord.md).
+    let emoji = crate::halocord::chat_buttons(ctx, emoji);
+    // HaloCord's Send timestamps picker, before the buttons (docs/halocord.md).
+    let emoji = crate::halocord::timestamp_button(ctx, emoji);
     let line = row![lift(plus), field, counter, emoji]
         .spacing(6)
         .align_y(Alignment::End)

@@ -1,5 +1,7 @@
 //! Mention: a row in someone's message menu that puts a mention of its author
-//! in the message box. Your own messages and other networks' get no row.
+//! in the message box. Your own messages and other networks' get no row. The
+//! window can add the same as a button in the message's hover bar ([`author`]
+//! says whose).
 
 use super::{Hooks, Picked};
 use crate::{application::Action, chat::ChatMessage, discord};
@@ -7,7 +9,7 @@ use crate::{application::Action, chat::ChatMessage, discord};
 pub struct QuickMention;
 
 /// The Discord user who sent `message`, when it is someone else's.
-fn author(message: &ChatMessage) -> Option<&str> {
+pub fn author(message: &ChatMessage) -> Option<&str> {
     if message.own {
         return None;
     }

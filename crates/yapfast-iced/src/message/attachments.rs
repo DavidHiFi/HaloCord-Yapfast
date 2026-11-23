@@ -147,7 +147,11 @@ fn cells<'a>(
             && !covered
             && !attachment.video
             && !media::loading(attachment)
-            && attachment.gif.is_some()
+            // A still picture's star is HaloCord's Favorite anything's.
+            && attachment
+                .gif
+                .as_ref()
+                .is_some_and(|gif| !yapfast_core::halocord::favorite_anything::still(gif))
         {
             shot = stack![shot, container(gif_badge()).padding(6)].into();
         }

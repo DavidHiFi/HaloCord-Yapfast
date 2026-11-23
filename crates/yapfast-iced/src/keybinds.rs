@@ -166,8 +166,8 @@ pub fn keybinds_told(app: &mut App, count: u64, told: Told) -> Task<Message> {
     }
 }
 
-/// A toggling keybind went down.
-fn toggled(app: &mut App, action: Action) -> Task<Message> {
+/// A toggling keybind went down; a Stream Deck key too.
+pub(crate) fn toggled(app: &mut App, action: Action) -> Task<Message> {
     tracing::debug!(?action, "keybind toggled");
     match action {
         // As the account card's buttons: in a call they toggle; out of

@@ -193,6 +193,12 @@ pub fn set(settings: Settings) {
     held(|held| held.settings = settings);
 }
 
+/// Whether a deleted message is kept in the chat right now: the plugin and
+/// its Keep deleted messages switch are both on.
+pub fn keeps_deletions() -> bool {
+    held(|held| held.settings.on && held.settings.keep_deleted)
+}
+
 /// What the page says now.
 pub fn settings() -> Settings {
     held(|held| held.settings)

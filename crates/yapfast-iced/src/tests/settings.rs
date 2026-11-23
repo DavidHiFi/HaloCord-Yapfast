@@ -799,6 +799,54 @@ fn fake_mute_and_deafen_start_off_and_switch_on() {
     assert_eq!(layout["halocord"]["plugins"]["fake-mute"]["on"], true);
 }
 
+/// Fake mute and fake deafen start off at each launch: switched on, they're
+/// kept for the session, and a window opened again has both off.
+#[test]
+fn fake_voice_starts_off_at_each_launch() {
+    use crate::halocord::{Change, FAKE_DEAFEN, FAKE_MUTE, changed, place};
+    let (mut app, folder) = preview();
+    for id in [FAKE_MUTE, FAKE_DEAFEN] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Switch {
+                plugin: place(id).unwrap(),
+                on: true,
+            },
+        );
+    }
+    assert!(app.layout.halocord.is(FAKE_DEAFEN), "on for this session");
+    let layout = stored(&folder);
+    assert_eq!(layout["halocord"]["plugins"]["fake-deafen"]["on"], true);
+    let again = start(&folder, true);
+    assert!(!again.layout.halocord.is(FAKE_MUTE));
+    assert!(!again.layout.halocord.is(FAKE_DEAFEN));
+}
+
+/// Telling the core again, as restoring a backup does, leaves Fake mute and
+/// Fake deafen as they are: only the start switches them off.
+#[test]
+fn applying_the_plugins_again_keeps_the_fake_voice() {
+    use crate::halocord::{Change, FAKE_DEAFEN, FAKE_MUTE, changed, place};
+    let (mut app, _folder) = preview();
+    for id in [FAKE_MUTE, FAKE_DEAFEN] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Switch {
+                plugin: place(id).unwrap(),
+                on: true,
+            },
+        );
+    }
+    app.layout.halocord.apply();
+    assert!(app.layout.halocord.is(FAKE_MUTE));
+    assert!(app.layout.halocord.is(FAKE_DEAFEN));
+    app.layout.halocord.start_off();
+    assert!(!app.layout.halocord.is(FAKE_MUTE));
+    assert!(!app.layout.halocord.is(FAKE_DEAFEN));
+}
+
 /// The user area keeps its options and shows them as the dock.
 #[test]
 fn the_user_area_options_make_the_dock() {
@@ -1080,6 +1128,62 @@ fn message_click_actions_edit_own_and_reply_to_others() {
         },
     );
     assert_eq!(act(&app, own), Some(MenuAct::Reply));
+}
+
+/// Message click actions leave the message being edited alone: a double
+/// click in its edit field (to pick a word) is the field's, and keeps what
+/// was typed there.
+#[test]
+fn message_click_actions_leave_the_message_being_edited_alone() {
+    use crate::{
+        halocord::{CLICK_ACTIONS, Change, changed, double_click, place},
+        menus::MenuAct,
+    };
+    let (mut app, _folder) = preview();
+    let rows = app.client.state().messages.len();
+    let own = (0..rows)
+        .find(|&row| {
+            app.ctx()
+                .row_message(row)
+                .is_some_and(|message| message.own && !message.deleted && message.can_edit)
+        })
+        .expect("a message of this account's");
+    let item = app.ctx().row_message(own).expect("it").item.clone();
+    let plugin = place(CLICK_ACTIONS).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    assert!(double_click(app.ctx(), own).is_some(), "on, it edits");
+    let _ = app.update(Message::Menu(crate::menus::Event::Act(
+        MenuAct::Edit,
+        item.clone(),
+        iced::Point::ORIGIN,
+    )));
+    assert_eq!(app.composer.editing.as_deref(), Some(item.as_str()));
+    assert!(
+        double_click(app.ctx(), own).is_none(),
+        "not while it's edited"
+    );
+    interact(&mut app, |ui| {
+        let field = iced::widget::Id::new(crate::composer::EDIT);
+        ui.click(field.clone()).expect("the edit field");
+        ui.typewrite(" and more");
+        ui.click(field.clone()).expect("the edit field");
+        ui.click(field).expect("the edit field");
+    });
+    assert_eq!(app.composer.editing.as_deref(), Some(item.as_str()));
+    assert!(
+        app.composer.edit.text().contains(" and more"),
+        "what was typed stays: {}",
+        app.composer.edit.text()
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
 }
 
 /// Clickable roles: a role on a profile sends its card only while it is on,

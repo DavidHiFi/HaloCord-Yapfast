@@ -19,16 +19,21 @@
 //!   a plugin).
 //! - `areas.rs`: which part of Discord each plugin works on, for the chips
 //!   on the Plugins page.
+//! - `deck.rs`: Stream Deck keys, through a small server on this computer.
 //! - `backup.rs`: Backup & Restore's file of the plugins, the look and the
 //!   person's own themes (not a plugin).
 //!
 //! Adding a plugin: its id in [`id`], one `const` in its area's file, and its
-//! place in [`PLUGINS`]. `docs/halocord.md` has the template.
+//! place in [`PLUGINS`]. `docs/halocord.md` has the template. A plugin that
+//! needs messages of its own (a press on something it drew, a reply from a
+//! task it started) adds a variant to [`Event`] and its arm in [`update`].
 
 mod areas;
 pub mod backup;
 mod buttons;
 mod chat;
+pub mod deck;
+mod clicks;
 mod fake_dialog;
 mod kept;
 mod members;
@@ -42,19 +47,29 @@ mod voice;
 pub use areas::{Area, area};
 pub use buttons::{Press, press, presses, start_button};
 use chat::thousands;
-pub use chat::{count_color, count_words, double_click, tag};
+pub use chat::{
+    chat_buttons, count_color, count_words, double_click, inserts_gif, tag, upload_button,
+    uploads_first,
+};
+pub use clicks::{Clicks, click_keys, click_row};
 pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 #[cfg(test)]
 pub use members::time_left;
 pub use members::{
-    add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
+    Place, add_member_count, dm_marks, exact_day, full_picture, name_marks, platform_marks,
+    timeout_clock, timeout_note, tip_member_count,
 };
-pub use members::{role_press, zoom_size, zoomable};
-pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
+pub use members::{message_timeout, role_press, server_tip, zoom_size, zoomable};
+pub use menus::{
+    attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, search_result,
+    song_links, song_page, sticker_tile,
+};
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
-pub use servers::{home_mentions, no_request_badge};
+pub use servers::{
+    KeptChannel, home_face, home_mentions, keep_channel, no_request_badge,
+};
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
@@ -63,7 +78,9 @@ pub use buttons::Dock;
 #[cfg(test)]
 pub(crate) use buttons::{close_dm_actions, read_all_actions};
 #[cfg(test)]
-pub use chat::{Fill, counter_words};
+pub use chat::{Fill, chat_buttons_hidden, counter_words};
+#[cfg(test)]
+pub use clicks::presses_so_far;
 #[cfg(test)]
 pub use members::member_totals;
 #[cfg(test)]
@@ -117,6 +134,22 @@ pub mod id {
     pub const ANIMATED_STATUS: &str = "animated-status";
     pub const FAKE_DMS: &str = "fake-dms";
     pub const MESSAGE_LOGGER: &str = "message-logger";
+    pub const STREAM_DECK: &str = "stream-deck";
+    pub const EMBEDDED_URLS: &str = "embedded-urls";
+    pub const AUTO_ZIPPER: &str = "auto-zipper";
+    pub const BETTER_FORWARDS: &str = "better-forwards";
+    pub const GIF_PASTE: &str = "gif-paste";
+    pub const HIDE_CHAT_BUTTONS: &str = "hide-chat-buttons";
+    pub const HOME_TYPING: &str = "home-typing";
+    pub const SEARCH_MENU: &str = "full-search-context";
+    pub const UNIVERSAL_MENTION: &str = "universal-mention";
+    pub const KEEP_CHANNEL: &str = "keep-current-channel";
+    pub const BETTER_UPLOAD_BUTTON: &str = "better-upload-button";
+    pub const NOTIFICATION_TITLE: &str = "notification-title";
+    pub const SHOW_HIDDEN: &str = "show-hidden-things";
+    pub const SHOW_SONG_NAME: &str = "show-song-name";
+    pub const SONG_LINK: &str = "song-link";
+    pub const FAVORITE_ANYTHING: &str = "favorite-anything";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -165,6 +198,22 @@ pub static PLUGINS: &[Plugin] = &[
     presence::ANIMATED_STATUS,
     messages::FAKE_DMS,
     messages::MESSAGE_LOGGER,
+    deck::STREAM_DECK,
+    chat::EMBEDDED_URLS,
+    chat::AUTO_ZIPPER,
+    chat::BETTER_FORWARDS,
+    chat::GIF_PASTE,
+    chat::HIDE_CHAT_BUTTONS,
+    servers::HOME_TYPING,
+    menus::SEARCH_MENU,
+    chat::UNIVERSAL_MENTION,
+    servers::KEEP_CHANNEL,
+    chat::BETTER_UPLOAD_BUTTON,
+    chat::NOTIFICATION_TITLE,
+    members::SHOW_HIDDEN,
+    members::SHOW_SONG_NAME,
+    menus::SONG_LINK,
+    chat::FAVORITE_ANYTHING,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
@@ -184,6 +233,66 @@ pub fn any_found(query: &str) -> bool {
 /// The place of the plugin with `id` in [`PLUGINS`].
 pub fn place(id: &str) -> Option<usize> {
     PLUGINS.iter().position(|plugin| plugin.id == id)
+}
+
+/// Hook: Send timestamps' clock before the message box's buttons, while its
+/// picker is on (`chat.rs`).
+pub fn timestamp_button<'a>(
+    cx: crate::ctx::Ctx<'a>,
+    buttons: impl Into<iced::Element<'a, crate::app::Message>>,
+) -> iced::Element<'a, crate::app::Message> {
+    chat::timestamp_button(cx, buttons)
+}
+
+/// The window's plugins' own messages, carried by `Message::HaloCord`, so a
+/// plugin's presses and replies need no event of Yapfast's own.
+#[derive(Clone, Debug)]
+pub enum Event {
+    /// Send timestamps' picker, from its clock by the message box.
+    TimestampMenu,
+    /// Click to unmute: this person, unmuted for this account.
+    Unmute(String),
+    /// Copy sticker link: a sticker picker tile right clicked, by its picture.
+    StickerMenu(String),
+    /// Quick mention's hover-bar button: this Discord user, mentioned in
+    /// the composer.
+    Mention(String),
+    /// Message click actions, while it counts presses: a press on a
+    /// message's row (with what its double-click does), a double click's
+    /// wait run out, and Backspace held or let go.
+    Press(String, Option<crate::menus::MenuAct>),
+    DoubleClickDue(String, u64, Option<crate::menus::MenuAct>),
+    Backspace(bool),
+    /// Search result menu: a right click on a search result, by its room
+    /// and item.
+    SearchMenu(String, String),
+}
+
+/// Carries out a plugin's message.
+pub fn update(app: &mut crate::app::App, event: Event) -> iced::Task<crate::app::Message> {
+    match event {
+        Event::TimestampMenu => return chat::timestamp_menu(app),
+        Event::Unmute(person) => voice::unmute(app, &person),
+        Event::StickerMenu(picture) => return menus::sticker_menu(app, &picture),
+        // As Quick mention's menu row does: the composer takes the mention
+        // in and has the focus.
+        Event::Mention(user) => {
+            return menus::done(
+                app,
+                yapfast_core::halocord::Picked {
+                    actions: vec![yapfast_core::application::Action::MentionPerson(user)],
+                    ..Default::default()
+                },
+            );
+        }
+        Event::Press(item, double) => return clicks::press(app, item, double),
+        Event::DoubleClickDue(item, press, double) => {
+            return clicks::double_click_due(app, &item, press, double);
+        }
+        Event::Backspace(held) => clicks::backspace(app, held),
+        Event::SearchMenu(room, item) => return menus::search_menu(app, room, item),
+    }
+    iced::Task::none()
 }
 
 #[cfg(test)]

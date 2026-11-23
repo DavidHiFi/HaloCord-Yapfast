@@ -131,7 +131,8 @@ pub fn subline(activities: &[Activity], line: Option<&str>) -> Subline {
     if line.is_some() && line == first.line().as_deref() {
         let name = match first.kind {
             Kind::Streaming => first.details.as_deref().unwrap_or(&first.name),
-            _ => &first.name,
+            // HaloCord's Show song name (docs/halocord.md).
+            _ => crate::halocord::song_name(first).unwrap_or(&first.name),
         };
         Subline {
             icon,

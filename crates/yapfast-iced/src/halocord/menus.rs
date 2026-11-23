@@ -4,7 +4,7 @@
 use iced::Task;
 use yapfast_core::{application::Action, chat::ChatMessage, halocord as engine};
 
-use super::{Plugin, id};
+use super::{Kind, Plugin, Setting, id, off};
 use crate::{
     app::{App, Message},
     menus::{MenuAct, MenuRow},
@@ -44,22 +44,78 @@ pub(super) const COPY_FILE_TEXT: Plugin = Plugin {
 pub(super) const COPY_STICKER_LINK: Plugin = Plugin {
     id: id::COPY_STICKER_LINK,
     name: "Copy sticker link",
-    about: "Adds Copy sticker link to a sticker's right-click menu. It copies the web address of the sticker.",
+    about: "Adds Copy sticker link and Open sticker link to a sticker's right-click menu, in a message and in the sticker picker. Copy copies the web address of the sticker; Open shows it at full size in your browser.",
     on_at_first: false,
     settings: &[],
     apply: |_, _| {},
     hooks: Some(&engine::copy_sticker_link::CopyStickerLink),
 };
 
+/// Copy sticker link in the sticker picker: a tile's right click opens
+/// the row, while the plugin is on.
+pub fn sticker_tile<'a>(
+    cx: crate::ctx::Ctx<'a>,
+    picture: &str,
+    tile: iced::widget::MouseArea<'a, Message>,
+) -> iced::widget::MouseArea<'a, Message> {
+    if !cx.layout.halocord.on(&COPY_STICKER_LINK) || picture.is_empty() {
+        return tile;
+    }
+    tile.on_right_press(Message::HaloCord(super::Event::StickerMenu(
+        picture.to_owned(),
+    )))
+}
+
+/// A picker tile's menu: Copy sticker link, the sticker's address without
+/// the picker's thumbnail size.
+pub(super) fn sticker_menu(app: &mut App, picture: &str) -> Task<Message> {
+    if !app.layout.halocord.on(&COPY_STICKER_LINK) {
+        return Task::none();
+    }
+    let link = picture.split_once('?').map_or(picture, |(base, _)| base);
+    // No icon, as the row on a sent sticker has none.
+    let copy = MenuRow::plain(MenuAct::CopyTextLink, "Copy sticker link").key(link);
+    app.win.menu = Some(crate::menus::Menu::new(app.pressed.get(), vec![copy]));
+    iced::widget::operation::focus(crate::app::NOBODY)
+}
+
 pub(super) const QUICK_MENTION: Plugin = Plugin {
     id: id::QUICK_MENTION,
     name: "Quick mention",
     about: "Adds Mention to a message's right-click menu. It puts the sender's name in your message box.",
     on_at_first: false,
-    settings: &[],
+    settings: &[super::off(
+        "hover_button",
+        "Button in the hover bar",
+        "An @ beside Reply when you point at someone's message, which does the same.",
+    )],
     apply: |_, _| {},
     hooks: Some(&engine::quick_mention::QuickMention),
 };
+
+/// Quick mention's @ in a message's hover bar, while its switch for it is
+/// on, the message is someone else's on Discord and the composer writes.
+pub fn mention_button<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    message: &ChatMessage,
+    writes: bool,
+) -> Option<iced::Element<'a, Message>> {
+    let kept = &ctx.layout.halocord;
+    let shown =
+        writes && kept.on(&QUICK_MENTION) && kept.flag(&QUICK_MENTION, &QUICK_MENTION.settings[0]);
+    let user = engine::quick_mention::author(message).filter(|_| shown)?;
+    Some(
+        ctx.look
+            .icon_button(
+                crate::pictures::Icon::AtSign,
+                "Mention",
+                Message::HaloCord(super::Event::Mention(user.to_owned())),
+            )
+            // As the hover bar's own buttons.
+            .size(32.0, 20)
+            .into(),
+    )
+}
 
 pub(super) const COPY_PROFILE_LINK: Plugin = Plugin {
     id: id::COPY_PROFILE_LINK,
@@ -94,9 +150,20 @@ pub(super) const COPY_PROFILE_COLORS: Plugin = Plugin {
 pub(super) const FIND_REPLY: Plugin = Plugin {
     id: id::FIND_REPLY,
     name: "Find reply",
-    about: "Adds Jump to reply to a message's right-click menu when someone replied to it. It takes you to the first reply.",
+    about: "Adds Jump to reply to a message's right-click menu when someone replied to it. It takes you to the first reply. With a switch below on, it can also take you to a later reply to the author, or a mention of them.",
     on_at_first: false,
-    settings: &[],
+    settings: &[
+        off(
+            "author",
+            "Also replies to the author",
+            "Counts a later reply from someone else to any of the author's messages, not only this one.",
+        ),
+        off(
+            "pings",
+            "Also messages that mention the author",
+            "Counts a later message from someone else that @mentions the author.",
+        ),
+    ],
     apply: |_, _| {},
     hooks: None,
 };
@@ -141,20 +208,60 @@ fn profile_colors(app: &App, user: &str) -> Option<String> {
     Some(format!("#{primary:06X}, #{accent:06X}"))
 }
 
-/// The first loaded message that replies to `item` (Find reply).
+/// The first loaded message that replies to `item` (Find reply), or, with
+/// its switches on, a later one that answers or mentions its author.
 fn first_reply(app: &App, item: &str) -> Option<String> {
-    app.client
-        .state()
-        .messages
+    let messages = &app.client.state().messages;
+    let answers = |later: &ChatMessage| {
+        later.reply.as_ref().and_then(|reply| reply.item.as_deref()) == Some(item)
+    };
+    let kept = &app.layout.halocord;
+    let (to_author, pings) = (
+        kept.flag(&FIND_REPLY, &FIND_REPLY.settings[0]),
+        kept.flag(&FIND_REPLY, &FIND_REPLY.settings[1]),
+    );
+    let at = messages.iter().position(|message| message.item == item);
+    let (Some(at), true) = (at, to_author || pings) else {
+        return messages
+            .iter()
+            .find(|message| answers(message))
+            .map(|message| message.item.clone());
+    };
+    // The switches: later messages from someone else that answer the
+    // author, or mention them.
+    let message = &messages[at];
+    let user = yapfast_core::discord::sender_user(&message.sender).filter(|user| !user.is_empty());
+    messages[at + 1..]
         .iter()
-        .find(|message| {
-            message
-                .reply
-                .as_ref()
-                .and_then(|reply| reply.item.as_deref())
-                == Some(item)
+        .find(|later| {
+            let someone_else = later.sender != message.sender;
+            answers(later)
+                || (to_author
+                    && someone_else
+                    && later.reply.as_ref().is_some_and(|reply| {
+                        // By the answered message's sender when it's loaded;
+                        // else by the name the reply shows, as a reply
+                        // carries no sender of its own.
+                        match reply
+                            .item
+                            .as_deref()
+                            .and_then(|item| messages.iter().find(|shown| shown.item == item))
+                        {
+                            Some(answered) => answered.sender == message.sender,
+                            None => reply.author == message.author,
+                        }
+                    }))
+                || (pings
+                    && someone_else
+                    && user.is_some_and(|user| {
+                        later.mentions.iter().any(|mentioned| {
+                            matches!(&mentioned.target, yapfast_core::mention::Target::User(id)
+                                if id == user
+                                    || yapfast_core::discord::sender_user(id) == Some(user))
+                        })
+                    }))
         })
-        .map(|message| message.item.clone())
+        .map(|found| found.item.clone())
 }
 
 /// A row of the window's own plugins, which need more than the engine is
@@ -178,7 +285,70 @@ pub fn message_rows(app: &App, message: &ChatMessage) -> Vec<MenuRow> {
     if app.layout.halocord.is(id::FIND_REPLY) && first_reply(app, &message.item).is_some() {
         rows.push(own_row("Jump to reply", Icon::Reply, id::FIND_REPLY));
     }
+    if app.layout.halocord.is(id::SONG_LINK) && !song_links(&message.body).is_empty() {
+        rows.push(own_row("Open on song.link", Icon::Music, id::SONG_LINK));
+    }
     set_apart(rows)
+}
+
+pub(super) const SONG_LINK: Plugin = Plugin {
+    id: id::SONG_LINK,
+    name: "Song link",
+    about: "\"Open on song.link\" in the menu of a message with a Spotify, Apple Music, YouTube Music or TIDAL song link opens song.link's page for it, which links the song on every service.",
+    on_at_first: false,
+    settings: &[Setting {
+        key: "country",
+        heading: "Country",
+        note: "Two letters, for the services' links in your country.",
+        kind: Kind::Text {
+            placeholder: "US",
+            unless_changed: "US",
+        },
+    }],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// Song link: the song links in `body` it knows: Spotify's, Apple Music's
+/// and iTunes', YouTube Music's and TIDAL's.
+pub fn song_links(body: &str) -> Vec<&str> {
+    let mut found: Vec<&str> = body
+        .split(|char: char| char.is_whitespace() || char == '<' || char == '>')
+        .map(|word| word.trim_end_matches([')', '.', ',', '!', '?']))
+        .filter(|word| {
+            let rest = word.strip_prefix("https://").unwrap_or_default();
+            ["open.spotify.com/track/", "play.spotify.com/track/"]
+                .iter()
+                .any(|start| rest.starts_with(start))
+                || ((rest.starts_with("music.apple.com/") || rest.starts_with("itunes.apple.com/"))
+                    && rest.contains("/album/"))
+                || rest.starts_with("music.youtube.com/watch?v=")
+                || rest.starts_with("tidal.com/track/")
+        })
+        .collect();
+    found.dedup();
+    found
+}
+
+/// Song link: song.link's page for `link`, for `country` when that's two
+/// letters.
+pub fn song_page(link: &str, country: &str) -> String {
+    let country = country.trim().to_uppercase();
+    let page = format!("https://song.link/{link}");
+    if country.len() == 2 && country.bytes().all(|byte| byte.is_ascii_alphabetic()) {
+        let join = if link.contains('?') { '&' } else { '?' };
+        format!("{page}{join}userCountry={country}")
+    } else {
+        page
+    }
+}
+
+/// Song link: the page for the first song link of the message `item`.
+fn song_link_page(app: &App, item: &str) -> Option<String> {
+    let message = app.client.state().message(item)?;
+    let link = *song_links(&message.body).first()?;
+    let country = app.layout.halocord.text(&SONG_LINK, &SONG_LINK.settings[0]);
+    Some(song_page(link, country))
 }
 
 /// What a pick of one of the window's own plugin rows does, if it's one.
@@ -186,6 +356,12 @@ fn own_pick(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Option
     let copy = match (key, place) {
         (id::COPY_STATUS_URLS, Some(user)) => status_link(app, user),
         (id::COPY_PROFILE_COLORS, Some(user)) => profile_colors(app, user),
+        (id::SONG_LINK, None) => {
+            if let Some(page) = song_link_page(app, item) {
+                crate::browser::open(&page);
+            }
+            return Some(Task::none());
+        }
         (id::FIND_REPLY, None) => {
             if let Some(reply) = first_reply(app, item) {
                 app.client.dispatch(Action::Jump(reply));
@@ -257,6 +433,9 @@ fn icon_of(key: &str) -> Icon {
 /// Hook 5: A plugin's menu row was chosen: in a person's menu (`place` is the
 /// person) it's theirs, else it's for the message `item`.
 pub fn chosen(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Task<Message> {
+    if let Some(task) = super::chat::pick_timestamp(app, key) {
+        return task;
+    }
     if let Some((key, at)) = key.split_once('#') {
         let Some(message) = app.client.state().message(item).cloned() else {
             return Task::none();
@@ -265,6 +444,9 @@ pub fn chosen(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Task
         return done(app, engine::attachment_pick(key, &message, at));
     }
     if let Some(task) = own_pick(app, key, item, place) {
+        return task;
+    }
+    if let Some(task) = search_pick(app, key, item) {
         return task;
     }
     match place {
@@ -303,14 +485,17 @@ pub fn attachment_menu(app: &mut App, item: &str, at: usize) -> Task<Message> {
 
 /// Hook 5: A plugin's menu row was chosen for the message `item`.
 pub fn pick(app: &mut App, key: &str, item: &str) -> Task<Message> {
-    let Some(message) = app.client.state().message(item).cloned() else {
+    // A search result's message too, for Search result menu's rows.
+    let found = || search_hit(app, item).map(|hit| hit.message.clone());
+    let Some(message) = app.client.state().message(item).cloned().or_else(found) else {
         return Task::none();
     };
     done(app, engine::pick(key, &message))
 }
 
-/// What a chosen row gave: its actions, and its text to copy.
-fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
+/// What a chosen row gave: its actions, its text to copy, and a web page to
+/// open in the browser.
+pub(super) fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
     let mentions = picked
         .actions
         .iter()
@@ -319,6 +504,9 @@ fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
         app.client.dispatch(action);
     }
     let copied = picked.copy.map_or_else(Task::none, iced::clipboard::write);
+    if let Some(page) = picked.open {
+        crate::browser::open(&page);
+    }
     // A mention changes the message box's text: it takes it in and has focus.
     let focus = if mentions {
         let draft = app.client.state().draft().to_owned();
@@ -329,6 +517,104 @@ fn done(app: &mut App, picked: engine::Picked) -> Task<Message> {
         Task::none()
     };
     Task::batch([app.sync(), copied, focus])
+}
+
+pub(super) const SEARCH_MENU: Plugin = Plugin {
+    id: id::SEARCH_MENU,
+    name: "Search result menu",
+    about: "A right click on a search result opens a menu for its message: Jump to message, Copy text, Copy message link, Copy message ID, and the rows other plugins add to a message's menu.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// Hook: a search result, with its menu on a right click while Search
+/// result menu is on.
+pub fn search_result<'a>(
+    cx: crate::ctx::Ctx<'a>,
+    found: iced::Element<'a, Message>,
+    room: &str,
+    item: &str,
+) -> iced::Element<'a, Message> {
+    if !cx.layout.halocord.is(id::SEARCH_MENU) {
+        return found;
+    }
+    let (room, item) = (room.to_owned(), item.to_owned());
+    crate::widgets::RightPress::new(found, move |_| {
+        Message::HaloCord(super::Event::SearchMenu(room.clone(), item.clone()))
+    })
+    .into()
+}
+
+/// The search result with message `item`, as the search found it.
+fn search_hit<'a>(app: &'a App, item: &str) -> Option<&'a yapfast_core::chat::SearchHit> {
+    app.client
+        .state()
+        .search
+        .as_ref()?
+        .results
+        .iter()
+        .find(|hit| hit.message.item == item)
+}
+
+/// A Discord message's link and id, by its room and item, made as Copy
+/// message link makes them.
+fn search_link(room: &str, item: &str) -> Option<(String, String)> {
+    let id = yapfast_core::discord::item_order(item)?;
+    yapfast_core::discord::parse_room(room)?;
+    Some((
+        format!("{}/{id}", yapfast_core::application::network_link(room)),
+        id.to_string(),
+    ))
+}
+
+/// Opens the menu of the search result `item` of `room`, where the pointer
+/// pressed.
+pub(super) fn search_menu(app: &mut App, room: String, item: String) -> Task<Message> {
+    let Some(hit) = search_hit(app, &item) else {
+        return Task::none();
+    };
+    let message = hit.message.clone();
+    let row = |label: &'static str, icon: Icon, action: &str| {
+        MenuRow::new(MenuAct::Plugin, label, icon).key(format!("{}/{action}", id::SEARCH_MENU))
+    };
+    let mut rows = vec![row("Jump to message", Icon::ArrowRight, "jump")];
+    if !message.body.is_empty() {
+        rows.push(row("Copy text", Icon::Copy, "text"));
+    }
+    if search_link(&room, &item).is_some() {
+        rows.push(row("Copy message link", Icon::Chain, "link"));
+        rows.push(row("Copy message ID", Icon::Id, "id"));
+    }
+    rows.extend(menu_rows(&message));
+    app.win.menu = Some(crate::menus::Menu {
+        item: Some(item),
+        ..crate::menus::Menu::new(app.pressed.get(), rows)
+    });
+    iced::widget::operation::focus(crate::app::NOBODY)
+}
+
+/// What one of Search result menu's own rows does.
+fn search_pick(app: &mut App, key: &str, item: &str) -> Option<Task<Message>> {
+    let action = key.strip_prefix(id::SEARCH_MENU)?.strip_prefix('/')?;
+    let hit = search_hit(app, item)?;
+    let (room, body) = (hit.room.clone(), hit.message.body.clone());
+    Some(match action {
+        "jump" => {
+            app.client.dispatch(Action::JumpInRoom {
+                room,
+                item: item.to_owned(),
+            });
+            app.sync()
+        }
+        "text" => iced::clipboard::write(body),
+        "link" | "id" => {
+            let (link, id) = search_link(&room, item)?;
+            iced::clipboard::write(if action == "link" { link } else { id })
+        }
+        _ => Task::none(),
+    })
 }
 
 #[cfg(test)]

@@ -764,6 +764,50 @@ fn the_typing_lines_words_breathe_while_animations_play_and_hold_still_otherwise
     assert_eq!(dim, full, "held still");
 }
 
+/// Send timestamps' picker: with its switch on, the clock's menu lists
+/// times, each with Discord's styles, and a style puts that timestamp in the
+/// message box as Discord writes it.
+#[test]
+fn send_timestamps_picker_puts_a_timestamp_in() {
+    use yapfast_core::application::{Action, Navigation};
+
+    use crate::halocord::{Change, Event, changed, id, place};
+    let (mut app, _folder) = super::server::discord_server(0, |_, _| {});
+    let _alone = super::plugin_alone();
+    app.client
+        .dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
+    app.client
+        .dispatch(Action::SelectRoom("discord:10:11".into()));
+    let plugin = place(id::SEND_TIMESTAMPS).expect("the plugin");
+    for change in [
+        Change::Switch { plugin, on: true },
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: true,
+        },
+    ] {
+        changed(&mut app.layout, &mut app.client, change);
+    }
+    let _ = app.update(Message::HaloCord(Event::TimestampMenu));
+    let menu = app.win.menu.as_ref().expect("the picker");
+    assert_eq!(menu.rows[0].label, "In 15 minutes");
+    assert!(menu.rows.iter().all(|row| row.submenu.len() == 4));
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(0)));
+    let _ = app.update(Message::Menu(crate::menus::Event::SubChoose(2)));
+    let draft = app.client.state().draft().to_owned();
+    assert!(
+        draft.starts_with("<t:") && draft.ends_with(":R>"),
+        "a relative timestamp, not {draft}"
+    );
+    assert!(app.win.menu.is_none(), "picking closes the menu");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}
+
 /// Send timestamps: a written time goes up as a Discord timestamp, and
 /// stays as typed while the plugin is off.
 #[test]
@@ -802,4 +846,94 @@ fn send_timestamps_sends_a_written_time_as_a_timestamp() {
         .and_then(|rest| rest.strip_suffix(":t>"))
         .unwrap_or_else(|| panic!("a timestamp, not {body}"));
     assert!(seconds.parse::<i64>().is_ok(), "{body}");
+}
+
+/// Embedded URLs: a post's link goes up with its fixer's site, an emptied
+/// site leaves its links alone, and with the plugin off links stay as typed.
+#[test]
+fn embedded_urls_sends_a_posts_link_to_its_fixer() {
+    use crate::halocord::{Change, changed, id, place};
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let send = |app: &mut crate::app::App, typed: &str| {
+        interact(app, |ui| {
+            ui.click(Id::new(COMPOSER)).expect("the composer");
+            ui.typewrite(typed);
+            ui.tap_key(keyboard::Key::Named(key::Named::Enter));
+        });
+        app.client
+            .state()
+            .messages
+            .last()
+            .expect("sent")
+            .body
+            .clone()
+    };
+    // No tracking keys: Yapfast's own tracking strip would take them first.
+    let post = "see https://x.com/someone/status/123";
+    assert_eq!(send(&mut app, post), post, "off at first");
+    let plugin = place(id::EMBEDDED_URLS).expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    assert_eq!(
+        send(&mut app, post),
+        "see https://fxtwitter.com/someone/status/123"
+    );
+    let angled = "see <https://x.com/someone/status/123>";
+    assert_eq!(send(&mut app, angled), angled, "an embed asked away");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Type {
+            plugin,
+            setting: 2,
+            text: String::new(),
+        },
+    );
+    assert_eq!(send(&mut app, post), post, "X's site emptied");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}
+
+/// Auto zipper: its switch and its extensions reach the upload's step, so a
+/// listed file goes up as a ZIP of it only while the plugin is on.
+#[test]
+fn auto_zipper_zips_the_listed_files_while_on() {
+    use crate::halocord::{Change, changed, id, place};
+    use yapfast_core::halocord::auto_zipper::zipped;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let name = |file: &str| zipped(file.to_owned(), b"bytes".to_vec()).0;
+    assert_eq!(name("art.psd"), "art.psd", "off at first");
+    let plugin = place(id::AUTO_ZIPPER).expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    assert_eq!(name("art.psd"), "art.psd.zip", "listed unless changed");
+    assert_eq!(name("notes.txt"), "notes.txt");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Type {
+            plugin,
+            setting: 0,
+            text: ".txt".into(),
+        },
+    );
+    assert_eq!(name("notes.txt"), "notes.txt.zip", "the list as typed");
+    assert_eq!(name("art.psd"), "art.psd");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert_eq!(name("notes.txt"), "notes.txt", "off again");
 }
