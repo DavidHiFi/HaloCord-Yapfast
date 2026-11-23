@@ -71,6 +71,9 @@ impl<'a> super::View<'a> {
         if room.official {
             name = name.push(self.official_tag());
         }
+        if let Some(marks) = crate::halocord::dm_marks(self.cx, &room.id) {
+            name = name.push(marks);
+        }
         let mut person = Person::new(face, name);
         // Their voice channel in full when nothing else is said, else a
         // speaker before what is, as the friends list has it.

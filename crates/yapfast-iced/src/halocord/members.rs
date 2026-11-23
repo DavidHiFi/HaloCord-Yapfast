@@ -77,10 +77,80 @@ pub(super) const PLATFORMS: Plugin = Plugin {
     name: "Platform indicators",
     about: "Shows which of Discord's apps a member is on, desktop, phone or web, beside their name in the member list, coloured by their status there.",
     on_at_first: false,
-    settings: &[],
+    settings: &[
+        super::off(
+            "dms",
+            "In the DM list",
+            "The marks by each friend's name in your direct messages.",
+        ),
+        super::off(
+            "messages",
+            "On messages",
+            "The marks by the author's name on each message.",
+        ),
+        super::off(
+            "voice",
+            "Under voice channels",
+            "The marks by each person in a voice channel in the channel list.",
+        ),
+        super::off(
+            "profiles",
+            "On profiles",
+            "The marks after the username on someone's profile.",
+        ),
+    ],
     apply: |_, _| {},
     hooks: None,
 };
+
+/// Where a person's name is drawn, besides the member list, for the marks
+/// plugins add by it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Place {
+    /// A direct message's row in the DM list.
+    Dms,
+    /// A message's author line.
+    Message,
+    /// A person under a voice channel in the channel list.
+    Voice,
+    /// The line under a profile's name.
+    Profile,
+}
+
+/// What plugins add by a person's name in `place`, by their Discord user
+/// id: Platform indicators' marks while its switch for the place is on.
+/// None when there's nothing.
+pub fn name_marks<'a>(cx: Ctx<'a>, user: &str, place: Place) -> Option<Element<'a, Message>> {
+    let kept = &cx.layout.halocord;
+    let setting = match place {
+        Place::Dms => 0,
+        Place::Message => 1,
+        Place::Voice => 2,
+        Place::Profile => 3,
+    };
+    if !kept.flag(&PLATFORMS, &PLATFORMS.settings[setting]) {
+        return None;
+    }
+    platform_marks(cx, user)
+}
+
+/// What plugins add by the name of the person a direct message is with, by
+/// the DM's room id ([`name_marks`] in the DM list).
+pub fn dm_marks<'a>(cx: Ctx<'a>, room: &str) -> Option<Element<'a, Message>> {
+    // Nothing to look up while no plugin draws by DM names.
+    let kept = &cx.layout.halocord;
+    if !kept.on(&PLATFORMS) || !kept.flag(&PLATFORMS, &PLATFORMS.settings[0]) {
+        return None;
+    }
+    let person = cx
+        .state
+        .rooms
+        .iter()
+        .find(|listed| listed.id == room)?
+        .person
+        .as_deref()?;
+    name_marks(cx, person, Place::Dms)
+}
 
 /// The marks after a member's name for each of Discord's apps they're on
 /// (Platform indicators), each in its status's colour and named when it's

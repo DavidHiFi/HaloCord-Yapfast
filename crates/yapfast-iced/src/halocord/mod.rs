@@ -37,7 +37,8 @@ pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 #[cfg(test)]
 pub use members::time_left;
 pub use members::{
-    add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
+    Place, add_member_count, dm_marks, exact_day, full_picture, name_marks, platform_marks,
+    timeout_clock, timeout_note,
 };
 pub use menus::{attachment_menu, chosen, copied_text, menu_rows, person_rows};
 pub use servers::{home_mentions, no_request_badge};

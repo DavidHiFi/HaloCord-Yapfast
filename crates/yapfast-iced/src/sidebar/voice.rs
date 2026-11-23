@@ -162,6 +162,11 @@ impl<'a> super::View<'a> {
             if let Some(mark) = crate::halocord::unmute_mark(self.cx, person, live) {
                 face = face.push(mark);
             }
+            if let Some(marks) =
+                crate::halocord::name_marks(self.cx, &person.id, crate::halocord::Place::Voice)
+            {
+                face = face.push(marks);
+            }
         }
         let ground = if pointed {
             theme.hover
