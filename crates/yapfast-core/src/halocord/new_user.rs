@@ -36,8 +36,15 @@ pub fn young(user: &str, now: u64, days: u32) -> bool {
     made_at(user).is_some_and(|made| now.saturating_sub(made) < u64::from(days) * DAY)
 }
 
+/// How many whole days old the account with this id is at `now`, when it's
+/// new enough for the tag (younger than the days the plugin is set to).
+pub fn new_for_days(user: &str, now: u64) -> Option<u64> {
+    let made = made_at(user)?;
+    young(user, now, NEWER_THAN.load(Ordering::Relaxed)).then(|| now.saturating_sub(made) / DAY)
+}
+
 /// The tag: amber, as a warning to take a second look.
-const TAG: Tag = Tag {
+pub const TAG: Tag = Tag {
     text: "NEW",
     crown: false,
     color: Some(0xf0b232),
