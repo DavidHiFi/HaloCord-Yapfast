@@ -223,11 +223,11 @@ fn choices_wrap_and_fit() {
         (230.0, "choices-narrow.png"),
     ] {
         let view = iced::widget::column![
-            crate::controls::choices(&theme, &rates, 1, |index| {
+            crate::controls::choices(theme, &rates, 1, |index| {
                 let _ = index;
                 Message::Minute
             }),
-            crate::controls::choices(&theme, &long, 2, |index| {
+            crate::controls::choices(theme, &long, 2, |index| {
                 let _ = index;
                 Message::Minute
             }),

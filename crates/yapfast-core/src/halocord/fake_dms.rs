@@ -696,7 +696,7 @@ mod tests {
         fresh();
         let item = add("r", "1", "Me", "hi", 100);
         let fake = ChatMessage {
-            item: item.clone(),
+            item,
             ..Default::default()
         };
         let real = ChatMessage {
