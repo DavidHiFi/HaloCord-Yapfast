@@ -74,6 +74,9 @@ pub mod id {
     pub const USER_VOICE_SHOW: &str = "user-voice-show";
     pub const VOICE_COUNT: &str = "voice-count";
     pub const PLATFORMS: &str = "platform-indicators";
+    pub const ALWAYS_TRUST: &str = "always-trust";
+    pub const REVEAL_SPOILERS: &str = "reveal-all-spoilers";
+    pub const PLAIN_FOLDER: &str = "plain-folder-icon";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -101,6 +104,9 @@ pub static PLUGINS: &[Plugin] = &[
     voice::USER_VOICE_SHOW,
     voice::VOICE_COUNT,
     members::PLATFORMS,
+    chat::ALWAYS_TRUST,
+    chat::REVEAL_SPOILERS,
+    chat::PLAIN_FOLDER,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

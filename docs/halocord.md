@@ -175,6 +175,10 @@ Window (`yapfast-iced`):
   `halocord::platform_marks` (one `if let` each).
 - `shell.rs`: in `shell_sync`, a copied download goes through `halocord::copied_text` first:
   text Copy file text asked for goes on the clipboard as text, anything else as a picture.
+- `links.rs`: `follow_link` opens a masked link with no question while Always trust links
+  is on, and a spoiler click reveals the message's other spoilers while Reveal all
+  spoilers is on (one `if` each).
+- `rail.rs`: `folder_face` draws the open face while Plain folder icon is on.
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
 - `tests/calls.rs`, `tests/media.rs`, `tests/menus.rs`, `tests/navigation.rs`: tests of
   the Volume booster, the copy rows and the buttons beside Settings, in Yapfast's own
@@ -254,6 +258,20 @@ Calls (`yapfast-discord`):
 - `call_connection.rs`: the encoder reads the bit rate and changes it mid-call;
   `take_frame` takes interleaved stereo as it is.
 - `opus.rs`: a test that the bit rate changes within what Opus takes.
+
+## Features Yapfast asked for
+
+Each is a small change on `david/halocord`, with a window test in
+`tests/halocord_features.rs`.
+
+- yapfast#285, Alt+Shift+Down or Up goes to the next channel with unread messages:
+  `AppState::next_unread` in the core, `switcher::Event::NextUnread`, and the key in
+  `app/subscription.rs`. Muted channels count only when they ping.
+- yapfast#258, pings first in the quick switcher: `switcher_places` puts the places
+  that ping this account first, the most pings first, before any search is typed.
+- yapfast#117 and #65, a Go Live key: `keybinds::Action::ToggleGoLive` opens Go Live in
+  a call and stops a live stream (`keybinds.rs` `toggled`). Mute and deafen keys
+  were there already.
 
 ## Fixes to Yapfast's own bugs
 

@@ -20,6 +20,19 @@ pub const PINS_LINK: &str = "yapfast:pins";
 pub fn follow_link(app: &mut App, link: &str, at: iced::Point) -> Task<Message> {
     if let Some((item, index)) = yapfast_core::spoiler::target(link) {
         app.timeline.revealed.insert(format!("{item}/{index}"));
+        // HaloCord's Reveal all spoilers shows the message's others too.
+        if app.layout.halocord.is(crate::halocord::id::REVEAL_SPOILERS) {
+            let body = app
+                .timeline
+                .messages
+                .iter()
+                .chain(app.aside.iter().flat_map(|aside| aside.messages.iter()))
+                .find(|message| message.item == item)
+                .map(|message| message.body.clone());
+            for other in 0..body.as_deref().map_or(0, yapfast_core::spoiler::count) {
+                app.timeline.revealed.insert(format!("{item}/{other}"));
+            }
+        }
         let found = |messages: &Messages| messages.iter().position(|message| message.item == item);
         if let Some(row) = found(&app.timeline.messages)
             && let Some(body) = crate::timeline::body_for(app, row)
@@ -76,8 +89,15 @@ pub fn follow_link(app: &mut App, link: &str, at: iced::Point) -> Task<Message> 
             Err(task) => task,
         };
     }
-    // A masked link, whose words aren't where it goes, asks first.
+    // A masked link, whose words aren't where it goes, asks first, unless
+    // HaloCord's Always trust links is on.
     if let Some(target) = yapfast_core::links::masked(link) {
+        if app.layout.halocord.is(crate::halocord::id::ALWAYS_TRUST) {
+            if yapfast_core::links::openable(target) {
+                crate::browser::open(target);
+            }
+            return Task::none();
+        }
         app.leaving = Some(target.to_owned());
         return operation::focus(crate::app::NOBODY);
     }
