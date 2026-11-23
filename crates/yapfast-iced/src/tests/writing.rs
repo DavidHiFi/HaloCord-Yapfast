@@ -764,6 +764,50 @@ fn the_typing_lines_words_breathe_while_animations_play_and_hold_still_otherwise
     assert_eq!(dim, full, "held still");
 }
 
+/// Send timestamps' picker: with its switch on, the clock's menu lists
+/// times, each with Discord's styles, and a style puts that timestamp in the
+/// message box as Discord writes it.
+#[test]
+fn send_timestamps_picker_puts_a_timestamp_in() {
+    use yapfast_core::application::{Action, Navigation};
+
+    use crate::halocord::{Change, Event, changed, id, place};
+    let (mut app, _folder) = super::server::discord_server(0, |_, _| {});
+    let _alone = super::plugin_alone();
+    app.client
+        .dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
+    app.client
+        .dispatch(Action::SelectRoom("discord:10:11".into()));
+    let plugin = place(id::SEND_TIMESTAMPS).expect("the plugin");
+    for change in [
+        Change::Switch { plugin, on: true },
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: true,
+        },
+    ] {
+        changed(&mut app.layout, &mut app.client, change);
+    }
+    let _ = app.update(Message::HaloCord(Event::TimestampMenu));
+    let menu = app.win.menu.as_ref().expect("the picker");
+    assert_eq!(menu.rows[0].label, "In 15 minutes");
+    assert!(menu.rows.iter().all(|row| row.submenu.len() == 4));
+    let _ = app.update(Message::Menu(crate::menus::Event::Choose(0)));
+    let _ = app.update(Message::Menu(crate::menus::Event::SubChoose(2)));
+    let draft = app.client.state().draft().to_owned();
+    assert!(
+        draft.starts_with("<t:") && draft.ends_with(":R>"),
+        "a relative timestamp, not {draft}"
+    );
+    assert!(app.win.menu.is_none(), "picking closes the menu");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}
+
 /// Send timestamps: a written time goes up as a Discord timestamp, and
 /// stays as typed while the plugin is off.
 #[test]

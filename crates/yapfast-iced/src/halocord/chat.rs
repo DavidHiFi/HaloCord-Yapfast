@@ -321,7 +321,11 @@ pub(super) const SEND_TIMESTAMPS: Plugin = Plugin {
     name: "Send timestamps",
     about: "Write a time as <t:13:30>, <t:6pm>, <t:2026-12-24> or <t:2026-12-24 18:00> in a message, and it goes up as a timestamp each reader sees in their own time zone.",
     on_at_first: false,
-    settings: &[],
+    settings: &[off(
+        "picker",
+        "Clock by the message box",
+        "A clock beside the message box's buttons puts a timestamp in from a list: in 15 minutes, tonight, tomorrow, as a time, a date or \"in 2 hours\".",
+    )],
     apply: |kept, plugin| engine::send_timestamps::set(kept.on(plugin)),
     hooks: None,
 };
@@ -396,3 +400,201 @@ pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     apply: |kept, plugin| engine::fix_file_extensions::set(kept.on(plugin)),
     hooks: None,
 };
+
+// Send timestamps' picker.
+
+/// The start of the keys of the picker's rows.
+const PICKER: &str = "send-timestamps/";
+
+/// The picker's times from `now`: each one's label and Unix seconds, to
+/// the minute.
+fn picker_times(now: chrono::DateTime<chrono::Local>) -> Vec<(&'static str, i64)> {
+    use chrono::{Duration, TimeZone, Timelike};
+    let at = |hour: u32, days: i64| {
+        (now + Duration::days(days))
+            .date_naive()
+            .and_hms_opt(hour, 0, 0)
+            .and_then(|naive| chrono::Local.from_local_datetime(&naive).earliest())
+    };
+    let mut times = vec![
+        ("In 15 minutes", now + Duration::minutes(15)),
+        ("In 1 hour", now + Duration::hours(1)),
+        ("In 3 hours", now + Duration::hours(3)),
+    ];
+    // The next 8 PM: tonight's, or tomorrow's once it's past.
+    if let Some(evening) = at(20, 0).filter(|evening| *evening > now) {
+        times.push(("Tonight, 8 PM", evening));
+    } else if let Some(evening) = at(20, 1) {
+        times.push(("Tomorrow, 8 PM", evening));
+    }
+    if let Some(noon) = at(12, 1) {
+        times.push(("Tomorrow, noon", noon));
+    }
+    times.push(("Tomorrow, this time", now + Duration::days(1)));
+    times.push(("In a week", now + Duration::weeks(1)));
+    times
+        .into_iter()
+        .map(|(label, time)| {
+            let time = time.with_second(0).and_then(|time| time.with_nanosecond(0));
+            (label, time.map_or(now.timestamp(), |time| time.timestamp()))
+        })
+        .collect()
+}
+
+/// Discord's timestamp styles the picker offers: their names and letters.
+const STYLES: [(&str, char); 4] = [
+    ("As a time", 't'),
+    ("As a date and time", 'f'),
+    ("Relative", 'R'),
+    ("As a long date and time", 'F'),
+];
+
+/// Roughly how Discord shows `unix` in `style` here, for the row's
+/// subtitle: each reader sees it in their own time and language.
+fn looks(unix: i64, style: char, now: chrono::DateTime<chrono::Local>) -> String {
+    use chrono::TimeZone;
+    let Some(time) = chrono::Local.timestamp_opt(unix, 0).single() else {
+        return String::new();
+    };
+    match style {
+        't' => time.format("%-H:%M").to_string(),
+        'f' => time.format("%-d %B %Y %-H:%M").to_string(),
+        'F' => time.format("%A, %-d %B %Y %-H:%M").to_string(),
+        _ => {
+            let minutes = (time - now).num_minutes().max(0);
+            let (count, unit) = match minutes {
+                ..60 => (minutes, "minute"),
+                60..1440 => ((minutes + 30) / 60, "hour"),
+                _ => ((minutes + 720) / 1440, "day"),
+            };
+            format!("in {count} {unit}{}", if count == 1 { "" } else { "s" })
+        }
+    }
+}
+
+/// Hook: the clock beside the message box's buttons, while Send timestamps
+/// and its picker are on in a Discord conversation.
+pub fn timestamp_button<'a>(
+    cx: Ctx<'a>,
+    buttons: impl Into<Element<'a, Message>>,
+) -> Element<'a, Message> {
+    let kept = &cx.layout.halocord;
+    let discord = cx
+        .state
+        .selected
+        .as_deref()
+        .and_then(yapfast_core::discord::parse_room)
+        .is_some();
+    if !discord
+        || !kept.on(&SEND_TIMESTAMPS)
+        || !kept.flag(&SEND_TIMESTAMPS, &SEND_TIMESTAMPS.settings[0])
+    {
+        return buttons.into();
+    }
+    let clock = container(crate::composer::composer_button(
+        cx,
+        Icon::Clock,
+        "Insert a timestamp",
+        20,
+        cx.look.theme.secondary,
+        Some(Message::HaloCord(super::Event::TimestampMenu)),
+    ))
+    .padding(iced::Padding::ZERO.bottom(crate::composer::BUTTON_INSET));
+    iced::widget::row![clock, buttons.into()]
+        .spacing(6)
+        .align_y(Alignment::End)
+        .into()
+}
+
+/// The picker: each time, with Discord's styles in its submenu.
+pub(super) fn timestamp_menu(app: &mut crate::app::App) -> iced::Task<Message> {
+    use crate::menus::{Menu, MenuAct, MenuRow};
+    let now = chrono::Local::now();
+    let rows = picker_times(now)
+        .into_iter()
+        .map(|(label, unix)| MenuRow {
+            submenu: STYLES
+                .iter()
+                .map(|(name, style)| MenuRow {
+                    subtitle: Some(looks(unix, *style, now).into()),
+                    ..MenuRow::plain(MenuAct::Plugin, *name).key(format!("{PICKER}{unix}:{style}"))
+                })
+                .collect(),
+            ..MenuRow::new(MenuAct::Plugin, label, Icon::Clock)
+        })
+        .collect();
+    app.win.menu = Some(Menu::new(app.pressed.get(), rows));
+    iced::Task::none()
+}
+
+/// A picked time goes in at the message box's caret, as Discord's own
+/// timestamp, which Send timestamps leaves as it is.
+pub(super) fn pick_timestamp(app: &mut crate::app::App, key: &str) -> Option<iced::Task<Message>> {
+    let (unix, style) = key.strip_prefix(PICKER)?.split_once(':')?;
+    let unix: i64 = unix.parse().ok()?;
+    let style = style
+        .chars()
+        .next()
+        .filter(|style| "tfRF".contains(*style))?;
+    crate::composer::insert(
+        app,
+        crate::composer::Writing::Draft,
+        &format!("<t:{unix}:{style}>"),
+    );
+    Some(app.sync())
+}
+
+#[cfg(test)]
+mod picker_tests {
+    use chrono::TimeZone;
+
+    use super::*;
+
+    fn local(day: u32, hour: u32, minute: u32) -> chrono::DateTime<chrono::Local> {
+        chrono::Local
+            .with_ymd_and_hms(2026, 11, day, hour, minute, 42)
+            .earliest()
+            .expect("a local time")
+    }
+
+    #[test]
+    fn the_picker_offers_times_to_the_minute() {
+        let now = local(23, 17, 5);
+        let times = picker_times(now);
+        let labels: Vec<_> = times.iter().map(|(label, _)| *label).collect();
+        assert_eq!(
+            labels,
+            [
+                "In 15 minutes",
+                "In 1 hour",
+                "In 3 hours",
+                "Tonight, 8 PM",
+                "Tomorrow, noon",
+                "Tomorrow, this time",
+                "In a week",
+            ]
+        );
+        assert_eq!(times[0].1, local(23, 17, 20).timestamp() - 42);
+        assert_eq!(times[3].1, local(23, 20, 0).timestamp() - 42);
+        assert!(
+            times.iter().all(|(_, unix)| unix % 60 == 0),
+            "to the minute"
+        );
+        // Past 8 PM, the evening is tomorrow's.
+        let late = picker_times(local(23, 21, 0));
+        assert_eq!(late[3].0, "Tomorrow, 8 PM");
+        assert_eq!(late[3].1, local(24, 20, 0).timestamp() - 42);
+    }
+
+    #[test]
+    fn each_style_says_how_it_will_look() {
+        let now = local(23, 17, 0);
+        let unix = local(23, 20, 0).timestamp() - 42;
+        assert_eq!(looks(unix, 't', now), "20:00");
+        assert_eq!(looks(unix, 'f', now), "23 November 2026 20:00");
+        assert_eq!(looks(unix, 'F', now), "Monday, 23 November 2026 20:00");
+        assert_eq!(looks(unix, 'R', now), "in 3 hours");
+        assert_eq!(looks(now.timestamp() + 15 * 60, 'R', now), "in 15 minutes");
+        assert_eq!(looks(now.timestamp() + 7 * 86_400, 'R', now), "in 7 days");
+    }
+}

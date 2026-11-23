@@ -364,6 +364,9 @@ fn icon_of(key: &str) -> Icon {
 /// Hook 5: A plugin's menu row was chosen: in a person's menu (`place` is the
 /// person) it's theirs, else it's for the message `item`.
 pub fn chosen(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Task<Message> {
+    if let Some(task) = super::chat::pick_timestamp(app, key) {
+        return task;
+    }
     if let Some((key, at)) = key.split_once('#') {
         let Some(message) = app.client.state().message(item).cloned() else {
             return Task::none();

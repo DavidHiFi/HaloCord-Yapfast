@@ -199,10 +199,21 @@ pub fn place(id: &str) -> Option<usize> {
     PLUGINS.iter().position(|plugin| plugin.id == id)
 }
 
+/// Hook: Send timestamps' clock before the message box's buttons, while its
+/// picker is on (`chat.rs`).
+pub fn timestamp_button<'a>(
+    cx: crate::ctx::Ctx<'a>,
+    buttons: impl Into<iced::Element<'a, crate::app::Message>>,
+) -> iced::Element<'a, crate::app::Message> {
+    chat::timestamp_button(cx, buttons)
+}
+
 /// The window's plugins' own messages, carried by `Message::HaloCord`, so a
 /// plugin's presses and replies need no event of Yapfast's own.
 #[derive(Clone, Debug)]
 pub enum Event {
+    /// Send timestamps' picker, from its clock by the message box.
+    TimestampMenu,
     /// Click to unmute: this person, unmuted for this account.
     Unmute(String),
     /// Copy sticker link: a sticker picker tile right clicked, by its picture.
@@ -215,6 +226,7 @@ pub enum Event {
 /// Carries out a plugin's message.
 pub fn update(app: &mut crate::app::App, event: Event) -> iced::Task<crate::app::Message> {
     match event {
+        Event::TimestampMenu => return chat::timestamp_menu(app),
         Event::Unmute(person) => voice::unmute(app, &person),
         Event::StickerMenu(picture) => return menus::sticker_menu(app, &picture),
         // As Quick mention's menu row does: the composer takes the mention
