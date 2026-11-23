@@ -257,6 +257,14 @@ Yapfast's own fix for it lands (its test still passes without ours).
   hour off a preview message's time of 0 and overflowed; it saturates now.
 - The GitHub check installs the newest LLVM (`.github/workflows/halocord.yml`):
   the runner's own clang-cl is older than its Visual Studio's C++ library.
+- A row of choices too narrow for its options' words (the Stereo loader's five bit
+  rates in the Plugins page's 360 px, Messages' date formats, each about 2 px short)
+  ran its options into one another:
+  `yapfast-iced-kit/src/controls.rs` `choices_within` measures each option's words
+  (`choice_words`) and, when they don't all fit, lays them out on as few even lines
+  as hold them (`choice_lines`); a row that fits is drawn as before. It lays out
+  from `widest`, so a page narrower than that still squeezes it. Test:
+  `segmented_rows_wrap_only_when_they_dont_fit`.
 - Checked, nothing to change: yapfast#257 (code blocks drawn wrong) came from
   the old Slint window; the iced window draws them right, and the ignored test
   `code_block_picture` in `tests/halocord_fixes.rs` saves a picture to check.

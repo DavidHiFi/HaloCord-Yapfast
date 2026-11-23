@@ -132,3 +132,100 @@ fn a_new_message_leaves_a_view_a_screen_up_alone() {
     });
     assert!(app.timeline.from_end >= before, "the view stayed up");
 }
+
+/// A segmented row wraps onto even lines when an option's words, bold as
+/// when chosen, are wider than its share: the Stereo loader's five bit
+/// rates in the Plugins page's 360 px, and Messages' date formats, each about
+/// 2 px short. Every row whose words fit stays one line.
+#[test]
+fn segmented_rows_wrap_only_when_they_dont_fit() {
+    use crate::halocord::{Kind, PLUGINS};
+    use yapfast_iced_kit::controls::{choice_lines, choice_words};
+    super::install_fonts();
+    let check = |names: &[&str], widest: f32, what: &str| {
+        let lines = choice_lines(names, widest);
+        let order: Vec<usize> = lines.iter().flatten().copied().collect();
+        assert_eq!(order, (0..names.len()).collect::<Vec<_>>(), "{what}");
+        for line in &lines {
+            let portions: f32 = line.iter().map(|&at| names[at].len() as f32 + 6.0).sum();
+            let free = widest - 6.0 - 3.0 * (line.len() - 1) as f32;
+            for &at in line {
+                let share = free * (names[at].len() as f32 + 6.0) / portions;
+                let words = choice_words(names[at]);
+                assert!(share >= words, "{} in {what}: {share} < {words}", names[at]);
+            }
+        }
+        lines.len()
+    };
+    for plugin in PLUGINS {
+        for setting in plugin.settings {
+            if let Kind::Choice { names, .. } = &setting.kind {
+                check(names, 360.0, setting.key);
+            }
+        }
+    }
+    let bitrates = [
+        "64 kbit/s",
+        "128 kbit/s",
+        "256 kbit/s",
+        "384 kbit/s",
+        "510 kbit/s",
+    ];
+    assert_eq!(
+        check(&bitrates, 360.0, "bit rates"),
+        2,
+        "too wide for one line"
+    );
+    let dates = ["Day/Month/Year", "Month/Day/Year", "Year-Month-Day"];
+    assert_eq!(
+        check(&dates, 360.0, "Messages' date format"),
+        2,
+        "too wide too"
+    );
+    // Yapfast's other rows, as their pages draw them, stay on one line.
+    for (names, widest, what) in [
+        (
+            &[
+                "30 min", "1 hr", "6 hr", "12 hr", "1 day", "7 days", "Never",
+            ][..],
+            360.0,
+            "an invite's expiry",
+        ),
+        (
+            &["No limit", "1", "5", "10", "25", "50", "100"],
+            360.0,
+            "an invite's uses",
+        ),
+        (
+            &[
+                "1 hour", "4 hours", "8 hours", "1 day", "3 days", "1 week", "2 weeks",
+            ],
+            460.0,
+            "a poll's duration",
+        ),
+        (
+            &[
+                "New Kalimba",
+                "Felt piano",
+                "Soft marimba",
+                "Mellow Rhodes",
+                "Glow",
+                "Flute",
+            ],
+            520.0,
+            "Sounds' sets",
+        ),
+        (
+            &["Never", "30 min", "1 hour", "4 hours", "Today"],
+            360.0,
+            "a status's clear after",
+        ),
+        (
+            &["400", "450", "500", "600", "700", "800"],
+            360.0,
+            "MochaCord's weights",
+        ),
+    ] {
+        assert_eq!(check(names, widest, what), 1, "{what} fits on one line");
+    }
+}
