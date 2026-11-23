@@ -64,6 +64,8 @@ whole list to carry across.
   `<t:13:30>` goes up as a Discord timestamp) and its tests.
 - `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
   `.jfif` photo goes up as `.jpg`) and its tests.
+- `crates/yapfast-core/src/halocord/better_forwards.rs`: Better forwards' switch (a forward
+  to one conversation stays where it is).
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -213,6 +215,8 @@ Window (`yapfast-iced`):
   `jump_to_start` and `start_item`; `seek` shows a channel's first message when
   the item sought is the channel's own id (Jump to start).
 - Core `application/tests/unread.rs`: the Jump to start test.
+- Core `application/messages.rs`: `forward` opens the one conversation forwarded to only
+  unless `halocord::better_forwards::stays()` (Better forwards).
 - Core `application/compose.rs`: `outgoing_body` runs the text through
   `halocord::send_timestamps::wire` first (Send timestamps).
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through

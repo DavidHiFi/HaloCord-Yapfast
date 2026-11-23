@@ -240,6 +240,16 @@ pub(super) const SEND_TIMESTAMPS: Plugin = Plugin {
     hooks: None,
 };
 
+pub(super) const BETTER_FORWARDS: Plugin = Plugin {
+    id: id::BETTER_FORWARDS,
+    name: "Better forwards",
+    about: "Forwarding a message to one conversation leaves you where you are, rather than opening the conversation it went to.",
+    on_at_first: false,
+    settings: &[],
+    apply: |kept, plugin| engine::better_forwards::set(kept.on(plugin)),
+    hooks: None,
+};
+
 pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     id: id::FIX_FILE_EXTENSIONS,
     name: "Fix file extensions",

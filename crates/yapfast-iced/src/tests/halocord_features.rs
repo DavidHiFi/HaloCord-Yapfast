@@ -174,3 +174,60 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Better forwards: off, a forward to one conversation opens it, as ever;
+/// on, the conversation open stays open.
+#[test]
+fn better_forwards_stays_in_the_conversation_after_a_forward() {
+    use yapfast_core::application::Action;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let here = app.client.state().selected.clone().expect("a conversation");
+    let forward = |app: &mut App| {
+        let item = app
+            .client
+            .state()
+            .messages
+            .iter()
+            .rev()
+            .find(|message| message.can_forward)
+            .map(|message| message.item.clone())
+            .expect("a message to forward");
+        app.client.dispatch(Action::StartForward(item));
+        let target = app
+            .client
+            .state()
+            .forward_places()
+            .into_iter()
+            .map(|room| room.id.clone())
+            .find(|room| *room != here)
+            .expect("somewhere else");
+        app.client.dispatch(Action::ChooseForward(target.clone()));
+        app.client.dispatch(Action::Forward(String::new()));
+        let _ = app.sync();
+        target
+    };
+    let target = forward(&mut app);
+    assert_eq!(
+        app.client.state().selected.as_ref(),
+        Some(&target),
+        "off, it goes where the message went"
+    );
+    app.client.dispatch(Action::OpenChat(here.clone()));
+    let _ = app.sync();
+    turn_on(&mut app, id::BETTER_FORWARDS);
+    forward(&mut app);
+    assert_eq!(
+        app.client.state().selected.as_ref(),
+        Some(&here),
+        "on, it stays"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::BETTER_FORWARDS).expect("the plugin"),
+            on: false,
+        },
+    );
+}
