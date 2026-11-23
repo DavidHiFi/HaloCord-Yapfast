@@ -235,6 +235,8 @@ Window (`yapfast-iced`):
   adds `halocord::message_rows` (the engine's rows, then Find reply's).
 - `message/hover_bar.rs`: `hover_bar` pushes `halocord::mention_button` after Edit or
   Reply (Quick mention's @, one `if let`).
+- `search.rs`: a result's message goes through `halocord::search_result` (Search result
+  menu's right click, one call around `found_view`).
 - `person_menu.rs`: plug-in point 5, `open_person_menu` adds `halocord::person_rows`
   (two lines, `rows` is `mut`), which adds Copy status link's and Copy profile
   colors' rows after the engine's.

@@ -60,7 +60,8 @@ pub use members::{
 };
 pub use members::{role_press, zoom_size, zoomable};
 pub use menus::{
-    attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, sticker_tile,
+    attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, search_result,
+    sticker_tile,
 };
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
 pub use servers::{home_face, home_mentions, no_request_badge};
@@ -135,6 +136,7 @@ pub mod id {
     pub const GIF_PASTE: &str = "gif-paste";
     pub const HIDE_CHAT_BUTTONS: &str = "hide-chat-buttons";
     pub const HOME_TYPING: &str = "home-typing";
+    pub const SEARCH_MENU: &str = "full-search-context";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -190,6 +192,7 @@ pub static PLUGINS: &[Plugin] = &[
     chat::GIF_PASTE,
     chat::HIDE_CHAT_BUTTONS,
     servers::HOME_TYPING,
+    menus::SEARCH_MENU,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
@@ -239,6 +242,9 @@ pub enum Event {
     Press(String, Option<crate::menus::MenuAct>),
     DoubleClickDue(String, u64, Option<crate::menus::MenuAct>),
     Backspace(bool),
+    /// Search result menu: a right click on a search result, by its room
+    /// and item.
+    SearchMenu(String, String),
 }
 
 /// Carries out a plugin's message.
@@ -263,6 +269,7 @@ pub fn update(app: &mut crate::app::App, event: Event) -> iced::Task<crate::app:
             return clicks::double_click_due(app, &item, press, double);
         }
         Event::Backspace(held) => clicks::backspace(app, held),
+        Event::SearchMenu(room, item) => return menus::search_menu(app, room, item),
     }
     iced::Task::none()
 }
