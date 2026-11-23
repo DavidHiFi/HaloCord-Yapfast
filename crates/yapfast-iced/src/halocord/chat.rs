@@ -326,6 +326,44 @@ pub(super) const SEND_TIMESTAMPS: Plugin = Plugin {
     hooks: None,
 };
 
+/// One of Embedded URLs' hosts: a line of text, `host` unless changed.
+const fn fixer(key: &'static str, heading: &'static str, host: &'static str) -> Setting {
+    Setting {
+        key,
+        heading,
+        note: "",
+        kind: Kind::Text {
+            placeholder: "Left as it is",
+            unless_changed: host,
+        },
+    }
+}
+
+pub(super) const EMBEDDED_URLS: Plugin = Plugin {
+    id: id::EMBEDDED_URLS,
+    name: "Embedded URLs",
+    about: "An Instagram, TikTok, X or Reddit post's link in a message you send or edit goes up with an embed fixer's site in its place, so its video or pictures show in chat. The service's tracking goes too; a link in <angle brackets> stays as it is. Empty a site to leave its links alone.",
+    on_at_first: false,
+    settings: &[
+        fixer("instagram", "INSTAGRAM", "zzinstagram.com"),
+        fixer("tiktok", "TIKTOK", "tnktok.com"),
+        fixer("twitter", "X", "fxtwitter.com"),
+        fixer("reddit", "REDDIT", "vxreddit.com"),
+    ],
+    apply: |kept, plugin| {
+        let host = |at: usize| {
+            engine::embedded_urls::Fixers::site(kept.text(plugin, &plugin.settings[at]))
+        };
+        engine::embedded_urls::set(kept.on(plugin).then(|| engine::embedded_urls::Fixers {
+            instagram: host(0),
+            tiktok: host(1),
+            twitter: host(2),
+            reddit: host(3),
+        }));
+    },
+    hooks: None,
+};
+
 pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     id: id::FIX_FILE_EXTENSIONS,
     name: "Fix file extensions",

@@ -803,3 +803,56 @@ fn send_timestamps_sends_a_written_time_as_a_timestamp() {
         .unwrap_or_else(|| panic!("a timestamp, not {body}"));
     assert!(seconds.parse::<i64>().is_ok(), "{body}");
 }
+
+/// Embedded URLs: a post's link goes up with its fixer's site, an emptied
+/// site leaves its links alone, and with the plugin off links stay as typed.
+#[test]
+fn embedded_urls_sends_a_posts_link_to_its_fixer() {
+    use crate::halocord::{Change, changed, id, place};
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let send = |app: &mut crate::app::App, typed: &str| {
+        interact(app, |ui| {
+            ui.click(Id::new(COMPOSER)).expect("the composer");
+            ui.typewrite(typed);
+            ui.tap_key(keyboard::Key::Named(key::Named::Enter));
+        });
+        app.client
+            .state()
+            .messages
+            .last()
+            .expect("sent")
+            .body
+            .clone()
+    };
+    // No tracking keys: Yapfast's own tracking strip would take them first.
+    let post = "see https://x.com/someone/status/123";
+    assert_eq!(send(&mut app, post), post, "off at first");
+    let plugin = place(id::EMBEDDED_URLS).expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    assert_eq!(
+        send(&mut app, post),
+        "see https://fxtwitter.com/someone/status/123"
+    );
+    let angled = "see <https://x.com/someone/status/123>";
+    assert_eq!(send(&mut app, angled), angled, "an embed asked away");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Type {
+            plugin,
+            setting: 2,
+            text: String::new(),
+        },
+    );
+    assert_eq!(send(&mut app, post), post, "X's site emptied");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}

@@ -9,6 +9,7 @@ pub mod copy_media_link;
 pub mod copy_sticker_link;
 pub mod copy_user_mention;
 pub mod copy_user_url;
+pub mod embedded_urls;
 pub mod fake_dms;
 pub mod fix_file_extensions;
 pub mod message_logger;

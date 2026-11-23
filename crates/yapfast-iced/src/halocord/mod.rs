@@ -125,6 +125,7 @@ pub mod id {
     pub const FAKE_DMS: &str = "fake-dms";
     pub const MESSAGE_LOGGER: &str = "message-logger";
     pub const STREAM_DECK: &str = "stream-deck";
+    pub const EMBEDDED_URLS: &str = "embedded-urls";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -174,6 +175,7 @@ pub static PLUGINS: &[Plugin] = &[
     messages::FAKE_DMS,
     messages::MESSAGE_LOGGER,
     deck::STREAM_DECK,
+    chat::EMBEDDED_URLS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
