@@ -104,6 +104,8 @@ whole list to carry across.
   `new_for_days`, for the tag in the member list and on profiles.
 - `crates/yapfast-core/src/halocord/send_timestamps.rs`: Send timestamps (a written
   `<t:13:30>` goes up as a Discord timestamp) and its tests.
+- `crates/yapfast-core/src/halocord/notification_title.rs`: Notification title (a reply's
+  notification names whom it replies to).
 - `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
   `.jfif` photo goes up as `.jpg`) and its tests.
 - `crates/yapfast-core/src/halocord/embedded_urls.rs`: Embedded URLs (a post's link goes
@@ -333,6 +335,8 @@ Window (`yapfast-iced`):
 - Core `application/compose.rs`: `outgoing_body` runs the text through
   `halocord::send_timestamps::wire` first (Send timestamps), then
   `halocord::embedded_urls::wire` (Embedded URLs).
+- Core `discord_text/render.rs`: `notification` runs the author's name through
+  `halocord::notification_title::author` (Notification title).
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
   `halocord::fix_file_extensions::name` first (Fix file extensions), and
   `start_send` runs each file's name and bytes through `halocord::auto_zipper::zipped`

@@ -807,3 +807,28 @@ fn better_upload_button_clicks_upload_and_right_clicks_open_the_menu() {
     press(&mut app, mouse::Button::Right);
     assert_eq!(first_row(&app).as_deref(), Some("Upload a File"));
 }
+
+/// Notification title: its switch reaches the core, which then names whom a
+/// reply's notification replies to, and stops again once it's off.
+#[test]
+fn notification_title_names_whom_a_reply_replies_to() {
+    use yapfast_core::halocord::notification_title::{Replied, author};
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let lena = || Some(Replied::Named("Lena".to_owned()));
+    assert_eq!(author("Sam".into(), lena), "Sam", "off at first");
+    turn_on(&mut app, id::NOTIFICATION_TITLE);
+    assert_eq!(author("Sam".into(), lena), "Sam replied to Lena");
+    assert_eq!(author("Sam".into(), || None), "Sam", "not a reply");
+
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::NOTIFICATION_TITLE).expect("the plugin"),
+            on: false,
+        },
+    );
+    assert_eq!(author("Sam".into(), lena), "Sam");
+
+}

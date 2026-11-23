@@ -16,6 +16,7 @@ pub mod fake_dms;
 pub mod fix_file_extensions;
 pub mod message_logger;
 pub mod new_user;
+pub mod notification_title;
 pub mod quick_mention;
 pub mod send_timestamps;
 pub mod staff;

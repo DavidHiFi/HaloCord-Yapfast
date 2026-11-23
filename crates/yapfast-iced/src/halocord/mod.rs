@@ -145,6 +145,7 @@ pub mod id {
     pub const UNIVERSAL_MENTION: &str = "universal-mention";
     pub const KEEP_CHANNEL: &str = "keep-current-channel";
     pub const BETTER_UPLOAD_BUTTON: &str = "better-upload-button";
+    pub const NOTIFICATION_TITLE: &str = "notification-title";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -204,6 +205,7 @@ pub static PLUGINS: &[Plugin] = &[
     chat::UNIVERSAL_MENTION,
     servers::KEEP_CHANNEL,
     chat::BETTER_UPLOAD_BUTTON,
+    chat::NOTIFICATION_TITLE,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
