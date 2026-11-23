@@ -403,3 +403,16 @@ fn picture_of_build_14_plugins() {
         draw(&app, picture);
     }
 }
+
+#[test]
+#[ignore = "writes pictures for a person to look at"]
+fn picture_of_build_15_plugins() {
+    let (mut app, _folder) = mocha();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::IMAGE_ZOOM);
+    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Search("image zoom".into())));
+    let _ = app.sync();
+    assert!(shows(&app, "Image zoom"));
+    draw(&app, "plugin-image-zoom");
+}

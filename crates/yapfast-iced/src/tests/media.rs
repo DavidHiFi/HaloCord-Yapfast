@@ -47,6 +47,59 @@ fn viewing(app: &mut crate::app::App) {
     });
 }
 
+/// Image zoom: while on, a click on the picture zooms it in, the next
+/// fits it back, and closing forgets it; off, a click does nothing.
+#[test]
+fn image_zoom_zooms_a_viewed_picture_on_a_click() {
+    use crate::{
+        app::Message,
+        halocord::{Change, IMAGE_ZOOM, changed, place, zoom_size},
+        image_viewer::Event,
+    };
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    viewing(&mut app);
+    let middle = iced::Point::new(app.shell.frame.width / 2.0, app.shell.frame.height / 2.0);
+    let zooms = |app: &crate::app::App| {
+        clicked(app, middle, iced::mouse::Button::Left)
+            .iter()
+            .any(|message| matches!(message, Message::Image(Event::Zoom)))
+    };
+    assert!(!zooms(&app), "off at first");
+    let fitted = iced::Size::new(40.0, 30.0);
+    assert_eq!(zoom_size(app.ctx(), true, fitted, fitted), None);
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(IMAGE_ZOOM).unwrap(),
+            on: true,
+        },
+    );
+    assert!(zooms(&app), "a click on the picture zooms");
+    let _ = app.update(Message::Image(Event::Zoom));
+    assert!(app.viewer.zoomed);
+    assert_eq!(
+        zoom_size(app.ctx(), true, fitted, fitted),
+        Some(iced::Size::new(80.0, 60.0)),
+        "twice a small picture"
+    );
+    assert_eq!(
+        zoom_size(
+            app.ctx(),
+            true,
+            iced::Size::new(4000.0, 3000.0),
+            iced::Size::new(800.0, 600.0)
+        ),
+        Some(iced::Size::new(4000.0, 3000.0)),
+        "a big one at its own size"
+    );
+    assert!(shows(&app, "a.png"), "still viewed, zoomed");
+    assert!(zooms(&app), "a click fits it back");
+    let _ = app.update(Message::Image(Event::Close));
+    assert!(!app.viewer.zoomed, "closing forgets it");
+}
+
 #[test]
 fn closing_the_viewer_lets_go_of_its_picture() {
     let (mut app, _folder) = preview();

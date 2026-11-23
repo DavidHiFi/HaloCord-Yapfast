@@ -236,6 +236,66 @@ pub fn role_press(cx: Ctx<'_>, role: &str) -> Option<Message> {
         .then(|| Message::Info(crate::info_cards::Event::ProfileRole(role.to_owned())))
 }
 
+pub(super) const IMAGE_ZOOM: Plugin = Plugin {
+    id: id::IMAGE_ZOOM,
+    name: "Image zoom",
+    about: "Click a picture you opened to see it bigger and scroll around it. Click again to fit it back.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// The size a picture opened large shows at while Image zoom has it
+/// zoomed: its own size, or twice the fitted size if that's bigger.
+pub fn zoom_size(
+    cx: Ctx<'_>,
+    zoomed: bool,
+    natural: iced::Size,
+    fitted: iced::Size,
+) -> Option<iced::Size> {
+    (zoomed && cx.layout.halocord.is(id::IMAGE_ZOOM)).then(|| {
+        let by = (natural.width / fitted.width.max(1.0)).max(2.0);
+        iced::Size::new((fitted.width * by).round(), (fitted.height * by).round())
+    })
+}
+
+/// The picture opened large while Image zoom is on: a click zooms it in or
+/// back, and zoomed it scrolls inside the fitted size.
+pub fn zoomable<'a>(
+    cx: Ctx<'a>,
+    picture: Element<'a, Message>,
+    zoom: Option<iced::Size>,
+    fitted: iced::Size,
+) -> Element<'a, Message> {
+    use iced::{
+        mouse::Interaction,
+        widget::{mouse_area, scrollable},
+    };
+    if !cx.layout.halocord.is(id::IMAGE_ZOOM) {
+        return picture;
+    }
+    let press = Message::Image(crate::image_viewer::Event::Zoom);
+    match zoom {
+        None => mouse_area(picture)
+            .on_press(press)
+            .interaction(Interaction::ZoomIn)
+            .into(),
+        Some(_) => mouse_area(
+            scrollable(picture)
+                .direction(scrollable::Direction::Both {
+                    vertical: scrollable::Scrollbar::new(),
+                    horizontal: scrollable::Scrollbar::new(),
+                })
+                .width(fitted.width)
+                .height(fitted.height),
+        )
+        .on_press(press)
+        .interaction(Interaction::ZoomOut)
+        .into(),
+    }
+}
+
 pub fn full_picture(cx: Ctx<'_>, url: Option<&str>) -> Option<Message> {
     let url = url.filter(|_| cx.layout.halocord.is(id::VIEW_ICONS))?;
     Some(Message::Profile(crate::profile::Event::ViewPicture(
