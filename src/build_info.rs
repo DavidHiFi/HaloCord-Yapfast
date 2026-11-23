@@ -13,7 +13,17 @@
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 const COMMIT: Option<&str> = option_env!("YAPFAST_BUILD_COMMIT");
 const DATE: Option<&str> = option_env!("YAPFAST_BUILD_DATE");
+const HALOCORD: Option<&str> = option_env!("YAPFAST_BUILD_HALOCORD");
 const RELEASE: bool = option_env!("YAPFAST_BUILD_RELEASE").is_some();
+
+/// The HaloCord release this build is, such as "HaloCord for Yapfast 16",
+/// or just "HaloCord for Yapfast" when the build names no number.
+pub fn halocord_line() -> String {
+    match HALOCORD {
+        Some(number) => format!("HaloCord for Yapfast {number}"),
+        None => "HaloCord for Yapfast".into(),
+    }
+}
 
 /// How many characters of a commit's hash Yapfast shows.
 const SHORT_COMMIT: usize = 8;

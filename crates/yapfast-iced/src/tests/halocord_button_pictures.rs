@@ -173,7 +173,7 @@ fn picture_of_plugins_page() {
     let (mut app, _folder) = mocha();
     app.shell.frame = Size::new(FRAME.width, 4400.0);
     crate::window_bar::fit_window(&mut app);
-    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
     let _ = app.sync();
     for plugin in crate::halocord::PLUGINS {
         assert!(shows(&app, plugin.name), "{}", plugin.name);

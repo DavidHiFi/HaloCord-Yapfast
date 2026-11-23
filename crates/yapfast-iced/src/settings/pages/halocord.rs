@@ -1,128 +1,634 @@
-//! The Plugins page: a switch for each of HaloCord's plugins, with that
-//! plugin's settings under it while it's on. The list is [`crate::halocord::PLUGINS`].
+//! HaloCord's group in Settings: the overview, the Plugins page (a filter, a
+//! row of areas and the plugins as cards, each with a cog that opens its
+//! settings in a dialog), the MochaCord dialog the Themes page opens, and
+//! what Backup & Restore's buttons do. The plugins are
+//! [`crate::halocord::PLUGINS`]; where each belongs is `halocord/areas.rs`.
 
-use iced::Element;
+use iced::{
+    Alignment, Element, Length, Task,
+    widget::{Space, button, column, container, responsive, row, stack, text},
+};
 
 use super::{Pref, pref};
 use crate::{
     app::Message,
-    controls::{choices, slider},
+    controls::{Kind as Look, action, choices, lights, slider},
+    dialog::buttons,
+    fonts::{BOLD, MEDIUM},
     form,
-    halocord::{Change, Kind, PLUGINS, found},
-    settings::Page,
+    halocord::{
+        Area, Change, Kind, PLUGINS, Plugin, Setting, area,
+        backup::{self, Backup, Note},
+        found,
+    },
+    pictures::Icon,
+    settings::{Event, Page, Section, Settings},
+    style,
 };
 
+/// The filter field.
+const FILTER: &str = "halocord-filter";
+/// A plugin's card: this tall, this far from the next, and two across from
+/// this much room.
+const CARD: f32 = 92.0;
+const CARD_GAP: f32 = 12.0;
+const TWO_ACROSS: f32 = 600.0;
+/// How far the card's switch and cog sit in from its edge.
+const CARD_PAD: f32 = 14.0;
+/// The cog's button.
+const COG: f32 = 28.0;
+/// The dialogs' widths.
+const DIALOG: f32 = 480.0;
+
+/// Which plugins the Plugins page lists by their switch.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Show {
+    #[default]
+    All,
+    On,
+    Off,
+}
+
+/// The HaloCord pages' state while Settings is open.
+#[derive(Default)]
+pub struct HaloState {
+    /// The Plugins page's filter, the switch filter and the area chosen.
+    pub filter: String,
+    pub show: Show,
+    pub area: Option<Area>,
+    /// The plugin whose settings dialog is open, by its place in `PLUGINS`.
+    pub plugin: Option<usize>,
+    /// The MochaCord dialog is open.
+    pub mocha: bool,
+    /// What Backup & Restore says of the last file.
+    pub note: Option<Note>,
+}
+
+#[derive(Clone, Debug)]
+pub enum HaloEvent {
+    Filter(String),
+    /// A choice in the All, On, Off row.
+    Show(usize),
+    /// An area's chip: the same one again lets it go.
+    Area(Area),
+    /// A plugin's dialog opened or closed.
+    Plugin(Option<usize>),
+    /// The MochaCord dialog opened or closed.
+    Mocha(bool),
+    /// The Themes page with the MochaCord dialog open.
+    OpenMocha,
+    BackupSave,
+    BackupLoad,
+    /// The text of the file picked: none when the window was closed, an
+    /// inner none when it couldn't be read.
+    BackupRead(Option<Option<String>>),
+    BackupDone(Option<Note>),
+}
+
+/// A HaloCord page's event as a message.
+pub fn halo_message(event: HaloEvent) -> Message {
+    Message::Settings(Event::HaloCord(event))
+}
+
+fn open(section: Section) -> Message {
+    Message::Settings(Event::Open(section))
+}
+
+impl Settings {
+    pub(in crate::settings) fn halocord_event(
+        &mut self,
+        event: HaloEvent,
+        cx: &mut crate::ctx::Cx<'_>,
+    ) -> Task<Message> {
+        let halo = &mut self.halo;
+        match event {
+            HaloEvent::Filter(text) => halo.filter = text,
+            HaloEvent::Show(index) => {
+                halo.show = [Show::All, Show::On, Show::Off][index.min(2)];
+            }
+            HaloEvent::Area(chosen) => {
+                halo.area = (halo.area != Some(chosen)).then_some(chosen);
+            }
+            HaloEvent::Plugin(plugin) => {
+                halo.plugin = plugin.filter(|index| *index < PLUGINS.len())
+            }
+            HaloEvent::Mocha(open) => halo.mocha = open,
+            HaloEvent::OpenMocha => {
+                let task = self.show(Section::Themes, cx);
+                self.halo.mocha = true;
+                return task;
+            }
+            HaloEvent::BackupSave => {
+                halo.note = None;
+                let backup = Backup::of(
+                    &cx.layout.halocord,
+                    &cx.layout.mochacord,
+                    &cx.themes.custom,
+                    Some(cx.themes.chosen_id()),
+                );
+                return backup::save(&backup);
+            }
+            HaloEvent::BackupLoad => return backup::open(),
+            HaloEvent::BackupRead(None) => {}
+            HaloEvent::BackupRead(Some(None)) => halo.note = Some(Note::NotRead),
+            HaloEvent::BackupRead(Some(Some(text))) => {
+                halo.note = Some(match Backup::read(&text) {
+                    Some(backup) => {
+                        restore(backup, cx);
+                        Note::Loaded
+                    }
+                    None => Note::NotABackup,
+                });
+            }
+            HaloEvent::BackupDone(note) => halo.note = note,
+        }
+        Task::none()
+    }
+}
+
+/// Takes a backup's setup: the plugins, MochaCord's options, the person's
+/// own themes and the theme chosen, each kept and told to the core and
+/// the window.
+fn restore(backup: Backup, cx: &mut crate::ctx::Cx<'_>) {
+    use crate::ctx::{Pref as Shown, Request};
+    // A restored look never counts as the first start, which would
+    // switch the theme again.
+    let mut mochacord = backup.mochacord;
+    mochacord.switched = true;
+    cx.layout.halocord = backup.halocord;
+    cx.layout.mochacord = mochacord;
+    cx.layout.halocord.apply();
+    cx.layout.mochacord.apply();
+    cx.keep("halocord", &cx.layout.halocord);
+    cx.keep("mochacord", &cx.layout.mochacord);
+    let mut themes = backup.themes;
+    yapfast_core::theme::tidy(&mut themes);
+    cx.themes.custom = themes;
+    cx.keep("custom_themes", &cx.themes.custom);
+    if let Some(id) = backup.theme.filter(|id| cx.themes.find(id).is_some()) {
+        cx.themes.choose(cx.client.root(), &id);
+    }
+    cx.request(Request::Changed(Shown::Theme));
+    cx.touch();
+}
+
 impl<'a> Page<'a> {
+    /// The HaloCord page: which build this is, how many plugins are on, the
+    /// theme in use, and the way to the rest.
     pub(in crate::settings) fn halocord_page(self) -> Element<'a, Message> {
         let theme = self.cx.look.theme;
         let kept = &self.cx.layout.halocord;
+        let on = PLUGINS.iter().filter(|plugin| kept.on(plugin)).count();
+        let summary = if self.cx.build.summary.is_empty() {
+            "HaloCord for Yapfast".to_owned()
+        } else {
+            self.cx.build.summary.clone()
+        };
+        let name = self.theme_name();
+        let tiles = responsive(move |size| {
+            let stat = |big: String, small: &'static str| -> Element<'a, Message> {
+                form::card(
+                    theme,
+                    column![
+                        text(big)
+                            .size(22)
+                            .font(BOLD)
+                            .color(theme.text)
+                            .wrapping(text::Wrapping::None),
+                        form::note(theme, small),
+                    ]
+                    .spacing(4),
+                )
+            };
+            let plugins = stat(format!("{on} of {}", PLUGINS.len()), "plugins are on");
+            let shown = stat(name.clone(), "theme in use");
+            if size.width >= 420.0 {
+                row![plugins, shown].spacing(form::GAP).into()
+            } else {
+                column![plugins, shown].spacing(form::GAP).into()
+            }
+        })
+        .height(Length::Shrink);
+        let go = |label: &'static str, kind: Look, section: Section| {
+            action(theme, label, kind, Some(open(section))).into()
+        };
+        let jumps: Vec<Element<'a, Message>> = vec![
+            go("Plugins", Look::Primary, Section::Plugins),
+            go("Themes", Look::Plain, Section::Themes),
+            go("Backup & Restore", Look::Plain, Section::Backup),
+        ];
+        form::page([
+            form::title(theme, "HaloCord"),
+            form::card(
+                theme,
+                column![
+                    form::heading(theme, "THIS BUILD"),
+                    text(summary).size(15).color(theme.text),
+                    form::note(
+                        theme,
+                        "HaloCord adds its plugins and its look to Yapfast. Both stay when HaloCord brings Yapfast up to date.",
+                    ),
+                ]
+                .spacing(6),
+            ),
+            tiles.into(),
+            row(jumps).spacing(8).wrap().vertical_spacing(8).into(),
+        ])
+    }
+
+    /// The Plugins page.
+    pub(in crate::settings) fn plugins_page(self) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let halo = &self.s.halo;
+        let kept = &self.cx.layout.halocord;
+        // Settings' own search narrows the list too.
+        let query = self.s.query.to_lowercase();
+        let by_search = query.is_empty() || "plugins".contains(&query);
+        let filter = halo.filter.trim().to_lowercase();
+        let shown: Vec<usize> = PLUGINS
+            .iter()
+            .enumerate()
+            .filter(|(_, plugin)| {
+                (by_search || found(plugin, &query))
+                    && (filter.is_empty() || found(plugin, &filter))
+                    && match halo.show {
+                        Show::All => true,
+                        Show::On => kept.on(plugin),
+                        Show::Off => !kept.on(plugin),
+                    }
+                    && halo.area.is_none_or(|chosen| area(plugin.id) == chosen)
+            })
+            .map(|(index, _)| index)
+            .collect();
+        let on = shown
+            .iter()
+            .filter(|&&index| kept.on(&PLUGINS[index]))
+            .count();
+        let count = format!(
+            "{} plugin{}, {on} on",
+            shown.len(),
+            if shown.len() == 1 { "" } else { "s" }
+        );
+        let show = match halo.show {
+            Show::All => 0,
+            Show::On => 1,
+            Show::Off => 2,
+        };
+        let chips: Vec<Element<'a, Message>> = Area::ALL
+            .iter()
+            .map(|&each| self.chip(each.name(), halo.area == Some(each), HaloEvent::Area(each)))
+            .collect();
         let mut page = vec![
             form::title(theme, "Plugins"),
             form::note(
                 theme,
-                "Each plugin has a switch, and its settings show under it while it is on. They stay when HaloCord brings Yapfast up to date.",
+                "A switch turns a plugin on. A cog opens its settings. Both stay when HaloCord brings Yapfast up to date.",
             ),
+            form::field(theme, FILTER, "Filter plugins", &halo.filter)
+                .on_input(|text| halo_message(HaloEvent::Filter(text)))
+                .into(),
+            choices(theme, &["All", "On", "Off"], show, |index| {
+                halo_message(HaloEvent::Show(index))
+            }),
+            row(chips).spacing(8).wrap().vertical_spacing(8).into(),
+            form::note(theme, count),
         ];
-        // Settings' search box narrows the list to the plugins it finds.
-        let query = self.s.query.to_lowercase();
-        let all = query.is_empty() || "plugins".contains(&query);
-        for (index, plugin) in PLUGINS.iter().enumerate() {
-            if !all && !found(plugin, &query) {
-                continue;
-            }
-            let on = kept.on(plugin);
-            let mut group = vec![
-                form::switch(
-                    plugin.name,
-                    on,
-                    Some(pref(Pref::HaloCord(Change::Switch {
-                        plugin: index,
-                        on: !on,
-                    }))),
-                )
-                .description(plugin.about)
-                .view(self.cx.look),
-            ];
-            if on {
-                for (place, setting) in plugin.settings.iter().enumerate() {
-                    let change = move |change| pref(Pref::HaloCord(change));
-                    match &setting.kind {
-                        Kind::Choice { names, .. } => {
-                            group.push(form::heading(theme, setting.heading));
-                            group.push(choices(
-                                theme,
-                                names,
-                                kept.choice(plugin, setting),
-                                move |choice| {
-                                    change(Change::Choose {
-                                        plugin: index,
-                                        setting: place,
-                                        choice,
-                                    })
-                                },
-                            ));
-                            group.push(form::note(theme, setting.note));
-                        }
-                        Kind::Switch { .. } => {
-                            let set = kept.flag(plugin, setting);
-                            group.push(
-                                form::switch(
-                                    setting.heading,
-                                    set,
-                                    Some(change(Change::Flag {
-                                        plugin: index,
-                                        setting: place,
-                                        on: !set,
-                                    })),
-                                )
-                                .description(setting.note)
-                                .view(self.cx.look),
-                            );
-                        }
-                        Kind::Slider {
-                            most, step, unit, ..
-                        } => {
-                            let value = kept.value(plugin, setting);
-                            group.push(
-                                slider(setting.heading, value, *most, move |value| {
-                                    change(Change::Slide {
-                                        plugin: index,
-                                        setting: place,
-                                        value,
-                                    })
-                                })
-                                .step(*step)
-                                .shown(format!("{value}{unit}"))
-                                .mark(false)
-                                .view(theme),
-                            );
-                            group.push(form::note(theme, setting.note));
-                        }
-                        Kind::Text { placeholder, .. } => {
-                            group.push(form::heading(theme, setting.heading));
-                            group.push(
-                                form::field(
-                                    theme,
-                                    setting.key,
-                                    placeholder,
-                                    kept.text(plugin, setting),
-                                )
-                                .on_input(move |text| {
-                                    change(Change::Type {
-                                        plugin: index,
-                                        setting: place,
-                                        text,
-                                    })
-                                })
-                                .into(),
-                            );
-                            group.push(form::note(theme, setting.note));
-                        }
-                    }
-                }
-            }
-            page.push(form::group(group));
+        if shown.is_empty() {
+            page.push(form::note(
+                theme,
+                "No plugin matches. Clear the filter or pick another area.",
+            ));
+        } else {
+            page.push(self.plugin_grid(shown));
         }
         form::page(page)
     }
+
+    /// An area's chip: lit while chosen.
+    fn chip(self, label: &'static str, chosen: bool, event: HaloEvent) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let (rest, hover, line, faint) = (theme.sidebar, theme.hover, theme.line, theme.faint);
+        let (accent, on_accent, ink) = (theme.accent, theme.on_accent, theme.secondary);
+        button(
+            text(label)
+                .size(13)
+                .font(MEDIUM)
+                .wrapping(text::Wrapping::None),
+        )
+        .padding([6, 14])
+        .height(32)
+        .on_press(halo_message(event))
+        .style(move |_, status| {
+            let lit = lights(status);
+            button::Style {
+                background: Some(
+                    if chosen {
+                        accent
+                    } else if lit {
+                        hover
+                    } else {
+                        rest
+                    }
+                    .into(),
+                ),
+                text_color: if chosen { on_accent } else { ink },
+                border: if style::rice().is_some() {
+                    style::lit_edge(lit, status == button::Status::Pressed, 16.0)
+                } else {
+                    style::edge(if lit { faint } else { line }, 16.0)
+                },
+                ..Default::default()
+            }
+        })
+        .into()
+    }
+
+    /// The plugins as cards, two across when there's room, else one.
+    fn plugin_grid(self, shown: Vec<usize>) -> Element<'a, Message> {
+        responsive(move |size| {
+            let columns = if size.width >= TWO_ACROSS { 2 } else { 1 };
+            let width = (size.width - (columns - 1) as f32 * CARD_GAP) / columns as f32;
+            let mut rows = column![].spacing(CARD_GAP);
+            for chunk in shown.chunks(columns) {
+                let mut line = row![].spacing(CARD_GAP);
+                for &index in chunk {
+                    line = line.push(self.plugin_card(index, width));
+                }
+                if chunk.len() < columns {
+                    line = line.push(Space::new().width(width));
+                }
+                rows = rows.push(line);
+            }
+            rows.into()
+        })
+        .height(Length::Shrink)
+        .into()
+    }
+
+    /// A plugin's card: its name and what it does, the switch at the right
+    /// and a cog beside it. The card itself flips
+    /// the switch too.
+    fn plugin_card(self, index: usize, width: f32) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let plugin = &PLUGINS[index];
+        let on = self.cx.layout.halocord.on(plugin);
+        let flip = pref(Pref::HaloCord(Change::Switch {
+            plugin: index,
+            on: !on,
+        }));
+        let room = CARD_PAD + 48.0 + 12.0 + 8.0 + COG;
+        let words = column![
+            text(plugin.name)
+                .size(15)
+                .font(BOLD)
+                .color(theme.text)
+                .wrapping(text::Wrapping::None),
+            container(text(plugin.about).size(13).color(theme.muted))
+                .height(36)
+                .clip(true),
+        ]
+        .spacing(4);
+        let (rest, hover, line) = (theme.sidebar, theme.hover, theme.line);
+        let face = button(container(words).padding(iced::Padding {
+            top: CARD_PAD,
+            bottom: CARD_PAD,
+            left: CARD_PAD,
+            right: room,
+        }))
+        .padding(0)
+        .width(width)
+        .height(CARD)
+        .on_press(flip.clone())
+        .style(move |_, status| {
+            let lit = lights(status);
+            button::Style {
+                background: Some(if lit { hover } else { rest }.into()),
+                border: if style::rice().is_some() {
+                    style::lit_edge(lit, status == button::Status::Pressed, 8.0)
+                } else {
+                    style::edge(line, 8.0)
+                },
+                ..Default::default()
+            }
+        });
+        let mut controls = row![Space::new().width(Length::Fill)]
+            .spacing(8)
+            .align_y(Alignment::Center);
+        controls = controls.push(
+            self.cx
+                .look
+                .icon_button(
+                    Icon::Settings,
+                    "Settings",
+                    halo_message(HaloEvent::Plugin(Some(index))),
+                )
+                .size(COG, 16),
+        );
+        controls = controls.push(form::toggle(theme, on, Some(flip)));
+        stack![
+            face,
+            container(controls)
+                .padding([0.0, CARD_PAD])
+                .width(width)
+                .height(CARD)
+                .align_y(Alignment::Center)
+        ]
+        .width(width)
+        .height(CARD)
+        .into()
+    }
+
+    /// Backup & Restore: the setup in one file, and back from one.
+    pub(in crate::settings) fn backup_page(self) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let mut parts = vec![
+            form::title(theme, "Backup & Restore"),
+            form::note(
+                theme,
+                "Keeps your plugins, the MochaCord options, your own themes and the theme you use in one file.",
+            ),
+            form::note(
+                theme,
+                "Loading a file replaces what you have now with what is in it.",
+            ),
+            row![
+                action(
+                    theme,
+                    "Save to file",
+                    Look::Primary,
+                    Some(halo_message(HaloEvent::BackupSave)),
+                ),
+                action(
+                    theme,
+                    "Load from file",
+                    Look::Plain,
+                    Some(halo_message(HaloEvent::BackupLoad)),
+                ),
+            ]
+            .spacing(8)
+            .wrap()
+            .vertical_spacing(8)
+            .into(),
+        ];
+        if let Some(note) = self.s.halo.note {
+            parts.push(
+                text(note.words())
+                    .size(13)
+                    .color(if note.bad() {
+                        theme.danger
+                    } else {
+                        theme.secondary
+                    })
+                    .into(),
+            );
+        }
+        form::page(parts)
+    }
+
+    /// The dialog that's open over Settings, if one is.
+    pub(in crate::settings) fn halo_dialog(self) -> Option<Element<'a, Message>> {
+        let halo = &self.s.halo;
+        let theme = self.cx.look.theme;
+        let look = self.cx.look;
+        let (title, intro, mut body, close) = if let Some(index) = halo.plugin {
+            let plugin = PLUGINS.get(index)?;
+            (
+                plugin.name,
+                plugin.about,
+                self.plugin_settings(index, plugin),
+                halo_message(HaloEvent::Plugin(None)),
+            )
+        } else if halo.mocha {
+            (
+                "MochaCord",
+                "How this copy of Yapfast looks. These options work with any theme.",
+                self.mochacord_options(),
+                halo_message(HaloEvent::Mocha(false)),
+            )
+        } else {
+            return None;
+        };
+        body.insert(0, look.dialog_head(title, close.clone()));
+        body.insert(1, form::note(theme, intro));
+        body.push(buttons([action(
+            theme,
+            "Close",
+            Look::Primary,
+            Some(close.clone()),
+        )
+        .into()]));
+        Some(look.framed(body, DIALOG, close))
+    }
+
+    /// A plugin's settings, each changing live: a choice, a switch, a slider
+    /// or a line of text.
+    fn plugin_settings(self, index: usize, plugin: &'static Plugin) -> Vec<Element<'a, Message>> {
+        let theme = self.cx.look.theme;
+        let kept = &self.cx.layout.halocord;
+        let mut parts = Vec::new();
+        for (place, setting) in plugin.settings.iter().enumerate() {
+            let change = move |change| pref(Pref::HaloCord(change));
+            self.setting(&mut parts, index, place, plugin, setting, change);
+        }
+        let _ = (theme, kept);
+        parts
+    }
+
+    fn setting(
+        self,
+        parts: &mut Vec<Element<'a, Message>>,
+        index: usize,
+        place: usize,
+        plugin: &'static Plugin,
+        setting: &'static Setting,
+        change: impl Fn(Change) -> Message + Copy + 'a,
+    ) {
+        let theme = self.cx.look.theme;
+        let kept = &self.cx.layout.halocord;
+        match &setting.kind {
+            Kind::Choice { names, .. } => {
+                parts.push(form::heading(theme, setting.heading));
+                parts.push(choices(
+                    theme,
+                    names,
+                    kept.choice(plugin, setting),
+                    move |choice| {
+                        change(Change::Choose {
+                            plugin: index,
+                            setting: place,
+                            choice,
+                        })
+                    },
+                ));
+                parts.push(form::note(theme, setting.note));
+            }
+            Kind::Switch { .. } => {
+                let set = kept.flag(plugin, setting);
+                parts.push(
+                    form::switch(
+                        setting.heading,
+                        set,
+                        Some(change(Change::Flag {
+                            plugin: index,
+                            setting: place,
+                            on: !set,
+                        })),
+                    )
+                    .description(setting.note)
+                    .view(self.cx.look),
+                );
+            }
+            Kind::Slider {
+                most, step, unit, ..
+            } => {
+                let value = kept.value(plugin, setting);
+                parts.push(
+                    slider(setting.heading, value, *most, move |value| {
+                        change(Change::Slide {
+                            plugin: index,
+                            setting: place,
+                            value,
+                        })
+                    })
+                    .step(*step)
+                    .shown(format!("{value}{unit}"))
+                    .mark(false)
+                    .view(theme),
+                );
+                parts.push(form::note(theme, setting.note));
+            }
+            Kind::Text { placeholder, .. } => {
+                parts.push(form::heading(theme, setting.heading));
+                parts.push(
+                    form::field(theme, setting.key, placeholder, kept.text(plugin, setting))
+                        .on_input(move |text| {
+                            change(Change::Type {
+                                plugin: index,
+                                setting: place,
+                                text,
+                            })
+                        })
+                        .into(),
+                );
+                parts.push(form::note(theme, setting.note));
+            }
+        }
+    }
+}
+
+/// Whether a search (lowercase) is about MochaCord's options.
+pub fn mocha_found(query: &str) -> bool {
+    [
+        "mochacord",
+        "glass",
+        "strength",
+        "accent",
+        "gradient",
+        "corner",
+        "round",
+        "font",
+        "weight",
+    ]
+    .iter()
+    .any(|word| word.contains(query))
 }

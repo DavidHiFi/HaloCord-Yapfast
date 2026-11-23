@@ -23,10 +23,14 @@ mod advanced;
 mod discord;
 mod games;
 mod halocord;
+mod halocord_themes;
 mod messages;
 mod mochacord;
 mod notifications;
 mod sounds;
+
+pub(super) use halocord::mocha_found;
+pub use halocord::{HaloEvent, HaloState, halo_message};
 
 /// The choices of Messages' animations, of the date's order, of the sound
 /// set and of the text's size, in the order they show.

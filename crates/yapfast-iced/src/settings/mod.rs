@@ -21,13 +21,13 @@ pub mod keybinds;
 mod pages;
 pub mod updates;
 
-pub use pages::message_size;
+pub use pages::{HaloEvent, HaloState, message_size};
 pub mod voice;
 
 use crate::widgets::scroll_view;
 use iced::{
     Alignment, Color, Element, Length, Task,
-    widget::{Space, button, column, container, row, text},
+    widget::{Space, button, column, container, row, stack, text},
 };
 use yapfast_core::application::{Action, AppState};
 use yapfast_core::new_tags::{self, Page as NewPage};
@@ -78,10 +78,14 @@ pub enum Section {
     Games,
     Keybinds,
     About,
-    /// HaloCord's own settings, built into its copy of Yapfast.
+    /// HaloCord's overview: which build this is and the way to the rest.
     HaloCord,
-    /// HaloCord's look options.
-    MochaCord,
+    /// HaloCord's plugins, as cards.
+    Plugins,
+    /// The themes, with MochaCord's options behind its cog.
+    Themes,
+    /// HaloCord's setup in one file, and back from one.
+    Backup,
 }
 
 impl Section {
@@ -107,8 +111,10 @@ impl Section {
             Section::Games => "Game Activity",
             Section::Keybinds => "Keybinds",
             Section::About => "About",
-            Section::HaloCord => "Plugins",
-            Section::MochaCord => "MochaCord",
+            Section::HaloCord => "HaloCord",
+            Section::Plugins => "Plugins",
+            Section::Themes => "Themes",
+            Section::Backup => "Backup & Restore",
         }
     }
 
@@ -126,14 +132,16 @@ impl Section {
             Section::Keybinds => Icon::Keyboard,
             Section::About => Icon::Help,
             Section::HaloCord => Icon::Headphones,
-            Section::MochaCord => Icon::Palette,
+            Section::Plugins => Icon::Star,
+            Section::Themes => Icon::Palette,
+            Section::Backup => Icon::Download,
         }
     }
 }
 
 /// The column's groups and their sections, as Discord's settings group
 /// them.
-const GROUPS: [(&str, &[Section]); 5] = [
+const GROUPS: [(&str, &[Section]); 4] = [
     ("Account", &[Section::Account]),
     (
         "Experience",
@@ -155,8 +163,15 @@ const GROUPS: [(&str, &[Section]); 5] = [
             Section::About,
         ],
     ),
-    ("HaloCord", &[Section::HaloCord]),
-    ("MochaCord", &[Section::MochaCord]),
+    (
+        "HaloCord",
+        &[
+            Section::HaloCord,
+            Section::Plugins,
+            Section::Themes,
+            Section::Backup,
+        ],
+    ),
 ];
 
 /// Which dropdown is open, at most one.
@@ -183,8 +198,10 @@ pub struct Settings {
     /// which the window shows meanwhile.
     pub editor: Option<Editor>,
     preview: Option<Theme>,
-    /// HaloCord: what Appearance says after a theme file was saved or loaded.
+    /// HaloCord: what the Themes page says after a theme file was saved or loaded.
     pub theme_file: Option<crate::halocord::theme_files::Note>,
+    /// HaloCord's pages: the Plugins filter, the dialogs, the backup's note.
+    pub halo: HaloState,
     /// Voice's state while it shows: the push-to-talk key being recorded,
     /// the camera being tried, the gate's meter, the entrance sounds.
     pub voice: voice::Voice,
@@ -233,6 +250,8 @@ pub enum Event {
     Game(pages::GameEvent),
     Voice(voice::Event),
     Theme(appearance::Event),
+    /// HaloCord's pages and dialogs.
+    HaloCord(HaloEvent),
     /// Recording a keybind starts or stops: push to talk's or a row's.
     Record(keybinds::Target, bool),
     /// A key went down or up, or the window lost the focus, while one is
@@ -270,7 +289,10 @@ impl Settings {
         if let Some(before) = before.filter(|before| *before != section) {
             leave_new(cx, before);
         }
-        if before == Some(Section::Appearance) && section != Section::Appearance {
+        // The dialogs close with the page that opened them.
+        self.halo.plugin = None;
+        self.halo.mocha = false;
+        if before == Some(Section::Themes) && section != Section::Themes {
             self.cancel_theme(cx);
         }
         if before == Some(Section::Voice) && section != Section::Voice {
@@ -320,6 +342,7 @@ impl Settings {
             Event::Game(event) => self.game_event(event, cx),
             Event::Voice(event) => self.voice_event(event, cx),
             Event::Theme(event) => return self.theme_event(event, cx),
+            Event::HaloCord(event) => return self.halocord_event(event, cx),
             Event::Record(target, on) => self.record(target, on),
             Event::Heard(heard) => self.heard(heard, cx),
             Event::Keybind(event) => self.keybind_event(event, cx),
@@ -330,6 +353,12 @@ impl Settings {
     /// Escape closes an open dropdown, stops recording a key, then closes
     /// Settings.
     pub fn escape(&mut self, cx: &mut Cx<'_>) {
+        if self.halo.plugin.take().is_some() {
+            return;
+        }
+        if std::mem::take(&mut self.halo.mocha) {
+            return;
+        }
         if self.open.take().is_some() {
             return;
         }
@@ -450,7 +479,9 @@ impl<'a> Page<'a> {
             Section::Keybinds => self.keybinds_page(),
             Section::About => self.about_page(),
             Section::HaloCord => self.halocord_page(),
-            Section::MochaCord => self.mochacord_page(),
+            Section::Plugins => self.plugins_page(),
+            Section::Themes => self.themes_page(),
+            Section::Backup => self.backup_page(),
         };
         let line = bar(theme.line, Length::Fill, 1);
         let header = column![
@@ -506,7 +537,11 @@ impl<'a> Page<'a> {
                 }),
             content
         ];
-        crate::sheet::backdrop(theme, card, MARGIN, Message::Settings(Event::Close))
+        let base = crate::sheet::backdrop(theme, card, MARGIN, Message::Settings(Event::Close));
+        match self.halo_dialog() {
+            Some(dialog) => stack![base, dialog].into(),
+            None => base,
+        }
     }
 
     /// The sections' column: the account with Edit Profile, the search,
@@ -590,10 +625,7 @@ impl<'a> Page<'a> {
                 if discord_only && self.cx.state.preview {
                     continue;
                 }
-                if !query.is_empty()
-                    && !section.title().to_lowercase().contains(&query)
-                    && !(section == Section::HaloCord && crate::halocord::any_found(&query))
-                {
+                if !query.is_empty() && !self.section_found(section, &query) {
                     continue;
                 }
                 entries = entries.push(self.nav_row(section, settings.section() == section));
@@ -618,6 +650,31 @@ impl<'a> Page<'a> {
                 ..iced::Padding::ZERO
             })
             .into()
+    }
+
+    /// Whether a search (lowercase) finds `section`: by its name, and for
+    /// Plugins by the plugins, for Themes by the themes and MochaCord's
+    /// options.
+    fn section_found(self, section: Section, query: &str) -> bool {
+        if section.title().to_lowercase().contains(query) {
+            return true;
+        }
+        match section {
+            Section::Plugins => crate::halocord::any_found(query),
+            Section::Themes => {
+                pages::mocha_found(query)
+                    || yapfast_core::theme::BUILT_IN
+                        .iter()
+                        .any(|built_in| built_in.name.to_lowercase().contains(query))
+                    || self
+                        .cx
+                        .themes
+                        .custom
+                        .iter()
+                        .any(|custom| custom.name.to_lowercase().contains(query))
+            }
+            _ => false,
+        }
     }
 
     /// A section's row.
@@ -646,60 +703,79 @@ impl<'a> Page<'a> {
     /// Which build this is, under the sections: a click copies it as one
     /// line.
     fn build_stamp(self, copied: bool) -> Element<'a, Message> {
-        let theme = self.cx.look.theme;
-        let build = self.cx.build;
-        if build.headline.is_empty() {
-            return Space::new().into();
-        }
-        let tint = build_tint(theme, build.tone);
-        let mut second = row![
-            text(if copied {
-                "Copied"
-            } else {
-                build.channel.as_str()
-            })
-            .size(12)
-            .font(BOLD)
-            .color(if copied { theme.text } else { tint })
-        ];
-        if !copied && !build.details.is_empty() {
-            second = second.push(
-                text(format!(" · {}", build.details))
-                    .size(12)
-                    .color(theme.muted)
-                    .wrapping(text::Wrapping::None),
-            );
-        }
-        let face = button(
-            column![
+        build_stamp(self.cx.look.theme, self.cx.build, copied)
+    }
+}
+
+/// The HaloCord release, then the Yapfast build and its channel. Every line
+/// wraps inside the sidebar, so a long one never runs past its edge.
+pub(super) fn build_stamp<'a>(
+    theme: &'a crate::theme::Theme,
+    build: &'a Build,
+    copied: bool,
+) -> Element<'a, Message> {
+    if build.headline.is_empty() {
+        return Space::new().into();
+    }
+    let tint = build_tint(theme, build.tone);
+    let mut second = column![
+        text(if copied {
+            "Copied"
+        } else {
+            build.channel.as_str()
+        })
+        .size(12)
+        .font(BOLD)
+        .color(if copied { theme.text } else { tint })
+        .width(Length::Fill)
+    ]
+    .spacing(4);
+    if !copied && !build.details.is_empty() {
+        second = second.push(
+            text(build.details.as_str())
+                .size(12)
+                .color(theme.muted)
+                .width(Length::Fill),
+        );
+    }
+    let mut lines = column![].spacing(4);
+    if !build.halocord.is_empty() {
+        lines = lines.push(
+            text(build.halocord.as_str())
+                .size(12)
+                .font(BOLD)
+                .color(theme.text)
+                .width(Length::Fill),
+        );
+    }
+    let face = button(
+        lines
+            .push(
                 text(build.headline.as_str())
                     .size(12)
                     .color(theme.muted)
-                    .wrapping(text::Wrapping::None),
-                second
-            ]
-            .spacing(4),
-        )
-        .padding([4, 8])
-        .width(Length::Fill)
-        .on_press(Message::Settings(Event::CopyVersion))
-        .style(|_, _| button::Style::default());
-        let face = iced::widget::tooltip(
-            face,
-            controls::tip(theme, "Click to copy"),
-            iced::widget::tooltip::Position::Top,
-        );
-        column![bar(theme.line, Length::Fill, 1), face]
-            .spacing(8)
-            .padding(iced::Padding {
-                left: 16.0,
-                right: 16.0,
-                bottom: 8.0,
-                ..iced::Padding::ZERO
-            })
-            .height(62)
-            .into()
-    }
+                    .width(Length::Fill),
+            )
+            .push(second),
+    )
+    .padding([4, 8])
+    .width(Length::Fill)
+    .on_press(Message::Settings(Event::CopyVersion))
+    .style(|_, _| button::Style::default());
+    let face = iced::widget::tooltip(
+        face,
+        controls::tip(theme, "Click to copy"),
+        iced::widget::tooltip::Position::Top,
+    );
+    column![bar(theme.line, Length::Fill, 1), face]
+        .spacing(8)
+        .padding(iced::Padding {
+            left: 16.0,
+            right: 16.0,
+            bottom: 8.0,
+            ..iced::Padding::ZERO
+        })
+        .into()
 }
 
 /// How loud a build's channel is drawn: a release's in the live colour, a
@@ -715,6 +791,8 @@ fn build_tint(theme: &crate::theme::Theme, tone: i32) -> Color {
 /// Which build this is, as the root crate's `build_info` words it.
 #[derive(Clone, Debug, Default)]
 pub struct Build {
+    /// The HaloCord release, such as "HaloCord for Yapfast 16".
+    pub halocord: String,
     pub headline: String,
     /// Stable, Nightly, Pre-release or Development build.
     pub channel: String,
