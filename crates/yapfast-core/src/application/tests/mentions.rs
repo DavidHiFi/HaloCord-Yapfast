@@ -261,3 +261,46 @@ fn discord_mentions_search_the_server_and_name_roles() {
     app.dispatch(Action::SelectRoom("dm".into()));
     assert!(app.state.mention_groups.is_empty() && app.state.found_members.is_empty());
 }
+
+#[test]
+fn halocord_universal_mention_suggests_the_people_of_dms() {
+    use crate::{halocord::universal_mention, network::Network};
+    let dm = |id: &str, person: &str, name: &str| ChatRoom {
+        network: Network::Discord,
+        direct: true,
+        person: Some(person.into()),
+        ..preview_room(id, name, true, 2)
+    };
+    let mut state = AppState {
+        rooms: vec![
+            Arc::new(dm("discord:@me:5", "55", "Riley")),
+            Arc::new(dm("discord:@me:6", "66", "Sam")),
+        ],
+        selected: Some("discord:10:11".into()),
+        ..AppState::default()
+    };
+    let names = |state: &AppState| -> Vec<(String, String)> {
+        state
+            .mention_candidates()
+            .into_iter()
+            .filter(|candidate| !candidate.group)
+            .map(|candidate| (candidate.name, candidate.mention))
+            .collect()
+    };
+    assert!(names(&state).is_empty(), "off");
+    universal_mention::set(true);
+    assert_eq!(
+        names(&state),
+        [
+            ("Riley".to_owned(), "<@55>".to_owned()),
+            ("Sam".to_owned(), "<@66>".to_owned())
+        ]
+    );
+    // Someone already seen (here, this account itself) isn't offered again.
+    state.discord_user = Some("66".into());
+    assert_eq!(names(&state), [("Riley".to_owned(), "<@55>".to_owned())]);
+    // Not on another network.
+    state.selected = Some("!room:matrix.org".into());
+    assert!(names(&state).is_empty(), "Matrix");
+    universal_mention::set(false);
+}

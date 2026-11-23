@@ -15,6 +15,7 @@ pub mod quick_mention;
 pub mod send_timestamps;
 pub mod staff;
 pub mod themes;
+pub mod universal_mention;
 
 use crate::{
     application::{Action, Application, Effect, INVITE_AGES, INVITE_USES},

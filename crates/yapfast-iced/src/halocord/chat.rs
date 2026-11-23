@@ -240,6 +240,16 @@ pub(super) const SEND_TIMESTAMPS: Plugin = Plugin {
     hooks: None,
 };
 
+pub(super) const UNIVERSAL_MENTION: Plugin = Plugin {
+    id: id::UNIVERSAL_MENTION,
+    name: "Universal mention",
+    about: "@ on Discord also suggests the people you have DMs with, wherever you type it, after the people the conversation already offers.",
+    on_at_first: false,
+    settings: &[],
+    apply: |kept, plugin| engine::universal_mention::set(kept.on(plugin)),
+    hooks: None,
+};
+
 pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     id: id::FIX_FILE_EXTENSIONS,
     name: "Fix file extensions",

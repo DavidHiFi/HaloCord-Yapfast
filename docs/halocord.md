@@ -64,6 +64,8 @@ whole list to carry across.
   `<t:13:30>` goes up as a Discord timestamp) and its tests.
 - `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
   `.jfif` photo goes up as `.jpg`) and its tests.
+- `crates/yapfast-core/src/halocord/universal_mention.rs`: Universal mention (the people of
+  this account's DMs among `@`'s suggestions on Discord).
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -213,6 +215,8 @@ Window (`yapfast-iced`):
   `jump_to_start` and `start_item`; `seek` shows a channel's first message when
   the item sought is the channel's own id (Jump to start).
 - Core `application/tests/unread.rs`: the Jump to start test.
+- Core `application.rs`: `mention_candidates` adds `halocord::universal_mention::add`'s people
+  on Discord, before the groups (Universal mention).
 - Core `application/compose.rs`: `outgoing_body` runs the text through
   `halocord::send_timestamps::wire` first (Send timestamps).
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
@@ -222,6 +226,7 @@ Window (`yapfast-iced`):
   `tests/writing.rs`: tests of the Volume booster, the copy rows, the buttons beside
   Settings and Show timeout duration, in Yapfast's own test files.
 - Core `application/tests/servers.rs`: the invite test's Invite defaults lines.
+- Core `application/tests/mentions.rs`: `halocord_universal_mention_suggests_the_people_of_dms`.
 - `window_bar.rs`: `Event::Halo(Press)` with its arm in `update` (a plugin's button
   pressed), and the buttons `halocord::presses` lists, pushed before Inbox in
   `window_bar`.

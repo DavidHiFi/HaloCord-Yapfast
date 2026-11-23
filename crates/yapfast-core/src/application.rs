@@ -1343,6 +1343,10 @@ impl AppState {
                 voice: false,
             });
         }
+        // HaloCord's Universal mention (docs/halocord.md).
+        if on_discord {
+            crate::halocord::universal_mention::add(self, &mut seen, &mut candidates);
+        }
         candidates.extend(self.mention_groups.iter().map(|group| Candidate {
             name: group.name.clone(),
             username: None,
