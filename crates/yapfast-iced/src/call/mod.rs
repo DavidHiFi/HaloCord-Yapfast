@@ -96,6 +96,8 @@ pub struct Call {
     /// whether the desktop had it so already, in which case leaving keeps
     /// it so.
     pub screen: Option<(iced::window::Id, bool)>,
+    /// Don't show this again is ticked in the question before switching.
+    pub switch_ticked: bool,
 }
 
 /// What opens from a control, above it.
@@ -162,6 +164,9 @@ pub enum Event {
     /// dock's line to it under the pointer.
     OpenCall,
     DetailLit(bool),
+    /// The dock's status right clicked, where in the window: its menu,
+    /// with Show people in the call.
+    DockMenu(Point),
     /// A second of the call's clock.
     Second,
     /// In the connection's details, or on the signal.
@@ -171,8 +176,9 @@ pub enum Event {
     Answer(String, bool),
     /// The open DM's call started, with the camera or without.
     Start(bool),
-    /// Switching calls confirmed, or not.
+    /// Switching calls confirmed, or not; its Don't show this again.
     Switch(bool),
+    SwitchTick,
     /// The corner picture pressed, the pointer moved to here in the window
     /// while it's held, and let go.
     Grab,
@@ -290,6 +296,19 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             app.call.detail_lit = lit;
             return Task::none();
         }
+        Event::DockMenu(at) => {
+            let row = crate::menus::MenuRow {
+                check: crate::controls::Check::Box(!app.layout.hide_voice_faces),
+                ..crate::menus::MenuRow::plain(
+                    crate::menus::MenuAct::VoiceFaces,
+                    "Show people in the call",
+                )
+            };
+            app.win.menu = Some(
+                crate::menus::Menu::new(at, vec![row]).width(crate::menus::FIELD_WIDTH),
+            );
+            return iced::widget::operation::focus(crate::app::NOBODY);
+        }
         Event::Second => {
             crate::call::details::read_link(app);
             return Task::none();
@@ -308,8 +327,23 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 Action::RequestJoinVoice(room)
             }
         }
-        Event::Switch(true) => Action::ConfirmVoiceSwitch,
-        Event::Switch(false) => Action::CancelVoiceSwitch,
+        Event::SwitchTick => {
+            app.call.switch_ticked = !app.call.switch_ticked;
+            return Task::none();
+        }
+        Event::Switch(confirmed) => {
+            if confirmed && std::mem::take(&mut app.call.switch_ticked) && voice.active() {
+                app.layout.skip_switch_prompt = true;
+                crate::layout::store(app.client.root(), "skip_switch_prompt", true);
+                app.client.dispatch(Action::SkipSwitchPrompt(true));
+            }
+            app.call.switch_ticked = false;
+            if confirmed {
+                Action::ConfirmVoiceSwitch
+            } else {
+                Action::CancelVoiceSwitch
+            }
+        }
         Event::Grab => {
             app.call.grab = Some(None);
             return Task::none();

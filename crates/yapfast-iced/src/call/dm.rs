@@ -16,7 +16,7 @@ use yapfast_core::chat::ChatRoom;
 use super::{Event, ringing, who_is_here};
 use crate::{
     app::{App, Message},
-    controls::{self, Kind, call_button},
+    controls::{self, Item, Kind, Light, call_button},
     dialog::dialog,
     fonts::BOLD,
     pictures::Icon,
@@ -275,7 +275,28 @@ pub fn switch_view(app: &App) -> Option<Element<'_, Message>> {
     let badge = container(app.look().glyph(Icon::Volume, 20, theme.accent))
         .center(40)
         .style(move |_| rounded(soft, 20));
-    let body = column![
+    // Leaving a call can stop asking, as Discord's does; joining one to
+    // watch always asks.
+    let again = (!joins).then(|| {
+        app.look().menu_item(
+            Item {
+                label: "Don't show this again".into(),
+                icon: Some(if app.call.switch_ticked {
+                    Icon::Check
+                } else {
+                    Icon::Square
+                }),
+                danger: false,
+                slot: true,
+                disabled: false,
+                subtitle: None,
+                check: controls::Check::None,
+            },
+            Light::Pointer,
+            Message::Call(Event::SwitchTick),
+        )
+    });
+    let mut body = column![
         row![
             column![badge],
             column![
@@ -293,6 +314,13 @@ pub fn switch_view(app: &App) -> Option<Element<'_, Message>> {
             .width(Length::Fill),
         ]
         .spacing(14),
+    ]
+    .spacing(18)
+    .padding(20);
+    if let Some(again) = again {
+        body = body.push(again);
+    }
+    let body = body.push(
         row![
             Space::new().width(Length::Fill),
             Element::from(controls::action(
@@ -309,9 +337,7 @@ pub fn switch_view(app: &App) -> Option<Element<'_, Message>> {
             )),
         ]
         .spacing(8),
-    ]
-    .spacing(18)
-    .padding(20);
+    );
     let width = 420f32.min(app.window.width - 48.0);
     Some(dialog(
         theme,

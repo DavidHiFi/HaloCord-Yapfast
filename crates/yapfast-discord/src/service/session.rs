@@ -528,6 +528,11 @@ impl Session<'_> {
             Request::PauseStream { stream_key, paused } => {
                 gateway.pause_stream(&stream_key, paused).await
             }
+            Request::ServerList(encoded) => {
+                self.tracker.arrange_servers(encoded.as_deref());
+                self.publisher.changed();
+                Ok(())
+            }
             Request::CustomStatus(custom) => {
                 // The settings update that follows says the same; this
                 // shows it without waiting.

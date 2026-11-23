@@ -100,6 +100,7 @@ use yapfast_iced_kit::renderer;
 mod header_popovers;
 mod profile;
 mod rail;
+mod rail_drag;
 mod reactions;
 use yapfast_iced_kit::reorder;
 mod search;

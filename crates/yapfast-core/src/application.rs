@@ -595,6 +595,9 @@ pub struct AppState {
     pub hide_blocked: bool,
     /// A call from someone's menu starts without asking first.
     pub skip_call_prompt: bool,
+    /// Joining another voice channel while in a call leaves the one it's
+    /// in without asking first, as Discord's Don't show this again does.
+    pub skip_switch_prompt: bool,
     /// The member list's Activity panel's feed, in Discord's order: what
     /// everyone this account knows is doing, not just one server.
     pub activity_feed: Arc<[crate::chat::FeedEntry]>,
@@ -2343,6 +2346,9 @@ pub enum Action {
     SetStatus(String),
     /// Share the game the Discord account plays, or stop.
     ShowGame(bool),
+    /// Rearrange the Discord account's server list to these entries, as
+    /// a server or folder dragged on the rail leaves it.
+    ArrangeServers(Vec<crate::chat::ServerGroup>),
     /// Set how loud the Discord account's soundboard plays, on its slider
     /// from 0 to 100.
     SoundboardVolume(f32),
@@ -2398,6 +2404,9 @@ pub enum Action {
     HideBlocked(bool),
     /// Whether a call from someone's menu starts without asking first.
     SkipCallPrompt(bool),
+    /// Whether joining another voice channel while in a call switches
+    /// without asking first.
+    SkipSwitchPrompt(bool),
     /// The window gained or lost focus.
     WindowFocused(bool),
     /// Hides or shows the cards in the member list's Activity panel.
@@ -4054,6 +4063,14 @@ impl Application {
                     shown,
                 )))]
             }
+            Action::ArrangeServers(groups) => {
+                if self.state.preview || self.state.discord_user.is_none() || groups.is_empty() {
+                    return vec![];
+                }
+                vec![Effect::Backend(Command::Discord(
+                    DiscordCommand::ArrangeServers(groups),
+                ))]
+            }
             Action::SoundboardVolume(slider) => {
                 // Discord keeps the volume on its slider's curve.
                 let volume = crate::volume::from_slider(slider.clamp(0.0, 100.0)) * 100.0;
@@ -4182,6 +4199,10 @@ impl Application {
             Action::ActivityCardsHidden(hidden) => self.set_activity_cards_hidden(hidden),
             Action::SkipCallPrompt(skip) => {
                 self.state.skip_call_prompt = skip;
+                vec![]
+            }
+            Action::SkipSwitchPrompt(skip) => {
+                self.state.skip_switch_prompt = skip;
                 vec![]
             }
             Action::HideBlocked(hide) => {
@@ -4736,6 +4757,11 @@ impl Application {
                         Some(format!("Couldn't list the soundboard's sounds: {error}"));
                 }
             },
+            Event::ServersArranged(result) => {
+                if let Err(error) = result {
+                    self.state.notice = Some(format!("Couldn't move it on the server list: {error}"));
+                }
+            }
             Event::ShowGameSet(result) => {
                 if let Err(error) = result {
                     self.state.discord_show_game = !self.state.discord_show_game;

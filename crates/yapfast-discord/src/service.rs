@@ -769,6 +769,10 @@ enum Request {
     Status(String),
     /// Sharing the game played changed in the settings.
     ShowGame(bool),
+    /// The server list as this session rearranged it, in base64 settings,
+    /// shown before Discord agrees; `None` once Discord refused it, which
+    /// puts back the list Discord last sent.
+    ServerList(Option<String>),
     /// Nobody has used Yapfast since then, in Unix milliseconds, or someone
     /// is using it again; and whether it may show idle.
     Inactive(Option<u64>, bool),
@@ -2622,6 +2626,28 @@ impl Discord {
             move |current| settings::write_show_game(current, shown),
             move |now| Request::ShowGame(now.show_game.unwrap_or(shown)),
         )
+    }
+
+    /// Rearranges this account's server list, everywhere it's signed in:
+    /// `entries` in order, each a folder or, with an empty id, one server
+    /// outside any. The rail shows it at once, as Discord's does; a refusal
+    /// puts the list back.
+    pub fn set_server_list(
+        &self,
+        entries: &[settings::Folder],
+    ) -> impl Future<Output = Result<()>> + Send + 'static {
+        let encoded = settings::write_server_list(entries);
+        let _ = self
+            .requests
+            .send(Request::ServerList(Some(encoded.clone())));
+        let (api, requests) = (self.api.clone(), self.requests.clone());
+        async move {
+            let result = api.set_user_settings(&encoded).await;
+            if result.is_err() {
+                let _ = requests.send(Request::ServerList(None));
+            }
+            result
+        }
     }
 
     /// Changes the settings' `status` with `change`, then has the session

@@ -720,6 +720,17 @@ pub struct ServerFolder {
     pub color: Option<u32>,
 }
 
+/// One entry of the server list: a folder of servers, or one server
+/// outside any, as the rail's drag leaves them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ServerGroup {
+    /// The folder; none for a server on its own. A folder without an id
+    /// the network knows is a new one, which gets one.
+    pub folder: Option<ServerFolder>,
+    /// Its servers' ids, in order.
+    pub servers: Vec<String>,
+}
+
 /// A room's standing from its power levels: Matrix's admin is 100 and moderator 50.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Role {
@@ -3237,6 +3248,9 @@ pub enum DiscordCommand {
     /// Share the game the Discord account plays, or stop;
     /// [`Event::ShowGameSet`] follows.
     ShowGame(bool),
+    /// Rearrange the account's server list, everywhere it's signed in, to
+    /// these entries; [`Event::ServersArranged`] follows.
+    ArrangeServers(Vec<ServerGroup>),
     /// Set how loud the soundboard plays, as Discord keeps it, from 0 to
     /// 100; [`Event::SoundboardVolumeSet`] follows.
     SoundboardVolume(f32),
@@ -4317,6 +4331,8 @@ pub enum Event {
     StatusSet(Result<(), String>),
     /// Whether [`DiscordCommand::ShowGame`] changed it, or why not.
     ShowGameSet(Result<(), String>),
+    /// Whether [`DiscordCommand::ArrangeServers`] went through, or why not.
+    ServersArranged(Result<(), String>),
     /// Whether [`DiscordCommand::SoundboardVolume`] changed it, or why not.
     SoundboardVolumeSet(Result<(), String>),
     /// [`DiscordCommand::SoundCatalog`]'s sounds, in groups as the

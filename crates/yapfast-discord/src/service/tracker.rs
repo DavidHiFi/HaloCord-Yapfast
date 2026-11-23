@@ -156,6 +156,9 @@ pub(super) struct Tracker {
     /// The server list's order and folders, from the settings.
     order: Vec<String>,
     folders: Vec<settings::Folder>,
+    /// The list Discord last sent, while one this session rearranged shows
+    /// before Discord agrees.
+    sent_list: Option<(Vec<String>, Vec<settings::Folder>)>,
     /// This account's status and custom status, from its settings.
     pub(super) status: String,
     pub(super) custom_status: Option<CustomStatus>,
@@ -248,6 +251,7 @@ impl Tracker {
             friends_since: HashMap::new(),
             order: Vec::new(),
             folders: Vec::new(),
+            sent_list: None,
             status: "online".into(),
             custom_status: None,
             afk_timeout: settings::AFK_TIMEOUT,
@@ -1378,10 +1382,37 @@ impl Tracker {
             self.join_sounds = join_sounds.into();
         }
         if let Some(list) = settings::server_list(encoded) {
+            self.sent_list = None;
             self.order = list.order;
             self.folders = list.folders;
             self.sort_servers();
         }
+    }
+
+    /// Shows the server list in `encoded`, base64 settings this session
+    /// sent, before Discord agrees; `None` puts back the one Discord last
+    /// sent, as when it refused.
+    pub(super) fn arrange_servers(&mut self, encoded: Option<&str>) {
+        match encoded.and_then(settings::server_list) {
+            Some(list) => {
+                if self.sent_list.is_none() {
+                    self.sent_list = Some((
+                        std::mem::take(&mut self.order),
+                        std::mem::take(&mut self.folders),
+                    ));
+                }
+                self.order = list.order;
+                self.folders = list.folders;
+            }
+            None => {
+                let Some((order, folders)) = self.sent_list.take() else {
+                    return;
+                };
+                self.order = order;
+                self.folders = folders;
+            }
+        }
+        self.sort_servers();
     }
 
     /// A server to change, copied first if a snapshot shares it.

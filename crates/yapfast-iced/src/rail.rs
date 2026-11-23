@@ -33,7 +33,7 @@ use crate::{
     style::{corners, hex, rounded, scrollbar},
     sync::MARGIN,
     sync::Scroll,
-    widgets::{Pic, RightPress, Rows},
+    widgets::{Drags, Pic, RightPress, Rows},
 };
 
 /// The server rail: its DM home, its rows and its viewport.
@@ -41,6 +41,8 @@ pub struct Rail {
     pub home: Home,
     pub items: Vec<RailItem>,
     pub scroll: crate::sync::Scroll,
+    /// A server or folder being dragged to move it.
+    pub dragging: Option<crate::rail_drag::RailDrag>,
 }
 
 /// The rail, down the window's left edge.
@@ -61,6 +63,7 @@ impl Rail {
             home: Home::default(),
             items: Vec::new(),
             scroll: crate::sync::Scroll::new(height),
+            dragging: None,
         }
     }
 }
@@ -109,6 +112,15 @@ pub enum Event {
     /// A right click on a server, a folder or an unread DM: its menu, where
     /// the pointer was pressed.
     Menu(String, iced::Point),
+    /// A server's or folder's tile was pressed and moved, this far down
+    /// it: it's lifted to move (`rail_drag`).
+    Lift(String, f32),
+    /// While one is lifted: the pointer moved, in the window; the button
+    /// went up; Escape; and a step of scrolling near an end.
+    Carry(iced::Point),
+    Drop,
+    Cancel,
+    Creep,
 }
 
 /// Room above the DM home tile, in either title bar.
@@ -526,6 +538,8 @@ struct Marks<'a> {
     open_folder: bool,
     /// A right click on it opens its menu.
     menu: bool,
+    /// Pressed and moved, it's lifted to move: a Discord server or folder.
+    lift: bool,
 }
 
 /// What's done on the rail.
@@ -559,6 +573,14 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
         Event::Menu(id, at) => {
             return crate::place_menus::open_place_menu(app, &id, at, false);
         }
+        Event::Lift(id, grab) => return crate::rail_drag::lift(app, id, grab),
+        Event::Carry(at) => return crate::rail_drag::carry(app, at),
+        Event::Drop => return crate::rail_drag::let_go(app),
+        Event::Cancel => {
+            app.rail.dragging = None;
+            return Task::none();
+        }
+        Event::Creep => return crate::rail_drag::creep(app),
     }
     app.sync()
 }
@@ -593,7 +615,9 @@ impl<'a> View<'a> {
                 self.rail_row(index, item, height),
             );
         }
+        self.drag_marks(&mut rows);
         let list = scroll_view(rows)
+            .id(crate::rail_drag::LIST)
             .on_scroll(|viewport| Message::Rail(Event::Scrolled(viewport)))
             .height(Length::Fill)
             .style(scrollbar(theme));
@@ -610,6 +634,94 @@ impl<'a> View<'a> {
         .width(WIDTH)
         .height(Length::Fill)
         .into()
+    }
+
+    /// While a server or folder is dragged: the line where it would land,
+    /// or the ring around what it would join, and its faint copy under the
+    /// pointer, as rows over the rail's.
+    fn drag_marks(self, rows: &mut Rows<'a, Message>) {
+        let Some(drag) = &self.s.dragging else {
+            return;
+        };
+        let theme = self.cx.look.theme;
+        let y = drag.at.y - drag.list_top + self.s.scroll.offset;
+        let total: f32 = self
+            .s
+            .items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| item.height(index))
+            .sum();
+        match crate::rail_drag::spot(&self.s.items, drag, y).map(|(_, marker)| marker) {
+            Some(crate::rail_drag::Marker::Line(middle)) => {
+                let live = theme.live;
+                let line = crate::arrange::LINE;
+                rows.place(
+                    key("rail-drop-line"),
+                    iced::Rectangle {
+                        x: (WIDTH - FOLDER) / 2.0,
+                        y: (middle - line / 2.0).clamp(0.0, (total - line).max(0.0)),
+                        width: FOLDER,
+                        height: line,
+                    },
+                    container(Space::new())
+                        .width(FOLDER)
+                        .height(line)
+                        .style(move |_| rounded(live, 2)),
+                );
+            }
+            Some(crate::rail_drag::Marker::Ring(tile)) => {
+                let live = theme.live;
+                let radius = if tile.width > TILE { FOLDER_RADIUS } else { RADIUS };
+                rows.place(
+                    key("rail-drop-ring"),
+                    iced::Rectangle {
+                        x: tile.x - 3.0,
+                        y: tile.y - 3.0,
+                        width: tile.width + 6.0,
+                        height: tile.height + 6.0,
+                    },
+                    container(Space::new())
+                        .width(tile.width + 6.0)
+                        .height(tile.height + 6.0)
+                        .style(move |_| iced::widget::container::Style {
+                            border: iced::Border {
+                                color: live,
+                                width: 2.0,
+                                radius: (radius + 3.0).into(),
+                            },
+                            ..Default::default()
+                        }),
+                );
+            }
+            None => {}
+        }
+        let Some(item) = self.s.items.iter().find(|item| item.id == drag.id) else {
+            return;
+        };
+        let (ghost, side) = match &item.kind {
+            Kind::Folder { tint, preview, .. } => {
+                (self.folder_face(false, *tint, preview, false), FOLDER)
+            }
+            _ => {
+                let faint = RailItem {
+                    unavailable: true,
+                    ..item.clone()
+                };
+                (self.server_face(&faint, false), TILE)
+            }
+        };
+        let top = (y - drag.grab).clamp(0.0, (total - side).max(0.0));
+        rows.place(
+            key("rail-drag-ghost"),
+            iced::Rectangle {
+                x: (WIDTH - side) / 2.0,
+                y: top,
+                width: side,
+                height: side,
+            },
+            ghost,
+        );
     }
 
     /// The DM home: the app's logo, as Discord puts its own there.
@@ -838,6 +950,7 @@ impl<'a> View<'a> {
             pointed,
             open_folder,
             menu: item.kind != Kind::Add,
+            lift: crate::rail_drag::liftable(item),
         };
         // A server out of reach in a Discord outage says so, besides
         // fading.
@@ -923,8 +1036,24 @@ impl<'a> View<'a> {
         let tile = mouse_area(face)
             .interaction(iced::mouse::Interaction::Pointer)
             .on_enter(Message::Rail(Event::Point(id.clone(), true)))
-            .on_exit(Message::Rail(Event::Point(id.clone(), false)))
-            .on_press(message);
+            .on_exit(Message::Rail(Event::Point(id.clone(), false)));
+        // A server or folder clicks when the button comes up, so a press
+        // that moves drags it instead.
+        let tile: Element<'a, Message> = if marks.lift {
+            let lifted = id.clone();
+            Drags::new(tile)
+                .click(message)
+                .drag(move |grab| Message::Rail(Event::Lift(lifted.clone(), grab)))
+                .into()
+        } else {
+            tile.on_press(message).into()
+        };
+        // No tooltips over the rail while a tile is dragged across it.
+        let tip = if self.s.dragging.is_some() {
+            Space::new().into()
+        } else {
+            tip
+        };
         // Where in the window it was pressed: the rail scrolls.
         let tile: Element<'a, Message> = if marks.menu {
             let spot = self.cx.pressed;

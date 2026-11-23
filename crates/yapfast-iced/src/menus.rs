@@ -217,6 +217,8 @@ pub enum MenuAct {
     /// A HaloCord plugin's row, its plugin and action in the row's `key`
     /// (docs/halocord.md).
     Plugin,
+    /// The dock's Show people in the call.
+    VoiceFaces,
 }
 
 #[derive(Clone)]
@@ -676,6 +678,12 @@ fn carry_out(app: &mut App, row: &MenuRow, ticked: Option<bool>, stays: bool) ->
             crate::browser::open(&row.key);
             focus
         }
+        MenuAct::VoiceFaces => {
+            let shown = ticked.unwrap_or(app.layout.hide_voice_faces);
+            app.layout.hide_voice_faces = !shown;
+            crate::layout::store(app.client.root(), "hide_voice_faces", !shown);
+            focus
+        }
         MenuAct::Plugin => {
             let item = menu.item.clone().unwrap_or_default();
             let place = menu.place.as_deref();
@@ -850,6 +858,7 @@ pub fn act(
         | MenuAct::OpenMediaLink
         | MenuAct::CopyTextLink
         | MenuAct::OpenTextLink
+        | MenuAct::VoiceFaces
         | MenuAct::Plugin => focus,
     }
 }

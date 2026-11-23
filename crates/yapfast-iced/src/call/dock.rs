@@ -1,13 +1,15 @@
 //! The call's dock above the account's card: what the connection is doing
 //! and for how long, its channel's line (which opens the call), noise
-//! suppression and leaving; while sharing, that it's live; the soundboard,
-//! camera and share buttons; and what went wrong, with a way to dismiss it.
+//! suppression and leaving; the round faces of everyone in the call, which
+//! its right click hides; while sharing, that it's live and who watches;
+//! the soundboard, camera and share buttons; and what went wrong, with a
+//! way to dismiss it.
 
 use std::time::{Duration, Instant};
 
 use iced::{
     Alignment, Color, Element, Length, Padding,
-    widget::{button, column, container, mouse_area, row, text},
+    widget::{Space, button, column, container, mouse_area, pin, row, stack, text, tooltip},
 };
 use yapfast_core::voice::{self, Phase};
 
@@ -17,8 +19,8 @@ use crate::{
     controls::{self, Kind, lights},
     fonts::BOLD,
     pictures::Icon,
-    style::{faded, fill},
-    widgets::Pic,
+    style::{faded, fill, rounded},
+    widgets::{Pic, RightPress},
 };
 
 /// The dock's left column, where its icons sit on the rail's axis.
@@ -121,9 +123,12 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
                 .align_y(Alignment::Center),
             false
         ),
-        container(words.width(Length::Fill))
-            .width(Length::Fill)
-            .clip(true),
+        dock_menu(
+            ctx,
+            container(words.width(Length::Fill))
+                .width(Length::Fill)
+                .clip(true)
+        ),
     ]
     .align_y(Alignment::Center);
     let discord = voice.room.as_deref().is_some_and(|room| {
@@ -165,8 +170,17 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
         right: 8.0,
         left: 0.0,
     });
+    if active
+        && !ctx.layout.hide_voice_faces
+        && let Some(faces) = call_faces(ctx, voice)
+    {
+        dock = dock.push(faces);
+    }
     if active && let Some(sharing) = &voice.sharing {
         dock = dock.push(sharing_line(ctx, voice, sharing));
+        if let Some(watching) = watchers(ctx, voice, sharing) {
+            dock = dock.push(watching);
+        }
     }
     let can_share = crate::call::stage::can_share(ctx);
     let sharing = voice.sharing.is_some();
@@ -363,6 +377,158 @@ fn sharing_line<'a>(
     ]
     .align_y(Alignment::Center)
     .into()
+}
+
+/// The dock's status, right clicked: its menu, with Show people in the
+/// call, as Discord's under Voice Connected.
+fn dock_menu<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    child: impl Into<Element<'a, Message>>,
+) -> Element<'a, Message> {
+    let spot = ctx.pressed;
+    RightPress::new(child, move |_| Message::Call(Event::DockMenu(spot.get()))).into()
+}
+
+/// How big a face in the dock is, ring included, and the gap between two.
+const FACE: f32 = 24.0;
+const FACE_GAP: f32 = 2.0;
+
+/// Everyone in the call as a round face under the dock's status, in the
+/// call's order, as Discord's voice panel shows them: a speaker's ring in
+/// the live colour, someone whose media dropped faded; a face's name in
+/// its tooltip, its click their card and its right click their voice menu.
+fn call_faces<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    voice: &'a voice::State,
+) -> Option<Element<'a, Message>> {
+    if voice.participants.is_empty() {
+        return None;
+    }
+    let theme = ctx.look.theme;
+    let room = voice.room.clone()?;
+    let mut faces = row![].spacing(FACE_GAP);
+    for person in &voice.participants {
+        let speaking = crate::call::stage::speaking(person);
+        let opacity = if person.connected { 1.0 } else { 0.5 };
+        let ring = if speaking { theme.live } else { Color::TRANSPARENT };
+        let face = container(ctx.avatar(
+            person.avatar.as_deref(),
+            &person.user,
+            FACE,
+            FACE / 2.0,
+            opacity,
+        ))
+        .padding(2)
+        .style(move |_| iced::widget::container::Style {
+            border: iced::Border {
+                color: ring,
+                width: 2.0,
+                radius: (FACE / 2.0 + 2.0).into(),
+            },
+            ..Default::default()
+        });
+        let who = person.person.clone();
+        let face = button(face)
+            .padding(0)
+            .on_press(Message::Call(Event::Profile(who.clone())))
+            .style(|_, _| iced::widget::button::Style::default());
+        let spot = ctx.pressed;
+        let room = room.clone();
+        let face = RightPress::new(face, move |_| {
+            Message::Call(Event::Person(room.clone(), who.clone(), spot.get()))
+        });
+        let name = if person.local {
+            format!("{} (you)", person.user)
+        } else {
+            person.user.clone()
+        };
+        faces = faces.push(
+            tooltip(face, controls::tip(theme, name), tooltip::Position::Top).gap(4),
+        );
+    }
+    Some(
+        container(faces.wrap().vertical_spacing(FACE_GAP))
+            .padding(Padding {
+                left: LEAD - 6.0,
+                ..Padding::ZERO
+            })
+            .width(Length::Fill)
+            .into(),
+    )
+}
+
+/// Who watches this account's screen, under its line: an eye, how many,
+/// the first three's faces overlapping and how many more, everyone's
+/// names in its tooltip.
+fn watchers<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    voice: &'a voice::State,
+    sharing: &'a voice::Sharing,
+) -> Option<Element<'a, Message>> {
+    if sharing.phase != voice::SharePhase::Live || sharing.viewers.is_empty() {
+        return None;
+    }
+    let theme = ctx.look.theme;
+    let people: Vec<&voice::Participant> = voice
+        .participants
+        .iter()
+        .filter(|person| !person.local && sharing.viewers.contains(&person.id))
+        .collect();
+    let count = sharing.viewers.len().max(people.len());
+    let shown = people.len().min(3);
+    let ring = theme.panel;
+    let wide = if shown == 0 {
+        0.0
+    } else {
+        26.0 + (shown as f32 - 1.0) * 16.0
+    };
+    let mut layers = stack![Space::new().width(wide).height(26)];
+    for (index, person) in people.iter().take(shown).enumerate() {
+        let face = container(ctx.avatar(
+            person.avatar.as_deref(),
+            &person.user,
+            22.0,
+            11.0,
+            1.0,
+        ))
+        .padding(2)
+        .style(move |_| rounded(ring, 13));
+        layers = layers.push(pin(face).x(index as f32 * 16.0));
+    }
+    let mut line = row![
+        ctx.look.glyph(Icon::Eye, 16, theme.secondary),
+        text(format!("{count} watching"))
+            .size(13)
+            .font(BOLD)
+            .color(theme.secondary)
+            .wrapping(text::Wrapping::None),
+        layers,
+    ]
+    .spacing(6)
+    .align_y(Alignment::Center);
+    if people.len() > shown {
+        line = line.push(
+            text(format!("+{}", people.len() - shown))
+                .size(12)
+                .font(BOLD)
+                .color(theme.muted),
+        );
+    }
+    let names: Vec<&str> = people.iter().map(|person| person.user.as_str()).collect();
+    let tip = if names.is_empty() {
+        format!("{count} watching")
+    } else {
+        format!("Watching: {}", names.join(", "))
+    };
+    Some(
+        container(tooltip(line, controls::tip(theme, tip), tooltip::Position::Top).gap(6))
+            .padding(Padding {
+                left: LEAD,
+                ..Padding::ZERO
+            })
+            .width(Length::Fill)
+            .into(),
+    )
 }
 
 /// One of the dock's 32 px icon buttons: `ink` at rest, the text's under

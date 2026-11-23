@@ -81,6 +81,8 @@ pub enum Event {
     MicTest,
     Volume(bool, u32, bool),
     UnmuteOnJoin(bool),
+    /// Joining another voice channel while in a call asks first.
+    AskSwitch(bool),
     LevelVoice(bool),
     Dereverb(bool),
     WindowsEffects(bool),
@@ -257,6 +259,11 @@ impl Settings {
             Event::UnmuteOnJoin(on) => {
                 cx.layout.unmute_on_join = Some(on);
                 crate::layout::store(&root, "unmute_on_join", on);
+            }
+            Event::AskSwitch(on) => {
+                cx.layout.skip_switch_prompt = !on;
+                crate::layout::store(&root, "skip_switch_prompt", !on);
+                cx.dispatch(Action::SkipSwitchPrompt(!on));
             }
             Event::LevelVoice(on) => {
                 voice.level_voice = Some(on);
@@ -465,6 +472,16 @@ impl<'a> Page<'a> {
                 Some(voice_message(Event::UnmuteOnJoin(!unmute))),
             )
             .description("Otherwise you join muted, and unmute when you're ready.")
+            .view(self.cx.look),
+        );
+        let ask = !self.cx.layout.skip_switch_prompt;
+        parts.push(
+            switch(
+                "Ask before switching voice channels",
+                ask,
+                Some(voice_message(Event::AskSwitch(!ask))),
+            )
+            .description("Off, joining another channel while you're in a call leaves the one you're in straight away.")
             .view(self.cx.look),
         );
         let level = voice.level_voice.unwrap_or(true);

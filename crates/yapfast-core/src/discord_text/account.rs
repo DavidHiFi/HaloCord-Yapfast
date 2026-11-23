@@ -496,6 +496,29 @@ pub(super) fn command(
         }
         return None;
     }
+    if let Command::Discord(DiscordCommand::ArrangeServers(groups)) = command {
+        match discord {
+            Ok(discord) => {
+                let events = events.clone();
+                let change =
+                    discord.set_server_list(&crate::discord::server_list_entries(&groups));
+                tokio::spawn(async move {
+                    let result = change.await.map_err(|error| {
+                        tracing::warn!(
+                            error = format!("{error:#}"),
+                            "could not rearrange the server list"
+                        );
+                        error.to_string()
+                    });
+                    let _ = events.send(Event::ServersArranged(result));
+                });
+            }
+            Err(why) => {
+                let _ = events.send(Event::ServersArranged(Err(why.into())));
+            }
+        }
+        return None;
+    }
     if let Command::Discord(DiscordCommand::ShowGame(shown)) = command {
         match discord {
             Ok(discord) => {

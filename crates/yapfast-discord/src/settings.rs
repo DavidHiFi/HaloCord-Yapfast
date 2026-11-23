@@ -289,16 +289,17 @@ pub(crate) fn write_server_order(folders: &[&[u64]]) -> String {
     write_server_list(&entries)
 }
 
-/// Base64 settings holding only a server list. An entry with an empty `id`
+/// Base64 settings holding only a server list, as a PATCH of them takes
+/// it: Discord replaces the whole list with it. An entry with an empty `id`
 /// is a server outside any folder.
-#[cfg(test)]
-pub(crate) fn write_server_list(entries: &[Folder]) -> String {
+pub fn write_server_list(entries: &[Folder]) -> String {
     let mut message = Vec::new();
     for entry in entries {
         let packed: Vec<u8> = entry
             .servers
             .iter()
-            .flat_map(|id| id.parse::<u64>().unwrap().to_le_bytes())
+            .filter_map(|id| id.parse::<u64>().ok())
+            .flat_map(u64::to_le_bytes)
             .collect();
         let mut folder = Vec::new();
         put_bytes(&mut folder, FOLDER_GUILDS, &packed);

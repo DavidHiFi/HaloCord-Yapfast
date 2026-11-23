@@ -141,6 +141,55 @@ pub fn server_id(guild: &str) -> String {
     format!("{PREFIX}{guild}")
 }
 
+/// The server list as Discord's settings keep it, from the rail's entries:
+/// each folder with its servers, a server outside any as an entry without
+/// an id. A folder the rail just made gets an id no other folder has, as
+/// Discord's client picks one.
+#[cfg(feature = "discord")]
+pub(crate) fn server_list_entries(
+    groups: &[chat::ServerGroup],
+) -> Vec<yapfast_discord::settings::Folder> {
+    let known = |folder: &chat::ServerFolder| {
+        folder
+            .id
+            .strip_prefix(FOLDER_PREFIX)
+            .and_then(|id| id.parse::<u64>().ok())
+    };
+    let mut taken: std::collections::HashSet<u64> = groups
+        .iter()
+        .filter_map(|group| group.folder.as_ref().and_then(known))
+        .collect();
+    let mut fresh = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(1, |since| u64::from(since.subsec_nanos()) ^ since.as_secs())
+        & 0xffff_ffff;
+    groups
+        .iter()
+        .map(|group| {
+            let id = group.folder.as_ref().map(|folder| {
+                known(folder).unwrap_or_else(|| {
+                    while fresh == 0 || taken.contains(&fresh) {
+                        fresh = (fresh + 1) & 0xffff_ffff;
+                    }
+                    taken.insert(fresh);
+                    fresh
+                })
+            });
+            yapfast_discord::settings::Folder {
+                id: id.map(|id| id.to_string()).unwrap_or_default(),
+                name: group.folder.as_ref().and_then(|folder| folder.name.clone()),
+                color: group.folder.as_ref().and_then(|folder| folder.color),
+                servers: group
+                    .servers
+                    .iter()
+                    .filter_map(|id| parse_server(id))
+                    .map(str::to_owned)
+                    .collect(),
+            }
+        })
+        .collect()
+}
+
 pub fn room_id(guild: &str, channel: &str) -> String {
     format!("{PREFIX}{guild}:{channel}")
 }
