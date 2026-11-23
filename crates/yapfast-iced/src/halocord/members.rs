@@ -73,7 +73,7 @@ pub fn timeout_note(cx: Ctx<'_>, until: u64) -> String {
 pub(super) const PLATFORMS: Plugin = Plugin {
     id: id::PLATFORMS,
     name: "Platform indicators",
-    about: "Shows which of Discord's apps a member is on, desktop, phone or web, beside their name in the member list, coloured by their status there.",
+    about: "Shows which of Discord's apps a member is on, desktop, phone, web or a console, beside their name in the member list, coloured by their status there.",
     on_at_first: false,
     settings: &[],
     apply: |_, _| {},
@@ -94,6 +94,7 @@ pub fn platform_marks<'a>(cx: Ctx<'a>, user: &str) -> Option<Element<'a, Message
         (seen.desktop, Icon::HaloDesktop, "Desktop"),
         (seen.mobile, Icon::HaloPhone, "Phone"),
         (seen.web, Icon::HaloWeb, "Web"),
+        (seen.console, Icon::Gamepad, "Console"),
     ]
     .into_iter()
     .filter_map(|(status, icon, app)| {

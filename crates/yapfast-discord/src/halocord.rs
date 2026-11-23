@@ -1,5 +1,5 @@
 //! HaloCord's Platform indicators: which of Discord's apps each person is on
-//! (desktop, phone, web) and their status on each, from the `client_status`
+//! (desktop, phone, web, console) and their status on each, from the `client_status`
 //! Discord sends with a presence. The presence readers call [`note`];
 //! HaloCord's window reads [`clients`]. `docs/halocord.md` lists the hooks.
 
@@ -24,6 +24,8 @@ pub struct Clients {
     pub desktop: Option<Status>,
     pub mobile: Option<Status>,
     pub web: Option<Status>,
+    /// A console (Xbox, PlayStation), which Discord calls `embedded`.
+    pub console: Option<Status>,
 }
 
 impl Clients {
@@ -39,6 +41,7 @@ impl Clients {
             desktop: one("desktop"),
             mobile: one("mobile"),
             web: one("web"),
+            console: one("embedded"),
         }
     }
 }
@@ -84,6 +87,7 @@ mod tests {
                 desktop: Some(Status::DoNotDisturb),
                 mobile: Some(Status::Online),
                 web: None,
+                console: None,
             }
         );
         note(
@@ -97,9 +101,22 @@ mod tests {
     #[test]
     fn a_web_idle_reads_as_idle() {
         assert_eq!(
-            Clients::parse(&json!({"web": "idle", "embedded": "online"})),
+            Clients::parse(&json!({"web": "idle"})),
             Clients {
                 web: Some(Status::Idle),
+                ..Clients::default()
+            }
+        );
+    }
+
+    /// A console (Xbox, PlayStation) comes as `embedded`.
+    #[test]
+    fn a_console_is_read_from_embedded() {
+        assert_eq!(
+            Clients::parse(&json!({"embedded": "online", "mobile": "dnd"})),
+            Clients {
+                mobile: Some(Status::DoNotDisturb),
+                console: Some(Status::Online),
                 ..Clients::default()
             }
         );

@@ -51,7 +51,7 @@ whole list to carry across.
 - `crates/yapfast-discord/src/halocord.rs`: Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
 - `crates/yapfast-iced-kit/icons/halo-desktop.svg`, `halo-phone.svg`, `halo-web.svg`:
-  its three marks.
+  its marks; a console (`embedded`) takes the kit's own `gamepad.svg`.
 - `crates/yapfast-core/src/halocord/copy_sticker_link.rs`: Copy sticker link in a
   sticker's menu.
 - `crates/yapfast-core/src/halocord/quick_mention.rs`: Mention in a message's menu
