@@ -146,12 +146,25 @@ static FAKE_DEAF: AtomicBool = AtomicBool::new(false);
 
 /// Makes others see this account muted, or muted and deafened, in calls,
 /// whatever it really is: the voice state sent to Discord says so, while the
-/// microphone and the sound stay as the account set them. See
+/// sound stays as the account set it. A fake mute leaves the microphone as
+/// it is; a fake deafen stops it sending (see [`fake_deafened`]). See
 /// [`voice_state`].
 pub fn set_fake_voice(mute: bool, deaf: bool) {
     FAKE_MUTE.store(mute, Ordering::Relaxed);
     FAKE_DEAF.store(deaf, Ordering::Relaxed);
 }
+
+/// Whether a fake deafen is on. While it is, the microphone sends nothing,
+/// as while a push-to-mute key is held: others are told this account is
+/// deafened, and a deafened Discord client sends no voice, so no one hears
+/// it from an account that shows deafened.
+pub fn fake_deafened() -> bool {
+    FAKE_DEAF.load(Ordering::Relaxed)
+}
+
+/// Held by every test that sets the fake voice state, which is global.
+#[cfg(test)]
+pub(crate) static FAKE_VOICE_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// What the voice state sent to Discord says, from the real mute and
 /// deafen: (self mute, self deaf). A fake deafen shows as Discord shows a
@@ -547,6 +560,9 @@ mod tests {
     /// real `deafened`, and only `voice_state`'s answer goes to Discord.
     #[test]
     fn a_fake_deafen_sends_self_deaf_while_the_real_deafen_stays_off() {
+        let _alone = FAKE_VOICE_TESTS
+            .lock()
+            .unwrap_or_else(|held| held.into_inner());
         let real_deafened = false;
         let real_muted = false;
         set_fake_voice(false, true);

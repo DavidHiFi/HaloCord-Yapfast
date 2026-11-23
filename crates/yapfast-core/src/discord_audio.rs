@@ -803,8 +803,9 @@ impl Processing {
                     .block(samples);
             }
         }
-        // A push-to-mute key held sends nothing in either mode.
-        let muting = crate::push_to_talk::muting();
+        // A push-to-mute key held, or a fake deafen, sends nothing in either
+        // mode.
+        let muting = crate::push_to_talk::muting() || crate::halocord::fake_deafened();
         let talking = if crate::push_to_talk::on() {
             let (held, delay) = (
                 crate::push_to_talk::held(),
