@@ -157,7 +157,7 @@ Window (`yapfast-iced`):
 - `client.rs`: plug-in point 2, one match arm in `execute`.
 - `message/mod.rs`: plug-in point 4, a loop in `author_line`.
 - `menus.rs`: plug-in point 5, `MenuAct::Plugin` and its three lines; `open_menu`
-  adds `halocord::message_rows` (the engine's rows, then Find reply's).
+  adds `halocord::message_rows` (the engine's rows, then Find reply's and Song link's).
 - `person_menu.rs`: plug-in point 5, `open_person_menu` adds `halocord::person_rows`
   (two lines, `rows` is `mut`), which adds Copy status link's and Copy profile
   colors' rows after the engine's.
