@@ -3,6 +3,8 @@
 //! Discord sends with a presence. The presence readers call [`note`];
 //! HaloCord's window reads [`clients`]. `docs/halocord.md` lists the hooks.
 
+pub mod presence;
+
 use std::{
     collections::HashMap,
     sync::{LazyLock, RwLock},

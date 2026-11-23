@@ -1754,6 +1754,17 @@ impl Api {
         self.empty(self.request(Method::PUT, &path)).await
     }
 
+    /// Keys for outside pictures an activity can show, as
+    /// `mp:<external_asset_path>`: `[{url, external_asset_path}]`.
+    pub async fn external_assets(&self, application: &str, urls: &[String]) -> Result<Value> {
+        let path = format!("/applications/{application}/external-assets");
+        self.json(with_json(
+            self.request(Method::POST, &path),
+            &json!({ "urls": urls }),
+        ))
+        .await
+    }
+
     /// How many members hold each role, by role id.
     pub async fn role_member_counts(&self, guild: &str) -> Result<Value> {
         let path = format!("/guilds/{guild}/roles/member-counts");

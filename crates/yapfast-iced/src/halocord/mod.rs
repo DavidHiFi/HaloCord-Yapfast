@@ -14,6 +14,7 @@
 //! - `buttons.rs`: the user area and the top bar's buttons.
 //! - `members.rs`: the member list's count and platform marks, timeouts
 //!   and a profile's exact dates and full size pictures.
+//! - `presence.rs`: Custom RPC and Animated status.
 //! - `theme_files.rs`: the Themes page's Save to file and Load from file (not
 //!   a plugin).
 //! - `areas.rs`: which part of Discord each plugin works on, for the chips
@@ -31,6 +32,7 @@ mod chat;
 mod kept;
 mod members;
 mod menus;
+mod presence;
 mod servers;
 pub mod theme_files;
 mod voice;
@@ -107,6 +109,8 @@ pub mod id {
     pub const COPY_PROFILE_COLORS: &str = "copy-profile-colors";
     pub const FIND_REPLY: &str = "find-reply";
     pub const IMAGE_ZOOM: &str = "image-zoom";
+    pub const CUSTOM_RPC: &str = "custom-rpc";
+    pub const ANIMATED_STATUS: &str = "animated-status";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -151,6 +155,8 @@ pub static PLUGINS: &[Plugin] = &[
     menus::COPY_PROFILE_COLORS,
     menus::FIND_REPLY,
     members::IMAGE_ZOOM,
+    presence::CUSTOM_RPC,
+    presence::ANIMATED_STATUS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
