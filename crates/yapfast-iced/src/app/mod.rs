@@ -552,6 +552,7 @@ impl App {
             Message::Switcher(event) => self.switcher_event(event),
             Message::Shell(event) => self.shell_event(event),
             Message::Bar(event) => crate::window_bar::update(self, event),
+            Message::HaloCord(event) => crate::halocord::update(self, event),
         }
     }
 

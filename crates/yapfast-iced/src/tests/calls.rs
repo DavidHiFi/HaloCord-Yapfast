@@ -752,9 +752,9 @@ fn click_to_unmute_marks_the_muted_and_unmutes_on_a_click() {
     yapfast_core::volume::mute("unmute-dana", true);
     app.layout.voice.muted_people.insert("unmute-dana".into());
     assert!(unmute_mark(app.ctx(), &dana, None).is_some(), "the mark");
-    let _ = app.update(crate::app::Message::Call(Event::Unmute(
-        "unmute-dana".into(),
-    )));
+    let _ = app.update(crate::app::Message::HaloCord(
+        crate::halocord::Event::Unmute("unmute-dana".into()),
+    ));
     assert!(!yapfast_core::volume::muted("unmute-dana"));
     assert!(!app.layout.voice.muted_people.contains("unmute-dana"));
     crate::layout::flush(folder.path());
