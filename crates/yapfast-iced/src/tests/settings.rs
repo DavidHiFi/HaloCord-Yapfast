@@ -799,6 +799,30 @@ fn fake_mute_and_deafen_start_off_and_switch_on() {
     assert_eq!(layout["halocord"]["plugins"]["fake-mute"]["on"], true);
 }
 
+/// Fake mute and fake deafen start off at each launch: switched on, they're
+/// kept for the session, and a window opened again has both off.
+#[test]
+fn fake_voice_starts_off_at_each_launch() {
+    use crate::halocord::{Change, FAKE_DEAFEN, FAKE_MUTE, changed, place};
+    let (mut app, folder) = preview();
+    for id in [FAKE_MUTE, FAKE_DEAFEN] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Switch {
+                plugin: place(id).unwrap(),
+                on: true,
+            },
+        );
+    }
+    assert!(app.layout.halocord.is(FAKE_DEAFEN), "on for this session");
+    let layout = stored(&folder);
+    assert_eq!(layout["halocord"]["plugins"]["fake-deafen"]["on"], true);
+    let again = start(&folder, true);
+    assert!(!again.layout.halocord.is(FAKE_MUTE));
+    assert!(!again.layout.halocord.is(FAKE_DEAFEN));
+}
+
 /// The user area keeps its options and shows them as the dock.
 #[test]
 fn the_user_area_options_make_the_dock() {

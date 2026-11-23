@@ -44,7 +44,7 @@ pub(super) const STEREO: Plugin = Plugin {
 pub(super) const FAKE_MUTE: Plugin = Plugin {
     id: id::FAKE_MUTE,
     name: "Fake mute",
-    about: "Others see you muted in calls while you can still talk. Your own microphone stays as you set it.",
+    about: "Others see you muted in calls while you can still talk. Your own microphone stays as you set it. It starts off each time Yapfast opens.",
     on_at_first: false,
     settings: &[],
     apply: tell_voice,
@@ -54,7 +54,7 @@ pub(super) const FAKE_MUTE: Plugin = Plugin {
 pub(super) const FAKE_DEAFEN: Plugin = Plugin {
     id: id::FAKE_DEAFEN,
     name: "Fake deafen",
-    about: "Others see you deafened in calls while you still hear everyone. They see you muted too, as a real deafen shows, and your microphone sends nothing meanwhile, as with a real deafen.",
+    about: "Others see you deafened in calls while you still hear everyone. They see you muted too, as a real deafen shows, and your microphone sends nothing meanwhile, as with a real deafen. It starts off each time Yapfast opens.",
     on_at_first: false,
     settings: &[],
     apply: tell_voice,
