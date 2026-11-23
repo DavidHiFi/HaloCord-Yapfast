@@ -131,6 +131,9 @@ pub struct App {
     pub link_spot: std::cell::Cell<iced::Rectangle>,
     /// A role's or a mutual server's card, open where it was clicked.
     pub cards: crate::info_cards::Cards,
+    /// HaloCord's Keep current channel: the conversation it keeps and waits
+    /// to open.
+    pub halocord_kept: crate::halocord::KeptChannel,
     /// The friends list's and the requests' own state, and Active Now's
     /// cards while the friends list shows.
     pub friends: crate::friends::Friends,
@@ -289,6 +292,7 @@ impl App {
             link_spot: Default::default(),
             header_spot: Default::default(),
             cards: Default::default(),
+            halocord_kept: Default::default(),
             friends: Default::default(),
             active_now: Vec::new(),
             active_now_made: None,

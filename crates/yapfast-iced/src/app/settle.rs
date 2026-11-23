@@ -139,7 +139,8 @@ impl App {
     /// the camera being tried changed, and keybinds rest while one is
     /// recorded. It touches nothing while nothing was asked.
     pub fn settle(&mut self) -> Task<Message> {
-        let mut tasks = Vec::new();
+        // HaloCord's Keep current channel (docs/halocord.md).
+        let mut tasks = vec![crate::halocord::keep_channel(self)];
         // A sync may close a screen the core closed, whose close asks
         // more; a few passes are enough for any chain the screens make.
         for _ in 0..PASSES {

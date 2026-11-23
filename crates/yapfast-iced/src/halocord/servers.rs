@@ -1,5 +1,6 @@
-//! Server and home plugins: what a new invite link starts with, and the
-//! friend request count left off the DM home and Friends.
+//! Server and home plugins: what a new invite link starts with, the
+//! friend request count left off the DM home and Friends, and the
+//! conversation kept across restarts.
 
 use yapfast_core::{
     application::{AppState, INVITE_AGES, INVITE_USES},
@@ -77,4 +78,73 @@ pub fn no_request_badge(rows: &mut [SideRow]) {
             badge.clear();
         }
     }
+}
+
+pub(super) const KEEP_CHANNEL: Plugin = Plugin {
+    id: id::KEEP_CHANNEL,
+    name: "Keep current channel",
+    about: "Opens the channel or DM you were in when Yapfast closed, once it starts again and Discord lists it (within a minute).",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// How long after starting it waits for the kept conversation to be listed.
+const KEEP_WAIT: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// Keep current channel's state, kept on the window (`App::halocord_kept`).
+#[derive(Default)]
+pub struct KeptChannel {
+    /// The file it keeps the conversation in, once it started.
+    path: Option<std::path::PathBuf>,
+    /// The conversation open, as last written.
+    written: Option<String>,
+    /// The one to open again, until it opens or the wait runs out.
+    pending: Option<(String, std::time::Instant)>,
+}
+
+/// Hook, after each message: the first time while on, the conversation kept
+/// is read from `halocord-channel` in the app's folder, and opens once it's
+/// listed; after that, the one open is written there when it changes.
+pub fn keep_channel(app: &mut crate::app::App) -> iced::Task<crate::app::Message> {
+    if !app.layout.halocord.is(id::KEEP_CHANNEL) || app.client.state().preview {
+        return iced::Task::none();
+    }
+    let kept = &mut app.halocord_kept;
+    if kept.path.is_none() {
+        let path = app.client.root().join("halocord-channel");
+        kept.pending = std::fs::read_to_string(&path)
+            .ok()
+            .map(|room| room.trim().to_owned())
+            .filter(|room| !room.is_empty())
+            .map(|room| (room, std::time::Instant::now()));
+        kept.written = kept.pending.as_ref().map(|(room, _)| room.clone());
+        kept.path = Some(path);
+    }
+    let state = app.client.state();
+    if let Some((room, since)) = kept.pending.clone() {
+        if since.elapsed() > KEEP_WAIT {
+            kept.pending = None;
+        } else if state.rooms.iter().any(|known| known.id == room) {
+            kept.pending = None;
+            if state.selected.as_ref() != Some(&room) {
+                app.client
+                    .dispatch(yapfast_core::application::Action::Open(room));
+                return app.sync();
+            }
+        }
+        // Until the kept one opens, what's open at start isn't kept.
+        return iced::Task::none();
+    }
+    let open = state.selected.clone();
+    if open != kept.written
+        && let (Some(room), Some(path)) = (open, &kept.path)
+    {
+        if let Err(error) = std::fs::write(path, &room) {
+            tracing::warn!(%error, "Keep current channel can't keep the conversation");
+        }
+        kept.written = Some(room);
+    }
+    iced::Task::none()
 }

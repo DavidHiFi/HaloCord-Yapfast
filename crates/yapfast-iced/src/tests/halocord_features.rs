@@ -174,3 +174,42 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Keep current channel: on, the conversation kept in the app's folder opens
+/// once it's listed, and the one open is kept there.
+#[test]
+fn keep_current_channel_opens_the_kept_conversation_and_keeps_the_open_one() {
+    let (mut app, _folder) = super::server::discord_server(0, |_, _| {});
+    let _alone = super::plugin_alone();
+    let file = app.client.root().join("halocord-channel");
+    std::fs::write(&file, "discord:10:11\n").expect("a kept conversation");
+    let _ = app.settle();
+    assert_ne!(
+        app.client.state().selected.as_deref(),
+        Some("discord:10:11"),
+        "off at first"
+    );
+    turn_on(&mut app, id::KEEP_CHANNEL);
+    let _ = app.settle();
+    assert_eq!(
+        app.client.state().selected.as_deref(),
+        Some("discord:10:11"),
+        "opened once listed"
+    );
+    // As after a restart with nothing kept: the one open is written.
+    std::fs::remove_file(&file).expect("the file");
+    app.halocord_kept = Default::default();
+    let _ = app.settle();
+    assert_eq!(
+        std::fs::read_to_string(&file).expect("kept again").trim(),
+        "discord:10:11"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::KEEP_CHANNEL).expect("the plugin"),
+            on: false,
+        },
+    );
+}
