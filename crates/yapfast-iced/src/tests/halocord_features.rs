@@ -179,10 +179,10 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
 /// reply's notification replies to, and stops again once it's off.
 #[test]
 fn notification_title_names_whom_a_reply_replies_to() {
-    use yapfast_core::halocord::notification_title::author;
+    use yapfast_core::halocord::notification_title::{Replied, author};
     let (mut app, _folder) = preview();
     let _alone = super::plugin_alone();
-    let lena = || Some("Lena".to_owned());
+    let lena = || Some(Replied::Named("Lena".to_owned()));
     assert_eq!(author("Sam".into(), lena), "Sam", "off at first");
     turn_on(&mut app, id::NOTIFICATION_TITLE);
     assert_eq!(author("Sam".into(), lena), "Sam replied to Lena");
