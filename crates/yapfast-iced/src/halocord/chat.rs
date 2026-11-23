@@ -137,7 +137,10 @@ pub fn double_click(cx: Ctx<'_>, index: usize) -> Option<Message> {
         return None;
     }
     let message = cx.row_message(index)?;
-    if message.deleted || message.delivery != yapfast_core::chat::Delivery::default() {
+    // Not the message being edited: a double press in its field picks a
+    // word, and editing it again would undo what was typed.
+    let editing = cx.composer.editing.as_deref() == Some(message.item.as_str());
+    if editing || message.deleted || message.delivery != yapfast_core::chat::Delivery::default() {
         return None;
     }
     let writes = if index >= crate::timeline::ASIDE {
