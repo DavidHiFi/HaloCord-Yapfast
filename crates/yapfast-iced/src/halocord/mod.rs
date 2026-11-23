@@ -100,6 +100,7 @@ pub mod id {
     pub const COPY_PROFILE_COLORS: &str = "copy-profile-colors";
     pub const FIND_REPLY: &str = "find-reply";
     pub const IMAGE_ZOOM: &str = "image-zoom";
+    pub const SHOW_SONG_NAME: &str = "show-song-name";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -144,6 +145,7 @@ pub static PLUGINS: &[Plugin] = &[
     menus::COPY_PROFILE_COLORS,
     menus::FIND_REPLY,
     members::IMAGE_ZOOM,
+    members::SHOW_SONG_NAME,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
