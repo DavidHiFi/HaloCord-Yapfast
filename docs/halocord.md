@@ -62,6 +62,8 @@ whole list to carry across.
   accounts younger than N days, read from the Discord id) and its day count.
 - `crates/yapfast-core/src/halocord/send_timestamps.rs`: Send timestamps (a written
   `<t:13:30>` goes up as a Discord timestamp) and its tests.
+- `crates/yapfast-core/src/halocord/favorite_anything.rs`: Favorite anything (still
+  pictures and attached videos as favourites).
 - `crates/yapfast-core/src/halocord/fix_file_extensions.rs`: Fix file extensions (a
   `.jfif` photo goes up as `.jpg`) and its tests.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
@@ -215,6 +217,10 @@ Window (`yapfast-iced`):
 - Core `application/tests/unread.rs`: the Jump to start test.
 - Core `application/compose.rs`: `outgoing_body` runs the text through
   `halocord::send_timestamps::wire` first (Send timestamps).
+- Core `discord_text/gifs.rs`: `favorite_gif` asks `halocord::favorite_anything::is_on`
+  (`favorite_gif_with`), and its test `halocord_favorite_anything_stars_stills_and_videos`.
+- `message/attachments.rs`: the GIF corner leaves out a still picture's favourite
+  (`halocord::favorite_anything::still`).
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
   `halocord::fix_file_extensions::name` first (Fix file extensions).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.

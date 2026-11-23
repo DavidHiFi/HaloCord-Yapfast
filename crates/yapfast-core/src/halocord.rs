@@ -9,6 +9,7 @@ pub mod copy_media_link;
 pub mod copy_sticker_link;
 pub mod copy_user_mention;
 pub mod copy_user_url;
+pub mod favorite_anything;
 pub mod fix_file_extensions;
 pub mod new_user;
 pub mod quick_mention;

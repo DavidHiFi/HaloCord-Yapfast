@@ -174,3 +174,24 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Favorite anything: its switch reaches the core, which then offers still
+/// pictures and videos as favourites (the core's GIF tests show which).
+#[test]
+fn favorite_anything_switches_the_core() {
+    use yapfast_core::halocord::favorite_anything::is_on;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    assert!(!is_on(), "off at first");
+    turn_on(&mut app, id::FAVORITE_ANYTHING);
+    assert!(is_on());
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::FAVORITE_ANYTHING).expect("the plugin"),
+            on: false,
+        },
+    );
+    assert!(!is_on());
+}
