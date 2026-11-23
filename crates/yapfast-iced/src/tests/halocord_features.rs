@@ -174,3 +174,33 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// View icons' View decoration: no row in someone's menu while Yapfast
+/// knows no decoration for them (the preview knows none), and the page a
+/// decoration opens is its picture at 512 pixels, moving.
+#[test]
+fn view_decoration_opens_the_decoration_moving() {
+    use crate::halocord::{decoration_page, person_rows};
+    let (mut app, _folder) = preview();
+    turn_on(&mut app, id::VIEW_ICONS);
+    assert!(
+        !person_rows(&app, "4")
+            .iter()
+            .any(|row| row.label == "View decoration"),
+        "none known"
+    );
+    assert_eq!(
+        decoration_page(
+            "https://cdn.discordapp.com/avatar-decoration-presets/a_1.png?size=96&passthrough=false"
+        ),
+        "https://cdn.discordapp.com/avatar-decoration-presets/a_1.png?size=512&passthrough=true"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::VIEW_ICONS).expect("the plugin"),
+            on: false,
+        },
+    );
+}
