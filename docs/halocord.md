@@ -185,6 +185,9 @@ Window (`yapfast-iced`):
   `yapfast-discord/src/ready.rs`: `ProfileRole::id`, which `named_roles` gives, and
   `show_role` names and colours a role from the open profile (Clickable roles).
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
+- `rail.rs`: `home_tile` asks `halocord::home_face` first (Home typing's dots while someone
+  types in a DM), else draws the logo; `typing.rs`: `dots`, the typing line's dots on their
+  own, `pub(crate)` for it.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
 - `call/mod.rs`: `Event::Unmute(person)` and its arm, which calls `halocord::unmute`.

@@ -616,7 +616,9 @@ impl<'a> View<'a> {
     fn home_tile(self) -> Element<'a, Message> {
         let home = &self.s.home;
         let pointed = self.cx.pointed.rail.as_deref() == Some("");
-        let face = self.logo_tile(home.selected || pointed);
+        // HaloCord's Home typing (docs/halocord.md).
+        let face = crate::halocord::home_face(self.cx, home.selected || pointed)
+            .unwrap_or_else(|| self.logo_tile(home.selected || pointed));
         let marks = Marks {
             selected: home.selected,
             unread: home.unread,
