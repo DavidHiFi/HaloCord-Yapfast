@@ -230,7 +230,7 @@ Window (`yapfast-iced`):
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
   `composer_look` ends the timed-out line with `halocord::timeout_note` (the time left).
   Better upload button: `plus` opens the file dialog when `halocord::uploads_first`
-  (through `plus_uploads`, which also picks the +'s tip), and the menu moved to `plus_menu`;
+  (through `plus_uploads`, which also picks the +'s tip, "Attach files (right click for more)"), and the menu moved to `plus_menu`;
   `composer_box` wraps the + in `halocord::upload_button`, whose right click sends the new
   `Event::PlusMenu`, with its arm.
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.

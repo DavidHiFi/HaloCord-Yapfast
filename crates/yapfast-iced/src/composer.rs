@@ -906,8 +906,11 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
     let plus = composer_button(
         ctx,
         Icon::Add,
-        if plus_uploads(ctx, look) {
+        if !look.plus {
             "Attach files"
+        } else if plus_uploads(ctx, look) {
+            // HaloCord's Better upload button: the menu is a right click.
+            "Attach files (right click for more)"
         } else {
             "More options"
         },
