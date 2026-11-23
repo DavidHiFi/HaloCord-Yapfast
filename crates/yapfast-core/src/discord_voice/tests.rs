@@ -169,3 +169,30 @@ async fn undeafening_leaves_the_mute_as_it_was() {
     }
     call.await.unwrap();
 }
+
+#[test]
+fn those_heard_but_unlisted_still_show() {
+    let snapshot = Snapshot::default();
+    let listed = [yapfast_discord::service::VoiceMember {
+        user_id: "3".into(),
+        name: "Listed".into(),
+        avatar: String::new(),
+        muted: false,
+        deafened: false,
+        server_muted: false,
+        server_deafened: false,
+        streaming: false,
+        video: false,
+        elsewhere: false,
+    }];
+    // The voice server names this account (1), one listed (3) and one the
+    // gateway missed (7): only the missed one is added.
+    let added = missed(&snapshot, "10", &listed, "1", &[1, 3, 7]);
+    let ids: Vec<&str> = added
+        .iter()
+        .map(|member| member.user_id.as_str())
+        .collect();
+    assert_eq!(ids, ["7"]);
+    assert_eq!(added[0].name, "Discord user", "no name known yet");
+    assert!(missed(&snapshot, "10", &listed, "1", &[1, 3]).is_empty());
+}

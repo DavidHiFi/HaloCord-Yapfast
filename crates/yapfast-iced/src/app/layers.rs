@@ -342,8 +342,11 @@ impl App {
             if leaving & bit == 0 {
                 return false;
             }
-            // Just closed, and drawn going.
-            moving.start = Cell::new(None);
+            // Just closed, and drawn going: one still opening turns round
+            // from where it is.
+            let opened = moving.start.get();
+            moving.start =
+                Cell::new(opened.and_then(|opened| motion::closed_from(opened, Instant::now())));
             moving.closing = true;
             true
         });
@@ -356,7 +359,7 @@ impl App {
             let start = match opening.moving.iter().position(|each| each.bit == bit) {
                 Some(at) => match opening.moving.remove(at).start.get() {
                     Some(closing) => Some(motion::reopened(closing, now)),
-                    None => now.checked_sub(motion::DURATION),
+                    None => now.checked_sub(motion::open_time()),
                 },
                 None => None,
             };
@@ -380,6 +383,9 @@ impl App {
         if self.win.tag_card.leaving().is_some() {
             leaving |= 1 << Popup::Layer(Layer::TagCard).bit();
         }
+        if self.fake_dm.leaving() {
+            leaving |= 1 << Popup::Layer(Layer::FakeDm).bit();
+        }
         leaving
     }
 
@@ -388,6 +394,7 @@ impl App {
         match popup {
             Popup::Layer(Layer::Settings) => self.win.settings.gone(),
             Popup::Layer(Layer::TagCard) => self.win.tag_card.gone(),
+            Popup::Layer(Layer::FakeDm) => self.fake_dm.gone(),
             _ => {}
         }
         let bit = popup.bit();

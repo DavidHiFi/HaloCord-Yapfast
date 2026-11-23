@@ -537,10 +537,7 @@ fn the_account_card_without_a_discord_presence_shows_the_previews_dot() {
     // The dot's middle: 7 px into its 14 px, which sits 27 px into the
     // avatar 16 px in, the avatar centred down the card.
     let scale = 2.0;
-    let (x, y) = (
-        16.0 + 27.0 + 7.0,
-        middle(&app) - 20.0 + 27.0 + 7.0,
-    );
+    let (x, y) = (16.0 + 27.0 + 7.0, middle(&app) - 20.0 + 27.0 + 7.0);
     let at = (((y * scale) as usize) * width as usize + (x * scale) as usize) * 4;
     let accent = app.look().theme.accent;
     let drawn = &pixels[at..at + 3];

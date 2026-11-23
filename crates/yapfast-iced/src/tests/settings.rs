@@ -860,6 +860,43 @@ fn mochacord_options_are_kept_across_a_restart() {
     crate::mochacord::Kept::default().apply();
 }
 
+/// MochaCord's animation speed: its list opens from the dialog, Escape
+/// shuts the list before the dialog, and the speed picked is kept across a
+/// restart. Motion stays on: other tests draw at the shared speed.
+#[test]
+fn mochacord_animation_speed_is_kept_and_escape_shuts_its_list_first() {
+    let (mut app, folder) = preview();
+    open(&mut app, Section::Themes);
+    let _ = app.update(Message::Settings(Event::HaloCord(
+        crate::settings::HaloEvent::OpenMocha,
+    )));
+    assert!(shows(&app, "Open and close animation"));
+    assert!(shows(&app, "Follow the global speed"));
+    assert!(!shows(&app, "Relaxed"), "the rest only in the list");
+    let escape = |app: &mut App| {
+        let _ = app.update(Message::Key(
+            Key::Named(key::Named::Escape),
+            Default::default(),
+        ));
+    };
+    interact(&mut app, |ui| {
+        ui.click("Follow the global speed").expect("the dropdown");
+    });
+    assert!(shows(&app, "Relaxed"), "the list is open");
+    escape(&mut app);
+    assert!(!shows(&app, "Relaxed"), "the list shut");
+    assert!(shows(&app, "Glass window"), "the dialog stays");
+    interact(&mut app, |ui| {
+        ui.click("Follow the global speed").expect("the dropdown");
+    });
+    interact(&mut app, |ui| {
+        ui.click("Relaxed").expect("its option");
+    });
+    assert_eq!(stored(&folder)["mochacord"]["motion_speed"], 4);
+    assert_eq!(start(&folder, true).layout.mochacord.motion_speed, 4);
+    crate::mochacord::Kept::default().apply();
+}
+
 /// What a click at (`x`, `y`) on the user area drawn alone (300 px wide)
 /// sends.
 fn dock_click_at(app: &App, x: f32, y: f32) -> Vec<Message> {

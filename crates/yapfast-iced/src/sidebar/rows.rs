@@ -220,6 +220,36 @@ pub fn room_icon(room: &ChatRoom) -> Icon {
     }
 }
 
+/// Who is in a voice channel: Discord's list, and in the call this account
+/// is in (`voice_room`), anyone heard there whom that list missed, so no
+/// one talks unseen.
+fn voice_people(state: &AppState, room: &ChatRoom, voice_room: Option<&str>) -> Vec<VoicePerson> {
+    let mut people = room.people.clone();
+    if room.network != Network::Discord || voice_room != Some(room.id.as_str()) {
+        return people;
+    }
+    for live in &state.voice.participants {
+        let listed = people
+            .iter()
+            .any(|person| person.id == live.person || person.id == live.id);
+        if live.connected && !listed {
+            people.push(VoicePerson {
+                id: live.person.clone(),
+                name: live.user.clone(),
+                avatar: live.avatar.clone(),
+                muted: live.muted,
+                deafened: live.deafened,
+                server_muted: live.server_muted,
+                server_deafened: live.server_deafened,
+                streaming: live.streaming,
+                video: live.video.is_some(),
+                elsewhere: false,
+            });
+        }
+    }
+    people
+}
+
 /// The list's rows, from the core's state: on the DM home Friends and
 /// Requests, the heading and the DMs (pinned first), message requests and
 /// spam left to their screen; in a server its pinned channels under their
@@ -474,7 +504,7 @@ pub fn sidebar(
             thread: room.parent.is_some(),
             thread_continues: false,
             people: if room.voice && !room.direct {
-                room.people.clone()
+                voice_people(state, room, voice_room)
             } else {
                 Vec::new()
             },

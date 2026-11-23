@@ -157,7 +157,8 @@ mod windows {
             return;
         }
         // SAFETY: the name ends in a null.
-        let found = unsafe { GetProcAddress(module, c"SetWindowCompositionAttribute".as_ptr().cast()) };
+        let found =
+            unsafe { GetProcAddress(module, c"SetWindowCompositionAttribute".as_ptr().cast()) };
         if found.is_null() {
             return;
         }

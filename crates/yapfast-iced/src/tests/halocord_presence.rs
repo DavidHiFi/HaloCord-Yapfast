@@ -197,6 +197,7 @@ fn draw(app: &App, name: &str) {
     for old in [&path, &written] {
         let _ = std::fs::remove_file(old);
     }
+    super::settle(app);
     let mut ui = Simulator::with_size(Settings::default(), app.shell.frame, app.view());
     let _ = ui
         .snapshot(&iced::Theme::Dark)

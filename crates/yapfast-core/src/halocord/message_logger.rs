@@ -93,6 +93,10 @@ impl Log {
 
     /// A message was edited from `old` to `new`; it adds the old wording,
     /// once, however many places hear of the edit.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "who wrote it, and the edit's before and after"
+    )]
     pub fn edit(
         &mut self,
         set: &Settings,
@@ -198,7 +202,7 @@ pub fn settings() -> Settings {
 pub fn note_me(me: &str) {
     held(|held| {
         if held.me != me {
-            held.me = me.to_owned();
+            me.clone_into(&mut held.me);
         }
     });
 }

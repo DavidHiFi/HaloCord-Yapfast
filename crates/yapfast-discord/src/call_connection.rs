@@ -475,6 +475,7 @@ impl Media {
         self.silent = 0;
         self.watching.reset();
         self.reported.reset();
+        self.stats.roster_reset();
     }
 
     async fn run(
@@ -645,6 +646,7 @@ impl Media {
     /// send no speaking message again; their video message, sent for
     /// everyone in the call, names their audio too.
     fn learn(&mut self, op: u64, data: &Value) {
+        self.stats.roster(op, data);
         let ssrc = match op {
             5 => &data["ssrc"],
             12 => &data["audio_ssrc"],

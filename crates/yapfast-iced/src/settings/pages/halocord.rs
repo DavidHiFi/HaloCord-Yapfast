@@ -3,6 +3,9 @@
 //! settings in a dialog), the MochaCord dialog the Themes page opens, and
 //! what Backup & Restore's buttons do. The plugins are
 //! [`crate::halocord::PLUGINS`]; where each belongs is `halocord/areas.rs`.
+//! The dialogs open and close as popups do (`widgets::motion`).
+
+use std::{cell::Cell, time::Instant};
 
 use iced::{
     Alignment, Element, Length, Task,
@@ -24,6 +27,7 @@ use crate::{
     pictures::Icon,
     settings::{Event, Page, Section, Settings},
     style,
+    widgets::motion,
 };
 
 /// The filter field.
@@ -62,6 +66,76 @@ pub struct HaloState {
     pub mocha: bool,
     /// What Backup & Restore says of the last file.
     pub note: Option<Note>,
+    /// The dialog closed and still drawn going.
+    pub leaving: Option<Dialog>,
+    /// When the dialog shown started opening or closing (empty until it's
+    /// first drawn so).
+    pub moved: Cell<Option<Instant>>,
+}
+
+/// A dialog over Settings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Dialog {
+    /// A plugin's settings, by its place in `PLUGINS`.
+    Plugin(usize),
+    MochaCord,
+}
+
+impl HaloState {
+    /// The dialog open, if one is: a plugin's over MochaCord's.
+    pub fn dialog(&self) -> Option<Dialog> {
+        self.plugin
+            .map(Dialog::Plugin)
+            .or(self.mocha.then_some(Dialog::MochaCord))
+    }
+
+    /// Opens or closes the dialogs to `plugin` and `mocha`: one opened
+    /// opens as a popup does, and one closed is drawn going.
+    pub fn show_dialog(&mut self, plugin: Option<usize>, mocha: bool) {
+        let before = self.dialog();
+        self.plugin = plugin.filter(|index| *index < PLUGINS.len());
+        self.mocha = mocha;
+        let now = Instant::now();
+        match (before, self.dialog()) {
+            (before, after) if before == after => {}
+            (None, None) => {}
+            (None, Some(_)) => {
+                // Opened again as it closes, it grows on from there.
+                let start = match self.leaving.take() {
+                    Some(_) => match self.moved.get() {
+                        Some(closing) => Some(motion::reopened(closing, now)),
+                        None => now.checked_sub(motion::open_time()),
+                    },
+                    None => None,
+                };
+                self.moved.set(start);
+            }
+            (Some(was), None) => {
+                if motion::still() {
+                    self.leaving = None;
+                    self.moved.set(None);
+                    return;
+                }
+                // Closed as it opens, it turns round from there.
+                let opened = self.moved.get();
+                self.moved
+                    .set(opened.and_then(|opened| motion::closed_from(opened, now)));
+                self.leaving = Some(was);
+            }
+            (Some(_), Some(_)) => {
+                self.leaving = None;
+                self.moved.set(None);
+            }
+        }
+    }
+
+    /// The dialog closed has been drawn going.
+    fn dialog_gone(&mut self) {
+        if self.dialog().is_none() {
+            self.leaving = None;
+            self.moved.set(None);
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -77,6 +151,8 @@ pub enum HaloEvent {
     Mocha(bool),
     /// The Themes page with the MochaCord dialog open.
     OpenMocha,
+    /// The dialog closed has been drawn going.
+    DialogGone,
     BackupSave,
     BackupLoad,
     /// The text of the file picked: none when the window was closed, an
@@ -110,14 +186,23 @@ impl Settings {
                 halo.area = (halo.area != Some(chosen)).then_some(chosen);
             }
             HaloEvent::Plugin(plugin) => {
-                halo.plugin = plugin.filter(|index| *index < PLUGINS.len())
+                let mocha = halo.mocha;
+                halo.show_dialog(plugin, mocha);
             }
-            HaloEvent::Mocha(open) => halo.mocha = open,
+            HaloEvent::Mocha(open) => {
+                let plugin = halo.plugin;
+                halo.show_dialog(plugin, open);
+                // Its speed list goes with it.
+                if !open && self.open == Some(crate::settings::Drop::AnimationSpeed) {
+                    self.open = None;
+                }
+            }
             HaloEvent::OpenMocha => {
                 let task = self.show(Section::Themes, cx);
-                self.halo.mocha = true;
+                self.halo.show_dialog(None, true);
                 return task;
             }
+            HaloEvent::DialogGone => halo.dialog_gone(),
             HaloEvent::BackupSave => {
                 halo.note = None;
                 let backup = Backup::of(
@@ -490,23 +575,26 @@ impl<'a> Page<'a> {
         let halo = &self.s.halo;
         let theme = self.cx.look.theme;
         let look = self.cx.look;
-        let (title, intro, mut body, close) = if let Some(index) = halo.plugin {
-            let plugin = PLUGINS.get(index)?;
-            (
-                plugin.name,
-                plugin.about,
-                self.plugin_settings(index, plugin),
-                halo_message(HaloEvent::Plugin(None)),
-            )
-        } else if halo.mocha {
-            (
+        let (shown, closing) = match halo.dialog() {
+            Some(open) => (open, false),
+            None => (halo.leaving?, true),
+        };
+        let (title, intro, mut body, close) = match shown {
+            Dialog::Plugin(index) => {
+                let plugin = PLUGINS.get(index)?;
+                (
+                    plugin.name,
+                    plugin.about,
+                    self.plugin_settings(index, plugin),
+                    halo_message(HaloEvent::Plugin(None)),
+                )
+            }
+            Dialog::MochaCord => (
                 "MochaCord",
                 "How this copy of Yapfast looks. These options work with any theme.",
                 self.mochacord_options(),
                 halo_message(HaloEvent::Mocha(false)),
-            )
-        } else {
-            return None;
+            ),
         };
         body.insert(0, look.dialog_head(title, close.clone()));
         body.insert(1, form::note(theme, intro));
@@ -517,7 +605,12 @@ impl<'a> Page<'a> {
             Some(close.clone()),
         )
         .into()]));
-        Some(look.framed(body, DIALOG, close))
+        let framed = look.framed(body, DIALOG, close);
+        Some(if closing {
+            motion::leave(framed, &halo.moved, halo_message(HaloEvent::DialogGone))
+        } else {
+            motion::motion(framed, &halo.moved)
+        })
     }
 
     /// A plugin's settings, each changing live: a choice, a switch, a slider

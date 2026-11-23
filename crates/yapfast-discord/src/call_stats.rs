@@ -11,6 +11,8 @@ use std::{
     time::Duration,
 };
 
+use serde_json::Value;
+
 use crate::voice_connection::lock;
 
 /// How often the voice gateway is sent a heartbeat, and so pinged: as
@@ -37,6 +39,9 @@ pub struct Stats {
     /// The DAVE group's voice privacy code, 30 digits, while end-to-end
     /// encrypted.
     pub privacy_code: Option<String>,
+    /// Who the voice server says is in the call besides this account, by
+    /// user id, in order: those the gateway misses still show.
+    pub present: Vec<u64>,
 }
 
 impl CallStats {
@@ -76,6 +81,53 @@ impl CallStats {
 
     fn loss(&self, loss: f32) {
         lock(&self.0).loss = Some(loss);
+    }
+
+    /// Who the voice server says is in the call, without copying the rest.
+    pub fn present(&self) -> Vec<u64> {
+        lock(&self.0).present.clone()
+    }
+
+    /// Learns who is in the call from a voice gateway message: op 11 lists
+    /// those there, on joining and as each joins after; op 13 says who
+    /// left; speaking (5) and video (12) name someone there.
+    pub(crate) fn roster(&self, op: u64, data: &Value) {
+        let id = |value: &Value| value.as_str().and_then(|id| id.parse::<u64>().ok());
+        let mut stats = lock(&self.0);
+        match op {
+            11 => {
+                for user in data["user_ids"]
+                    .as_array()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(id)
+                {
+                    if let Err(place) = stats.present.binary_search(&user) {
+                        stats.present.insert(place, user);
+                    }
+                }
+            }
+            13 => {
+                if let Some(user) = id(&data["user_id"])
+                    && let Ok(place) = stats.present.binary_search(&user)
+                {
+                    stats.present.remove(place);
+                }
+            }
+            5 | 12 => {
+                if let Some(user) = id(&data["user_id"])
+                    && let Err(place) = stats.present.binary_search(&user)
+                {
+                    stats.present.insert(place, user);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    /// A new connection lists them afresh.
+    pub(crate) fn roster_reset(&self) {
+        lock(&self.0).present.clear();
     }
 }
 
@@ -148,6 +200,19 @@ mod tests {
         assert_eq!(stats.read().loss, Some(5.0));
         reported.learn(&stats, &report(7, 200), &[7]);
         assert_eq!(stats.read().loss, Some(0.0), "nothing sent since");
+    }
+
+    #[test]
+    fn lists_who_the_voice_server_says_is_there() {
+        let stats = CallStats::default();
+        stats.roster(11, &serde_json::json!({"user_ids": ["7", "3"]}));
+        stats.roster(5, &serde_json::json!({"user_id": "9", "ssrc": 2}));
+        stats.roster(11, &serde_json::json!({"user_ids": ["3"]}));
+        assert_eq!(stats.present(), [3, 7, 9]);
+        stats.roster(13, &serde_json::json!({"user_id": "7"}));
+        assert_eq!(stats.present(), [3, 9]);
+        stats.roster_reset();
+        assert!(stats.present().is_empty());
     }
 
     #[test]

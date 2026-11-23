@@ -971,7 +971,11 @@ impl Tracker {
                 for member in members.into_iter().flatten() {
                     self.learn_member(guild, member);
                 }
-                if *event == Event::PassiveUpdateV1 {
+                // V1's list replaces the server's voice, but only when it
+                // comes: one about its channels alone has none, and emptied
+                // the server's calls, so those in them went unseen while
+                // still heard.
+                if *event == Event::PassiveUpdateV1 && data["voice_states"].is_array() {
                     self.voice.retain(|(server, _), _| server != guild);
                 }
                 let states = data["voice_states"]
@@ -2113,6 +2117,48 @@ mod tests {
                 .is_some_and(|icon| icon.contains("/icons/10/ghi.png"))
         );
         assert_eq!(server.voice_channels.len(), 2, "the channels stay");
+    }
+
+    /// A large server's passive update about its channels alone keeps who
+    /// is in its calls; one with a voice list replaces them.
+    #[test]
+    fn a_passive_update_without_voice_keeps_the_calls() {
+        let ready = json!({
+            "user": {"id": "1"},
+            "guilds": [{"id": "10", "properties": {"name": "Test"}, "channels": [
+                {"id": "11", "name": "Lounge", "type": 2, "position": 0},
+            ]}],
+        });
+        let mut tracker = Tracker::from_ready("1".into(), &ready, Default::default());
+        tracker.apply(
+            &Event::ReadySupplemental,
+            &json!({"guilds": [{"id": "10", "voice_states": [
+                {"user_id": "1", "channel_id": "11"},
+                {"user_id": "2", "channel_id": "11"},
+            ]}]}),
+        );
+        let in_lounge = |tracker: &mut Tracker| {
+            let mut people: Vec<String> = tracker
+                .snapshot()
+                .voice
+                .get("11")
+                .into_iter()
+                .flatten()
+                .map(|member| member.user_id.clone())
+                .collect();
+            people.sort();
+            people
+        };
+        tracker.apply(
+            &Event::PassiveUpdateV1,
+            &json!({"guild_id": "10", "channels": [{"id": "11", "last_message_id": "5"}]}),
+        );
+        assert_eq!(in_lounge(&mut tracker), ["1", "2"], "nobody went");
+        tracker.apply(
+            &Event::PassiveUpdateV1,
+            &json!({"guild_id": "10", "voice_states": [{"user_id": "3", "channel_id": "11"}]}),
+        );
+        assert_eq!(in_lounge(&mut tracker), ["3"], "the list replaced them");
     }
 
     #[test]
