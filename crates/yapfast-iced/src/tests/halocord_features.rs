@@ -178,6 +178,55 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
 
+/// A triple click set to Delete deletes your own message, without asking,
+/// and never someone else's, even with leave to delete it.
+#[test]
+fn message_click_actions_triple_click_deletes_only_your_own() {
+    use crate::halocord::Event;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let (theirs, mine) = {
+        let messages = &app.client.state().messages;
+        let find = |own: bool| {
+            messages
+                .iter()
+                .find(|message| message.own == own && !message.deleted)
+                .map(|message| message.item.clone())
+                .expect("a sample message")
+        };
+        (find(false), find(true))
+    };
+    super::change(&mut app, |state| {
+        for message in std::sync::Arc::make_mut(&mut state.messages) {
+            std::sync::Arc::make_mut(message).can_delete = true;
+        }
+    });
+    turn_on(&mut app, id::CLICK_ACTIONS);
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin: place(id::CLICK_ACTIONS).expect("the plugin"),
+            setting: 1,
+            choice: 1,
+        },
+    );
+    let deleted = |app: &App, item: &str| {
+        app.client
+            .state()
+            .message(item)
+            .is_some_and(|message| message.deleted)
+    };
+    for _ in 0..3 {
+        let _ = app.update(Message::HaloCord(Event::Press(theirs.clone(), None)));
+    }
+    assert!(!deleted(&app, &theirs), "not someone else's");
+    for _ in 0..3 {
+        let _ = app.update(Message::HaloCord(Event::Press(mine.clone(), None)));
+    }
+    assert!(deleted(&app, &mine), "your own");
+}
+
 /// Message click actions' added clicks: nothing unless set, so the plugin
 /// works as before; a Backspace click set to Delete deletes your own message,
 /// without asking, and not someone else's; a triple click set to React

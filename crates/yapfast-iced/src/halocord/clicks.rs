@@ -260,9 +260,10 @@ fn act(app: &mut App, item: &str, clicks: u32, double: Option<MenuAct>) -> Task<
         .trim()
         .to_owned();
     // Deleting someone else's message takes a click set to Delete for
-    // others' messages, which none is unless changed.
+    // others' messages, which none is unless changed: the triple click, set
+    // to Delete, deletes only your own.
     let act = match kept.value(&CLICK_ACTIONS, &settings[setting]) {
-        DELETE if message.can_delete => MenuAct::DeleteNow,
+        DELETE if message.can_delete && (message.own || setting != TRIPLE) => MenuAct::DeleteNow,
         EDIT if message.own && message.can_edit => MenuAct::Edit,
         REPLY if message.can_reply => MenuAct::Reply,
         REACT if message.can_react && !emoji.is_empty() => {
