@@ -47,7 +47,10 @@ mod voice;
 pub use areas::{Area, area};
 pub use buttons::{Press, press, presses, start_button};
 use chat::thousands;
-pub use chat::{chat_buttons, count_color, count_words, double_click, inserts_gif, tag};
+pub use chat::{
+    chat_buttons, count_color, count_words, double_click, inserts_gif, tag, upload_button,
+    uploads_first,
+};
 pub use clicks::{Clicks, click_keys, click_row};
 pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
 use kept::off;
@@ -141,6 +144,7 @@ pub mod id {
     pub const SEARCH_MENU: &str = "full-search-context";
     pub const UNIVERSAL_MENTION: &str = "universal-mention";
     pub const KEEP_CHANNEL: &str = "keep-current-channel";
+    pub const BETTER_UPLOAD_BUTTON: &str = "better-upload-button";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -199,6 +203,7 @@ pub static PLUGINS: &[Plugin] = &[
     menus::SEARCH_MENU,
     chat::UNIVERSAL_MENTION,
     servers::KEEP_CHANNEL,
+    chat::BETTER_UPLOAD_BUTTON,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
