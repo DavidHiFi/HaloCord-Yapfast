@@ -1,4 +1,4 @@
-//! Pictures of build 8's and 9's features, drawn by the window in the MochaCord
+//! Pictures of build 8, 9 and 10's features, drawn by the window in the MochaCord
 //! theme. Each test is ignored: it writes `audit/plugins/features-<name>.png`
 //! for the owner to look at. Run them with `cargo test -p yapfast-iced --lib
 //! -- --include-ignored halocord_feature_pictures`.
@@ -206,4 +206,82 @@ fn picture_of_show_timeout_duration() {
     });
     let _ = app.sync();
     draw(&app, "show-timeout-duration");
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_build_10_plugins() {
+    let (mut app, _folder) = mocha();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::SEND_TIMESTAMPS);
+    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    for (query, name) in [
+        ("timestamps", "Send timestamps"),
+        ("extensions", "Fix file extensions"),
+    ] {
+        let _ = app.update(Message::Settings(Event::Search(query.into())));
+        let _ = app.sync();
+        assert!(shows(&app, name), "{name}");
+        draw(&app, &format!("plugin-{query}"));
+    }
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_a_sent_timestamp() {
+    use iced::{keyboard, keyboard::key, widget::Id};
+    let (mut app, _folder) = mocha();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::SEND_TIMESTAMPS);
+    interact(&mut app, |ui| {
+        ui.click(Id::new(crate::composer::COMPOSER))
+            .expect("the composer");
+        ui.typewrite("Game night at <t:20:00>, bring snacks");
+        ui.tap_key(keyboard::Key::Named(key::Named::Enter));
+    });
+    let _ = app.sync();
+    let body = app
+        .client
+        .state()
+        .messages
+        .last()
+        .expect("sent")
+        .body
+        .clone();
+    assert!(body.ends_with(":t>, bring snacks"), "{body}");
+    // As Discord sends it back: the preview isn't a Discord chat, so it
+    // shows the time the way a Discord one does.
+    newest_says(&mut app, &yapfast_core::clock::render_timestamps(&body));
+    let _ = app.sync();
+    draw(&app, "send-timestamps");
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_plugin_menu_icons() {
+    let (mut app, _folder) = mocha();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::COPY_MENTION);
+    turn_on(&mut app, id::COPY_PROFILE_LINK);
+    // A member's menu, signed in, with the Lounge's chat open.
+    app.client.app = yapfast_core::application::member_server(&["30"]);
+    app.client.app.state.account = Some("1".into());
+    app.client.app.state.selected = Some("discord:10:12".into());
+    let _ = app.sync();
+    app.shell.frame = iced::Size::new(1120.0, 900.0);
+    let _ = crate::person_menu::open_person_menu(
+        &mut app,
+        "1",
+        iced::Point::new(420.0, 200.0),
+        crate::person_menu::CONTEXT_MENU,
+    );
+    let shown = app.win.menu.as_ref().is_some_and(|menu| {
+        ["Copy mention", "Copy profile link"].iter().all(|label| {
+            menu.rows
+                .iter()
+                .any(|row| row.label == *label && row.icon.is_some())
+        })
+    });
+    assert!(shown, "both plugin rows, with icons");
+    draw(&app, "menu-icons");
 }
