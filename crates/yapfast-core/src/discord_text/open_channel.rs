@@ -1548,6 +1548,7 @@ impl OpenChannel {
             may_pin,
             may_forward,
             deletes,
+            favorite_anything: crate::halocord::favorite_anything::is_on(),
         };
         if !rendering.alike(&self.rendered_with) {
             self.rendered.clear();
@@ -1929,6 +1930,9 @@ pub(super) struct Rendering {
     pub(super) may_forward: bool,
     /// Whose messages this account may delete here.
     pub(super) deletes: Deletes,
+    /// HaloCord's Favorite anything (docs/halocord.md): which pictures and
+    /// videos have the favourite star.
+    pub(super) favorite_anything: bool,
 }
 
 impl Rendering {
@@ -1964,6 +1968,7 @@ impl Rendering {
             && self.may_pin == other.may_pin
             && self.may_forward == other.may_forward
             && self.deletes == other.deletes
+            && self.favorite_anything == other.favorite_anything
             && server
     }
 }
