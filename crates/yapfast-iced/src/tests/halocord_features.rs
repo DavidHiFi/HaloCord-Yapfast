@@ -939,5 +939,74 @@ fn show_song_name_names_the_song_in_the_member_list() {
     );
     app.show_roster(false);
     assert!(!super::shows(&app, song), "off again");
+}
 
+/// Song link: a message with a song's link gets "Open on song.link" in its
+/// menu while the plugin is on, whose page is for the first song and the
+/// country set; other links get no row.
+#[test]
+fn song_link_offers_song_link_for_a_song() {
+    use crate::halocord::{message_rows, song_links, song_page};
+    let (mut app, _folder) = preview();
+    let item = app.client.state().messages[0].item.clone();
+    let body =
+        "hear https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC). and <https://example.com>";
+    super::change(&mut app, |state| {
+        std::sync::Arc::make_mut(&mut std::sync::Arc::make_mut(&mut state.messages)[0]).body =
+            body.into();
+    });
+    let message = |app: &App| (*app.client.state().messages[0]).clone();
+    let offered = |app: &App| {
+        message_rows(app, &message(app))
+            .iter()
+            .any(|row| row.label == "Open on song.link")
+    };
+    assert!(!offered(&app), "off");
+    turn_on(&mut app, id::SONG_LINK);
+    assert!(offered(&app));
+    assert_eq!(message(&app).item, item);
+    let link = song_links(body)[0];
+    assert_eq!(
+        link,
+        "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC"
+    );
+    assert_eq!(
+        song_page(link, "us"),
+        "https://song.link/https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC?userCountry=US"
+    );
+    assert_eq!(
+        song_page("https://music.youtube.com/watch?v=abc", "GB"),
+        "https://song.link/https://music.youtube.com/watch?v=abc&userCountry=GB"
+    );
+    assert_eq!(
+        song_page("https://tidal.com/track/1", "nowhere"),
+        "https://song.link/https://tidal.com/track/1",
+        "not two letters: no country"
+    );
+    assert_eq!(
+        song_links(
+            "https://music.apple.com/au/album/x/123?i=4 https://music.youtube.com/watch?v=abc https://tidal.com/track/1/u"
+        ),
+        [
+            "https://music.apple.com/au/album/x/123?i=4",
+            "https://music.youtube.com/watch?v=abc",
+            "https://tidal.com/track/1/u"
+        ]
+    );
+    // An artist's page isn't a song.
+    super::change(&mut app, |state| {
+        std::sync::Arc::make_mut(&mut std::sync::Arc::make_mut(&mut state.messages)[0]).body =
+            "https://open.spotify.com/artist/1".into();
+    });
+    assert!(!offered(&app));
+    // Choosing it opens the page (no browser opens in tests).
+    let _ = crate::halocord::chosen(&mut app, id::SONG_LINK, &item, None);
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::SONG_LINK).expect("the plugin"),
+            on: false,
+        },
+    );
 }

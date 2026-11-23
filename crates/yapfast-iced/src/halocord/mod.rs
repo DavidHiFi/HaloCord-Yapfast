@@ -64,7 +64,7 @@ pub use members::{
 pub use members::{message_timeout, role_press, server_tip, zoom_size, zoomable};
 pub use menus::{
     attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, search_result,
-    sticker_tile,
+    song_links, song_page, sticker_tile,
 };
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
 pub use servers::{
@@ -148,7 +148,7 @@ pub mod id {
     pub const NOTIFICATION_TITLE: &str = "notification-title";
     pub const SHOW_HIDDEN: &str = "show-hidden-things";
     pub const SHOW_SONG_NAME: &str = "show-song-name";
-
+    pub const SONG_LINK: &str = "song-link";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -211,7 +211,7 @@ pub static PLUGINS: &[Plugin] = &[
     chat::NOTIFICATION_TITLE,
     members::SHOW_HIDDEN,
     members::SHOW_SONG_NAME,
-
+    menus::SONG_LINK,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
