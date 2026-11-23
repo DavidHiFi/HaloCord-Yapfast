@@ -185,6 +185,27 @@ fn the_quick_switcher_finds_places_as_discords_does() {
     app.dispatch(Action::ToggleSwitcher);
     // Those opened lately, but not the one open.
     assert_eq!(listed(&app), ["games", "DM"]);
+    // Those that ping this account come first, the most pings first, but
+    // not when muted.
+    for (id, mentions, muted) in [
+        ("dm", 1, false),
+        ("games", 4, false),
+        ("party-voice", 9, true),
+    ] {
+        if let Some(room) = app.state.rooms.iter_mut().find(|room| room.id == id) {
+            let room = Arc::make_mut(room);
+            room.mentions = mentions;
+            room.muted = muted;
+        }
+    }
+    assert_eq!(listed(&app), ["games", "DM"]);
+    if let Some(room) = app.state.rooms.iter_mut().find(|room| room.id == "dm") {
+        Arc::make_mut(room).mentions = 6;
+    }
+    assert_eq!(listed(&app), ["DM", "games"]);
+    for room in &mut app.state.rooms {
+        Arc::make_mut(room).mentions = 0;
+    }
     // A search finds servers too, those as good by name, but not what this
     // account can't read, nor message requests.
     app.dispatch(Action::SearchSwitcher("s".into()));
@@ -496,4 +517,34 @@ fn back_and_forward_return_to_browse_channels() {
     app.dispatch(Action::NavigateBack);
     assert_eq!(app.state.selected.as_deref(), Some("discord:10:11"));
     assert!(!app.state.can_go_back());
+}
+
+#[test]
+fn alt_shift_down_finds_the_next_unread_channel_as_discords_does() {
+    let mut app = connected();
+    app.dispatch(Action::Navigate(Navigation::Server("friends".into())));
+    app.dispatch(Action::SelectRoom("general".into()));
+    let set = |app: &mut Application, id: &str, unread: u64, mentions: u64, muted: bool| {
+        if let Some(room) = app.state.rooms.iter_mut().find(|room| room.id == id) {
+            let room = Arc::make_mut(room);
+            room.unread = unread;
+            room.mentions = mentions;
+            room.muted = muted;
+        }
+    };
+    assert_eq!(app.state.next_unread(true), None, "all read");
+    set(&mut app, "games", 3, 0, false);
+    // Down, and up round past the top.
+    assert_eq!(app.state.next_unread(true).as_deref(), Some("games"));
+    assert_eq!(app.state.next_unread(false).as_deref(), Some("games"));
+    // Muted, only when it pings; voice channels never.
+    set(&mut app, "games", 3, 0, true);
+    set(&mut app, "lounge", 5, 0, false);
+    assert_eq!(app.state.next_unread(true), None);
+    set(&mut app, "games", 3, 1, true);
+    assert_eq!(app.state.next_unread(true).as_deref(), Some("games"));
+    // Never the one open, nor a DM while a server shows.
+    app.dispatch(Action::SelectRoom("games".into()));
+    set(&mut app, "dm", 2, 0, false);
+    assert_eq!(app.state.next_unread(true), None);
 }

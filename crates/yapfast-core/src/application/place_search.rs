@@ -466,7 +466,8 @@ impl AppState {
     }
 
     /// Where the quick switcher goes, in the order it lists them: with
-    /// nothing searched for, the conversations opened lately but the one
+    /// nothing searched for, those that ping this account, the most pings
+    /// first, then the conversations opened lately but the one
     /// open, then those used most; otherwise the conversations and servers
     /// that match, the best first, up to [`FOUND`]. Conversations this
     /// account may not read stay out, and so do message requests, as the DM
@@ -482,9 +483,19 @@ impl AppState {
         let query = query.trim().to_lowercase();
         if query.is_empty() {
             let open = self.selected.as_deref();
-            let places = places.filter(|room| Some(room.id.as_str()) != open);
+            let places: Vec<&ChatRoom> = places
+                .filter(|room| Some(room.id.as_str()) != open)
+                .collect();
+            // Those that ping this account come first, the most pings first.
+            let mut pinging: Vec<&ChatRoom> = places
+                .iter()
+                .copied()
+                .filter(|room| room.mentions > 0 && !room.muted)
+                .collect();
+            pinging.sort_by_key(|room| std::cmp::Reverse(room.mentions));
+            let first: Vec<&str> = pinging.iter().map(|room| room.id.as_str()).collect();
             return ranking
-                .unsearched(places, &[])
+                .unsearched(places.into_iter(), &first)
                 .into_iter()
                 .map(Place::Room)
                 .collect();

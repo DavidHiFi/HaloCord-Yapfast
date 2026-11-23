@@ -94,6 +94,17 @@ impl App {
                         None
                     }
                 }
+                // Alt+Shift+Down or Up: the next channel with unread
+                // messages, as in Discord.
+                iced::Event::Keyboard(keyboard::Event::KeyPressed {
+                    key: keyboard::Key::Named(named @ (key::Named::ArrowDown | key::Named::ArrowUp)),
+                    modifiers,
+                    ..
+                }) if modifiers.alt() && modifiers.shift() && !modifiers.control() => {
+                    Some(Message::Switcher(crate::switcher::Event::NextUnread(
+                        named == key::Named::ArrowDown,
+                    )))
+                }
                 _ => None,
             }));
         }
