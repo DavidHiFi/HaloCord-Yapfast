@@ -1106,6 +1106,9 @@ pub struct ProfileFriend {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ProfileRole {
+    /// Its Discord role id, whose members HaloCord's Clickable roles shows;
+    /// empty for a Matrix room role.
+    pub id: String,
     pub name: String,
     /// Its RGB colour, for a coloured Discord role.
     pub color: Option<u32>,

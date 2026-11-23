@@ -34,12 +34,13 @@ use chat::thousands;
 pub use chat::{count_color, count_words, double_click, tag};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
+pub use members::role_press;
 #[cfg(test)]
 pub use members::time_left;
 pub use members::{
     add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
 };
-pub use menus::{attachment_menu, chosen, copied_text, menu_rows, person_rows};
+pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
 pub use servers::{home_mentions, no_request_badge};
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
 
@@ -94,6 +95,10 @@ pub mod id {
     pub const VIEW_ICONS: &str = "view-icons";
     pub const JUMP_TO_START: &str = "jump-to-start";
     pub const CLICK_ACTIONS: &str = "message-click-actions";
+    pub const CLICKABLE_ROLES: &str = "clickable-roles";
+    pub const COPY_STATUS_URLS: &str = "copy-status-urls";
+    pub const COPY_PROFILE_COLORS: &str = "copy-profile-colors";
+    pub const FIND_REPLY: &str = "find-reply";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -133,6 +138,10 @@ pub static PLUGINS: &[Plugin] = &[
     members::VIEW_ICONS,
     buttons::JUMP_TO_START,
     chat::CLICK_ACTIONS,
+    members::CLICKABLE_ROLES,
+    menus::COPY_STATUS_URLS,
+    menus::COPY_PROFILE_COLORS,
+    menus::FIND_REPLY,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

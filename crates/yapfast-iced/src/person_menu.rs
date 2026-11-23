@@ -113,7 +113,7 @@ pub fn open_person_menu(
         })
         .collect();
     if !rows.is_empty() {
-        rows.extend(crate::halocord::person_rows(user));
+        rows.extend(crate::halocord::person_rows(app, user));
     }
     if rows.is_empty() {
         return Task::none();

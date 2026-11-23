@@ -1010,6 +1010,173 @@ fn message_click_actions_edit_own_and_reply_to_others() {
     assert_eq!(act(&app, own), Some(MenuAct::Reply));
 }
 
+/// Clickable roles: a role on a profile sends its card only while it is on,
+/// and the card takes the role's name and colour from the profile.
+#[test]
+fn clickable_roles_open_a_role_card_from_a_profile() {
+    use crate::halocord::{CLICKABLE_ROLES, Change, changed, place, role_press};
+    use crate::info_cards::Event as Card;
+    use yapfast_core::{
+        application::ProfileView,
+        chat::{Profile, ProfileRole},
+    };
+    let (mut app, _folder) = preview();
+    let role = ProfileRole {
+        id: "77".into(),
+        name: "Moderators".into(),
+        color: Some(0x89B4FA),
+    };
+    change(&mut app, |state| {
+        state.profile = Some(std::sync::Arc::new(ProfileView {
+            profile: Profile {
+                id: "1".into(),
+                roles: vec![role.clone()],
+                ..Default::default()
+            },
+            ..Default::default()
+        }));
+    });
+    assert!(role_press(app.ctx(), "77").is_none(), "off at first");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(CLICKABLE_ROLES).unwrap(),
+            on: true,
+        },
+    );
+    assert!(
+        role_press(app.ctx(), "").is_none(),
+        "a Matrix role has no card"
+    );
+    let Some(Message::Info(Card::ProfileRole(id))) = role_press(app.ctx(), "77") else {
+        panic!("the role's card");
+    };
+    let _ = app.update(Message::Info(Card::ProfileRole(id)));
+    let state = app.client.state();
+    assert!(state.profile.is_none(), "the profile closed");
+    let shown = state.role.as_ref().expect("the role's card");
+    assert_eq!(
+        (shown.name.as_str(), shown.color),
+        ("Moderators", Some(0x89B4FA))
+    );
+}
+
+/// Copy status link and Copy profile colors: their rows show only while on,
+/// and only when there's something to copy.
+#[test]
+fn copy_status_link_and_profile_colors_rows() {
+    use crate::halocord::{
+        COPY_PROFILE_COLORS, COPY_STATUS_URLS, Change, changed, person_rows, place,
+    };
+    use yapfast_core::{application::ProfileView, chat::Profile};
+    let (mut app, _folder) = preview();
+    let labels = |app: &App, user: &str| -> Vec<String> {
+        person_rows(app, user)
+            .into_iter()
+            .map(|row| row.label.into_owned())
+            .collect()
+    };
+    let streaming = yapfast_core::chat::Activity {
+        kind: yapfast_core::chat::ActivityKind::Streaming,
+        name: "Twitch".into(),
+        details: None,
+        state: None,
+        party: None,
+        party_id: None,
+        application_id: None,
+        start: None,
+        end: None,
+        large_image: None,
+        large_text: None,
+        small_image: None,
+        small_text: None,
+        url: Some("https://twitch.tv/someone".into()),
+        link: None,
+        emoji: None,
+    };
+    change(&mut app, |state| {
+        state.profile = Some(std::sync::Arc::new(ProfileView {
+            profile: Profile {
+                id: "1".into(),
+                theme: Some([0x1E1E2E, 0xCBA6F7]),
+                activities: std::sync::Arc::from([streaming]),
+                ..Default::default()
+            },
+            ..Default::default()
+        }));
+    });
+    let off = labels(&app, "1");
+    assert!(
+        !off.iter()
+            .any(|label| label.starts_with("Copy status") || label.starts_with("Copy profile"))
+    );
+    for plugin in [COPY_STATUS_URLS, COPY_PROFILE_COLORS] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Switch {
+                plugin: place(plugin).unwrap(),
+                on: true,
+            },
+        );
+    }
+    let on = labels(&app, "1");
+    assert!(on.iter().any(|label| label == "Copy status link"), "{on:?}");
+    assert!(
+        on.iter().any(|label| label == "Copy profile colors"),
+        "{on:?}"
+    );
+    let other = labels(&app, "2");
+    assert!(
+        !other
+            .iter()
+            .any(|label| label.starts_with("Copy status") || label.starts_with("Copy profile")),
+        "nothing to copy for someone else"
+    );
+}
+
+/// Find reply: Jump to reply shows on a message someone replied to, only
+/// while it is on.
+#[test]
+fn find_reply_row_shows_on_a_replied_message() {
+    use crate::halocord::{Change, FIND_REPLY, changed, message_rows, place};
+    let (mut app, _folder) = preview();
+    let jump = |app: &App, message: &yapfast_core::chat::ChatMessage| {
+        message_rows(app, message)
+            .iter()
+            .any(|row| row.label == "Jump to reply")
+    };
+    let messages = app.client.state().messages.clone();
+    let first = messages.first().expect("a message").clone();
+    let mut answer = (**messages.last().expect("a message")).clone();
+    answer.reply = Some(yapfast_core::chat::Reply {
+        author: first.author.clone(),
+        avatar: None,
+        body: "hello".into(),
+        item: Some(first.item.clone()),
+        color: None,
+        tag: None,
+    });
+    change(&mut app, |state| {
+        let mut list = (*state.messages).clone();
+        *list.last_mut().unwrap() = std::sync::Arc::new(answer);
+        state.messages = std::sync::Arc::new(list);
+    });
+    assert!(!jump(&app, &first), "off at first");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(FIND_REPLY).unwrap(),
+            on: true,
+        },
+    );
+    assert!(jump(&app, &first));
+    let last = app.client.state().messages.last().unwrap().clone();
+    assert!(!jump(&app, &last), "nobody replied to the reply");
+}
+
 /// View icons: a profile's pictures open at their biggest only while it is on.
 #[test]
 fn view_icons_opens_a_profile_picture_full_size() {

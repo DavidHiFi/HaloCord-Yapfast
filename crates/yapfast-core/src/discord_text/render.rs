@@ -665,7 +665,7 @@ pub(super) fn chat_profile(
             .map(|server| server.named_roles(&profile.roles))
             .unwrap_or_default()
             .into_iter()
-            .map(|(name, color)| ProfileRole { name, color })
+            .map(|(id, name, color)| ProfileRole { id, name, color })
             .collect(),
         created: Some(crate::clock::profile_day(profile.created / 1000)),
         joined: profile
