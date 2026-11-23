@@ -25,6 +25,12 @@ whole list to carry across.
   (`glass`, `Dock`), the first-start switch to the theme, and the Windows backdrop
   (direct `dwmapi` calls, so no new dependency).
 - `crates/yapfast-iced/src/settings/pages/mochacord.rs`: the MochaCord settings page.
+- `crates/yapfast-iced/src/halocord/theme_files.rs`: Appearance's Save to file and
+  Load from file (a theme as the JSON `layout.json` keeps it in).
+- `crates/yapfast-core/src/halocord/themes.rs`: HaloCord's themes (Catppuccin
+  Macchiato and Frappé, MochaCord Blue, Green and Pink, Rosé Pine, Kanagawa,
+  Everforest, One Dark) and the colour roles, with `roles` working out any a theme
+  leaves clear.
 - `crates/yapfast-iced-kit/src/fonts/pick.rs`: gives the chosen font Yapfast's text
   name at each weight, and keeps Yapfast's own font behind it.
 - `crates/yapfast-iced-kit/icons/halo-logo.svg`, `packaging/icon.svg`,
@@ -181,6 +187,13 @@ Window (`yapfast-iced`):
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
+- `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
+  `self.theme_event` (it gives a task now).
+- `settings/appearance.rs`: `Event::SaveFile`, `LoadFile`, `FileRead`, `FileDone` and
+  their arms; `theme_event` returns a task; Load from file beside New theme, Save to
+  file beside Cancel, and `file_note` under each.
+- `markdown.rs`: inline code and code blocks fill with the theme's `code` role, not
+  `panel`.
 - `tests/mod.rs`: `mod halocord_buttons;`, `mod halocord_button_pictures;` and
   `mod halocord_fixes;`.
 
@@ -191,10 +204,16 @@ Kit (`yapfast-iced-kit`) and vendor:
 - `widgets/smooth.rs` and `smooth/bar.rs`: `BarGradient` and `set_bar_look`, drawn in
   `Smooth::draw`.
 - `renderer.rs`: `want_glass`, `glass_wanted`, `glass_active`.
+- `controls.rs`: `field_style` rings a field in the theme's `focus` role.
 - `icons.rs`: `Icon::HaloLogo`, `HaloDesktop`, `HaloPhone`, `HaloWeb`.
 - `vendor/iced_wgpu`: `glass.rs` and the glass attempt in `window/compositor.rs` (see
   its `README.yapfast.md`).
-- Core `theme.rs`: the `MOCHACORD` built-in theme.
+- Core `theme.rs`: the `MOCHACORD` built-in theme (`pub(crate)`); HaloCord's colour
+  roles at the end of `theme!` (focus to `shimmer_low`), so every theme literal ends
+  `..crate::halocord::themes::UNSET`; `BUILT_IN` has HaloCord's themes
+  (`halocord/themes.rs`) and takes each entry through `hc::roles`, and `chosen`
+  falls back to `BUILT_IN[0].theme`. The kit's `for_theme_colours!` names the
+  roles too.
 
 Core (`yapfast-core`):
 

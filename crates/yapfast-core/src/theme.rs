@@ -121,6 +121,20 @@ theme! {
     reply_spine,
     tooltip,
     avatar,
+    // HaloCord's colour roles (`halocord::themes`): worked out from the
+    // colours above when a theme leaves them clear.
+    focus,
+    edge_from,
+    edge_to,
+    frost,
+    frost_solid,
+    dim,
+    shadow,
+    success,
+    warning,
+    info,
+    code,
+    shimmer_low,
 }
 
 /// Yapfast's own colours: layered graphite with a marigold accent.
@@ -163,6 +177,7 @@ pub const YAP: Theme = Theme {
     reply_spine: rgb(0x4a4c56),
     tooltip: rgb(0x0b0c0e),
     avatar: rgb(0x6b7280),
+    ..crate::halocord::themes::UNSET
 };
 
 /// Discord's own dark theme (Dark, `.theme-dark` with `.theme-darker` in its
@@ -206,6 +221,7 @@ const BONFIRE: Theme = Theme {
     reply_spine: rgb(0x474851),
     tooltip: rgb(0x242429),
     avatar: rgb(0x5c5e66),
+    ..crate::halocord::themes::UNSET
 };
 
 /// Catppuccin's darkest flavour, with mauve for the accent.
@@ -248,13 +264,14 @@ const CATPPUCCIN_MOCHA: Theme = Theme {
     reply_spine: rgb(0x585b70),
     tooltip: rgb(0x11111b),
     avatar: rgb(0x6c7086),
+    ..crate::halocord::themes::UNSET
 };
 
 /// HaloCord's MochaCord: Catppuccin Mocha with the rice values. The grounds
 /// are opaque (the fallback the window shows without glass); the app lays its
 /// glass alpha over them. Hovers are the rice hover wash, edges surface1, and
 /// the accent is mauve with blue links, the two ends of the gradient.
-const MOCHACORD: Theme = Theme {
+pub(crate) const MOCHACORD: Theme = Theme {
     dark: true,
     rail: rgb(0x181825),
     sidebar: rgb(0x181825),
@@ -293,6 +310,7 @@ const MOCHACORD: Theme = Theme {
     reply_spine: rgb(0x585b70),
     tooltip: rgb(0x181825),
     avatar: rgb(0x6c7086),
+    ..crate::halocord::themes::UNSET
 };
 
 /// Catppuccin's light flavour, with mauve for the accent.
@@ -335,6 +353,7 @@ const CATPPUCCIN_LATTE: Theme = Theme {
     reply_spine: rgb(0xacb0be),
     tooltip: rgb(0xeff1f5),
     avatar: rgb(0x7c7f93),
+    ..crate::halocord::themes::UNSET
 };
 
 /// Dracula, with purple for the accent.
@@ -377,6 +396,7 @@ const DRACULA: Theme = Theme {
     reply_spine: rgb(0x44475a),
     tooltip: rgb(0x191a21),
     avatar: rgb(0x6272a4),
+    ..crate::halocord::themes::UNSET
 };
 
 /// Nord's Polar Night and Snow Storm, with frost for the accent. Polar
@@ -420,6 +440,7 @@ const NORD: Theme = Theme {
     reply_spine: rgb(0x4c566a),
     tooltip: rgb(0x1f232c),
     avatar: rgb(0x616e88),
+    ..crate::halocord::themes::UNSET
 };
 
 /// Gruvbox's dark palette at medium contrast, with orange for the accent.
@@ -462,6 +483,7 @@ const GRUVBOX_DARK: Theme = Theme {
     reply_spine: rgb(0x665c54),
     tooltip: rgb(0x141617),
     avatar: rgb(0x7c6f64),
+    ..crate::halocord::themes::UNSET
 };
 
 /// Tokyo Night, the Night style, with blue for the accent.
@@ -504,6 +526,7 @@ const TOKYO_NIGHT: Theme = Theme {
     reply_spine: rgb(0x3b4261),
     tooltip: rgb(0x0f0f15),
     avatar: rgb(0x565f89),
+    ..crate::halocord::themes::UNSET
 };
 
 /// Rosé Pine's light variant, with rose for the accent.
@@ -546,6 +569,7 @@ const ROSE_PINE_DAWN: Theme = Theme {
     reply_spine: rgb(0xcecacd),
     tooltip: rgb(0xfffaf3),
     avatar: rgb(0x9893a5),
+    ..crate::halocord::themes::UNSET
 };
 
 /// Yapfast's own: cherry blossom on rice paper, pink on a pale pink ground.
@@ -588,6 +612,7 @@ const SAKURA: Theme = Theme {
     reply_spine: rgb(0xe2bccb),
     tooltip: rgb(0xffffff),
     avatar: rgb(0xc08aa2),
+    ..crate::halocord::themes::UNSET
 };
 
 impl Theme {
@@ -620,63 +645,112 @@ pub struct BuiltIn {
 
 /// The themes Yapfast comes with, as Appearance lists them: the dark ones, then
 /// the light ones. The palettes credited in docs/themes.md are MIT licensed.
-pub const BUILT_IN: [BuiltIn; 11] = [
+/// HaloCord adds its own (`halocord::themes`) and works out each theme's
+/// colour roles.
+pub const BUILT_IN: [BuiltIn; 20] = [
     BuiltIn {
         id: "yap",
         name: "Yap",
-        theme: YAP,
+        theme: hc::roles(YAP),
     },
     BuiltIn {
         id: "bonfire",
         name: "Bonfire",
-        theme: BONFIRE,
+        theme: hc::roles(BONFIRE),
     },
     BuiltIn {
         id: "catppuccin-mocha",
         name: "Catppuccin Mocha",
-        theme: CATPPUCCIN_MOCHA,
+        theme: hc::roles(CATPPUCCIN_MOCHA),
+    },
+    BuiltIn {
+        id: "catppuccin-macchiato",
+        name: "Catppuccin Macchiato",
+        theme: hc::roles(hc::CATPPUCCIN_MACCHIATO),
+    },
+    BuiltIn {
+        id: "catppuccin-frappe",
+        name: "Catppuccin Frappé",
+        theme: hc::roles(hc::CATPPUCCIN_FRAPPE),
     },
     BuiltIn {
         id: "mochacord",
         name: "MochaCord",
-        theme: MOCHACORD,
+        theme: hc::roles(hc::MOCHACORD_ROLES),
+    },
+    BuiltIn {
+        id: "mochacord-blue",
+        name: "MochaCord Blue",
+        theme: hc::roles(hc::MOCHACORD_BLUE),
+    },
+    BuiltIn {
+        id: "mochacord-green",
+        name: "MochaCord Green",
+        theme: hc::roles(hc::MOCHACORD_GREEN),
+    },
+    BuiltIn {
+        id: "mochacord-pink",
+        name: "MochaCord Pink",
+        theme: hc::roles(hc::MOCHACORD_PINK),
     },
     BuiltIn {
         id: "dracula",
         name: "Dracula",
-        theme: DRACULA,
+        theme: hc::roles(DRACULA),
     },
     BuiltIn {
         id: "nord",
         name: "Nord",
-        theme: NORD,
+        theme: hc::roles(NORD),
     },
     BuiltIn {
         id: "gruvbox-dark",
         name: "Gruvbox Dark",
-        theme: GRUVBOX_DARK,
+        theme: hc::roles(GRUVBOX_DARK),
     },
     BuiltIn {
         id: "tokyo-night",
         name: "Tokyo Night",
-        theme: TOKYO_NIGHT,
+        theme: hc::roles(TOKYO_NIGHT),
+    },
+    BuiltIn {
+        id: "rose-pine",
+        name: "Rosé Pine",
+        theme: hc::roles(hc::ROSE_PINE),
+    },
+    BuiltIn {
+        id: "kanagawa",
+        name: "Kanagawa",
+        theme: hc::roles(hc::KANAGAWA),
+    },
+    BuiltIn {
+        id: "everforest",
+        name: "Everforest",
+        theme: hc::roles(hc::EVERFOREST),
+    },
+    BuiltIn {
+        id: "one-dark",
+        name: "One Dark",
+        theme: hc::roles(hc::ONE_DARK),
     },
     BuiltIn {
         id: "catppuccin-latte",
         name: "Catppuccin Latte",
-        theme: CATPPUCCIN_LATTE,
+        theme: hc::roles(CATPPUCCIN_LATTE),
     },
     BuiltIn {
         id: "rose-pine-dawn",
         name: "Rosé Pine Dawn",
-        theme: ROSE_PINE_DAWN,
+        theme: hc::roles(ROSE_PINE_DAWN),
     },
     BuiltIn {
         id: "sakura",
         name: "Sakura",
-        theme: SAKURA,
+        theme: hc::roles(SAKURA),
     },
 ];
+
+use crate::halocord::themes as hc;
 
 pub fn find(id: &str) -> Option<&'static BuiltIn> {
     BUILT_IN.iter().find(|theme| theme.id == id)
@@ -698,7 +772,7 @@ pub fn lookup<'a>(id: &str, custom: &'a [Custom]) -> Option<(&'a str, Theme)> {
 /// this version doesn't have or the person deleted.
 pub fn chosen<'a>(id: Option<&str>, custom: &'a [Custom]) -> (&'a str, Theme) {
     id.and_then(|id| lookup(id, custom))
-        .unwrap_or((BUILT_IN[0].id, YAP))
+        .unwrap_or((BUILT_IN[0].id, BUILT_IN[0].theme))
 }
 
 /// A colour's name as `layout.json` has it.

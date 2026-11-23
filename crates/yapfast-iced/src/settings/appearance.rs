@@ -14,6 +14,7 @@ use yapfast_core::{
 };
 
 use super::{Drop, Event as SettingsEvent, Page, Settings};
+use crate::halocord::theme_files::{self, Note};
 use crate::{
     app::Message,
     controls::{Kind, action, lights, placed},
@@ -121,6 +122,12 @@ pub enum Event {
     Cancel,
     Delete,
     Profile(Cosmetic, bool),
+    /// HaloCord: the theme in the editor to a file, a theme from one, and
+    /// how each went (none when the person closed the file window).
+    SaveFile,
+    LoadFile,
+    FileRead(Option<String>),
+    FileDone(Option<Note>),
 }
 
 /// Appearance's profile switches.
@@ -140,8 +147,33 @@ fn theme_message(event: Event) -> Message {
 }
 
 impl Settings {
-    pub(super) fn theme_event(&mut self, event: Event, cx: &mut Cx<'_>) {
+    pub(super) fn theme_event(&mut self, event: Event, cx: &mut Cx<'_>) -> iced::Task<Message> {
         match event {
+            Event::SaveFile => {
+                let Some(editor) = &self.editor else {
+                    return iced::Task::none();
+                };
+                return theme_files::save(&Custom {
+                    id: String::new(),
+                    name: editor.name.clone(),
+                    base: editor.base,
+                    theme: editor.theme,
+                });
+            }
+            Event::LoadFile => return theme_files::open(),
+            Event::FileRead(None) => {}
+            Event::FileRead(Some(text)) => {
+                let Some(loaded) = theme_files::read(&text, &cx.themes.custom) else {
+                    self.theme_file = Some(Note::NotATheme);
+                    return iced::Task::none();
+                };
+                let id = loaded.id.clone();
+                cx.themes.custom.push(loaded);
+                cx.keep("custom_themes", &cx.themes.custom);
+                self.theme_file = Some(Note::Loaded);
+                choose(cx, &id);
+            }
+            Event::FileDone(note) => self.theme_file = note,
             Event::Choose(id) => choose(cx, &id),
             Event::New => self.new_theme(cx),
             Event::Edit(id) => {
@@ -206,6 +238,7 @@ impl Settings {
             Event::Delete => self.delete_theme(cx),
             Event::Profile(cosmetic, on) => self::cosmetic(cx, cosmetic, on),
         }
+        iced::Task::none()
     }
 
     /// Opens the editor on a copy of the theme shown, which can start from
@@ -234,6 +267,7 @@ impl Settings {
 
     fn open_editor(&mut self, editor: Editor, cx: &mut Cx<'_>) {
         self.editor = Some(editor);
+        self.theme_file = None;
         self.show_edited(cx);
     }
 
@@ -250,6 +284,7 @@ impl Settings {
     /// Closes the editor: the window shows the theme chosen again.
     fn close_editor(&mut self, cx: &mut Cx<'_>) -> Option<Editor> {
         let editor = self.editor.take()?;
+        self.theme_file = None;
         if self.preview.take().is_some() {
             cx.request(Request::Changed(Shown::Theme));
         }
@@ -374,10 +409,21 @@ impl<'a> Page<'a> {
             form::group([
                 form::beside(
                     form::heading(theme, "THEME"),
-                    action(theme, "New theme", Kind::Plain, Some(theme_message(Event::New)))
-                        .small()
-                        .icon(self.cx.look.icon(Icon::Plus, 16, crate::theme::rgb(theme.text))),
+                    row![
+                        action(
+                            theme,
+                            "Load from file",
+                            Kind::Plain,
+                            Some(theme_message(Event::LoadFile))
+                        )
+                        .small(),
+                        action(theme, "New theme", Kind::Plain, Some(theme_message(Event::New)))
+                            .small()
+                            .icon(self.cx.look.icon(Icon::Plus, 16, crate::theme::rgb(theme.text))),
+                    ]
+                    .spacing(8),
                 ),
+                file_note(theme, settings.theme_file),
                 tiles,
             ]),
             self.title_bar_switch(),
@@ -570,11 +616,18 @@ impl<'a> Page<'a> {
                         "Cancel",
                         Kind::Plain,
                         Some(theme_message(Event::Cancel))
+                    ),
+                    action(
+                        theme,
+                        "Save to file",
+                        Kind::Plain,
+                        editor.valid().then(|| theme_message(Event::SaveFile))
                     )
                 ]
                 .spacing(8)
                 .align_y(Alignment::Center)
                 .into(),
+                file_note(theme, self.s.theme_file),
             ]),
         ];
         if editor.editing.is_none() {
@@ -654,6 +707,17 @@ impl<'a> Page<'a> {
             .into()]));
         }
         form::page(parts)
+    }
+}
+
+/// HaloCord: what the last theme file did, or nothing.
+fn file_note<'a>(theme: &crate::theme::Theme, note: Option<Note>) -> Element<'a, Message> {
+    match note {
+        Some(note) => text(note.words())
+            .size(13)
+            .color(if note.bad() { theme.danger } else { theme.secondary })
+            .into(),
+        None => Space::new().height(0).into(),
     }
 }
 

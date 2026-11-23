@@ -12,6 +12,8 @@
 //! - `menus.rs`: right-click menu rows and what a pick does.
 //! - `buttons.rs`: the user area and the top bar's buttons.
 //! - `members.rs`: the member list's count and platform marks.
+//! - `theme_files.rs`: Appearance's Save to file and Load from file (not a
+//!   plugin).
 //!
 //! Adding a plugin: its id in [`id`], one `const` in its area's file, and its
 //! place in [`PLUGINS`]. `docs/halocord.md` has the template.
@@ -21,6 +23,7 @@ mod chat;
 mod kept;
 mod members;
 mod menus;
+pub mod theme_files;
 mod voice;
 
 pub use buttons::{Press, press, presses};
