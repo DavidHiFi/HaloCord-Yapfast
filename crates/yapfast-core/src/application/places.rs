@@ -651,18 +651,19 @@ impl Application {
             .servers
             .iter()
             .find(|server| server.channels.contains(&room));
+        let (max_age, max_uses) = crate::halocord::first_invite().unwrap_or(FIRST_INVITE);
         self.state.invite = Some(InviteDialog {
             server: server.map(|server| server.name.clone()).unwrap_or_default(),
             channel: listed.map(|room| room.name.clone()).unwrap_or_default(),
             voice: listed.is_some_and(|room| room.voice),
             room,
-            max_age: FIRST_INVITE.0,
-            max_uses: FIRST_INVITE.1,
+            max_age,
+            max_uses,
             link: None,
             making: false,
             error: None,
         });
-        self.make_invite(FIRST_INVITE.0, FIRST_INVITE.1)
+        self.make_invite(max_age, max_uses)
     }
 
     /// Asks Discord for a new link for the invite dialog, unless one is on

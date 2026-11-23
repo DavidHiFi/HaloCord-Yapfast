@@ -23,6 +23,7 @@ mod chat;
 mod kept;
 mod members;
 mod menus;
+mod servers;
 pub mod theme_files;
 mod voice;
 
@@ -31,8 +32,11 @@ use chat::thousands;
 pub use chat::{count_color, count_words, tag};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
-pub use members::{add_member_count, platform_marks};
+#[cfg(test)]
+pub use members::time_left;
+pub use members::{add_member_count, platform_marks, timeout_clock, timeout_note};
 pub use menus::{attachment_menu, chosen, copied_text, menu_rows, person_rows};
+pub use servers::{home_mentions, no_request_badge};
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
@@ -77,6 +81,9 @@ pub mod id {
     pub const ALWAYS_TRUST: &str = "always-trust";
     pub const REVEAL_SPOILERS: &str = "reveal-all-spoilers";
     pub const PLAIN_FOLDER: &str = "plain-folder-icon";
+    pub const INVITE_DEFAULTS: &str = "invite-defaults";
+    pub const NO_PENDING_COUNT: &str = "no-pending-count";
+    pub const SHOW_TIMEOUT: &str = "show-timeout-duration";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -107,6 +114,9 @@ pub static PLUGINS: &[Plugin] = &[
     chat::ALWAYS_TRUST,
     chat::REVEAL_SPOILERS,
     chat::PLAIN_FOLDER,
+    servers::INVITE_DEFAULTS,
+    servers::NO_PENDING_COUNT,
+    members::SHOW_TIMEOUT,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

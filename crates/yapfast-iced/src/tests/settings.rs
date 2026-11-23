@@ -752,9 +752,17 @@ fn the_plugins_page_lists_every_plugin() {
         assert!(place(id).is_some(), "{id}");
     }
     open(&mut app, Section::HaloCord);
-    for plugin in PLUGINS {
-        assert!(shows(&app, plugin.name), "{}", plugin.name);
-    }
+    // The list is longer than the page, so each plugin is found by its name
+    // in the search box, the way someone looking for it would.
+    let missing: Vec<_> = PLUGINS
+        .iter()
+        .filter(|plugin| {
+            let _ = app.update(Message::Settings(Event::Search(plugin.name.into())));
+            !shows(&app, plugin.name)
+        })
+        .map(|plugin| plugin.name)
+        .collect();
+    assert!(missing.is_empty(), "{missing:?}");
 }
 
 /// Fake mute and fake deafen start off, switch on from the page, and are
