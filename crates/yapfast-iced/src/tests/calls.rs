@@ -963,3 +963,63 @@ fn platform_indicators_show_in_each_place_switched_on() {
         "the plugin off"
     );
 }
+
+/// User voice show's switches for messages and profiles, off at first: on,
+/// someone in a voice channel gets the speaker by their name on a message,
+/// and "In voice: channel" on their profile.
+#[test]
+fn user_voice_show_marks_messages_and_profiles() {
+    use crate::halocord::{Change, Place, USER_VOICE_SHOW, changed, name_marks, place};
+    let (mut app, _folder) = super::preview();
+    let lounge = app
+        .client
+        .state()
+        .rooms
+        .iter()
+        .find(|room| room.voice)
+        .expect("a voice channel")
+        .clone();
+    let someone = "voice-show-sam";
+    super::change(&mut app, |state| {
+        for room in state.rooms.iter_mut() {
+            if room.id == lounge.id {
+                std::sync::Arc::make_mut(room)
+                    .people
+                    .push(yapfast_core::chat::VoicePerson {
+                        id: someone.into(),
+                        name: "Sam".into(),
+                        ..Default::default()
+                    });
+            }
+        }
+    });
+    let plugin = place(USER_VOICE_SHOW).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    for at in [Place::Message, Place::Profile] {
+        assert!(
+            name_marks(app.ctx(), someone, at).is_none(),
+            "{at:?} is off at first"
+        );
+    }
+    for setting in [0, 1] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting,
+                on: true,
+            },
+        );
+    }
+    assert!(name_marks(app.ctx(), someone, Place::Message).is_some());
+    assert!(name_marks(app.ctx(), someone, Place::Profile).is_some());
+    assert!(
+        name_marks(app.ctx(), "voice-show-nobody", Place::Message).is_none(),
+        "someone not in voice"
+    );
+}
