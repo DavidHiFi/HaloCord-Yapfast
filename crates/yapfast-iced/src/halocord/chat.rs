@@ -173,3 +173,23 @@ pub(super) const PLAIN_FOLDER: Plugin = Plugin {
     apply: |_, _| {},
     hooks: None,
 };
+
+pub(super) const SEND_TIMESTAMPS: Plugin = Plugin {
+    id: id::SEND_TIMESTAMPS,
+    name: "Send timestamps",
+    about: "Write a time as <t:13:30>, <t:6pm>, <t:2026-12-24> or <t:2026-12-24 18:00> in a message, and it goes up as a timestamp each reader sees in their own time zone.",
+    on_at_first: false,
+    settings: &[],
+    apply: |kept, plugin| engine::send_timestamps::set(kept.on(plugin)),
+    hooks: None,
+};
+
+pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
+    id: id::FIX_FILE_EXTENSIONS,
+    name: "Fix file extensions",
+    about: "A photo named like cat.jfif goes up as cat.jpg, so Discord shows it in chat instead of as a file to download.",
+    on_at_first: false,
+    settings: &[],
+    apply: |kept, plugin| engine::fix_file_extensions::set(kept.on(plugin)),
+    hooks: None,
+};

@@ -763,3 +763,43 @@ fn the_typing_lines_words_breathe_while_animations_play_and_hold_still_otherwise
     );
     assert_eq!(dim, full, "held still");
 }
+
+/// Send timestamps: a written time goes up as a Discord timestamp, and
+/// stays as typed while the plugin is off.
+#[test]
+fn send_timestamps_sends_a_written_time_as_a_timestamp() {
+    use crate::halocord::{Change, changed, id, place};
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let send = |app: &mut crate::app::App| {
+        interact(app, |ui| {
+            ui.click(Id::new(COMPOSER)).expect("the composer");
+            ui.typewrite("meet at <t:13:30>");
+            ui.tap_key(keyboard::Key::Named(key::Named::Enter));
+        });
+        app.client
+            .state()
+            .messages
+            .last()
+            .expect("sent")
+            .body
+            .clone()
+    };
+    assert_eq!(send(&mut app), "meet at <t:13:30>", "off at first");
+    let plugin = place(id::SEND_TIMESTAMPS).expect("the plugin");
+    let switch = |app: &mut crate::app::App, on| {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Switch { plugin, on },
+        );
+    };
+    switch(&mut app, true);
+    let body = send(&mut app);
+    switch(&mut app, false);
+    let seconds = body
+        .strip_prefix("meet at <t:")
+        .and_then(|rest| rest.strip_suffix(":t>"))
+        .unwrap_or_else(|| panic!("a timestamp, not {body}"));
+    assert!(seconds.parse::<i64>().is_ok(), "{body}");
+}

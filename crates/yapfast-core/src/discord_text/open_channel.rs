@@ -1971,6 +1971,8 @@ impl Rendering {
 /// The name a file goes to Discord under. Discord marks a spoiler by its name
 /// starting `SPOILER_`, as its own client sends one.
 pub(super) fn upload_name(name: &str, spoiler: bool) -> String {
+    // HaloCord's Fix file extensions.
+    let name = &*crate::halocord::fix_file_extensions::name(name);
     if spoiler && !name.starts_with(SPOILER) {
         format!("{SPOILER}{name}")
     } else {

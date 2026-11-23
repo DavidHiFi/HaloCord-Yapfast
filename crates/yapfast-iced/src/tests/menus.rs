@@ -848,3 +848,37 @@ fn every_row_of_a_persons_and_a_places_menu_has_its_icon() {
         assert_eq!(iconless(&app), [""; 0], "{place}'s, {header}");
     }
 }
+
+/// HaloCord's rows in a person's menu carry an icon, as Yapfast's own do.
+#[test]
+fn halocord_rows_in_a_persons_menu_have_icons_too() {
+    use crate::halocord::{Change, changed, id, place};
+    let (mut app, _folder) = super::preview();
+    let _alone = super::plugin_alone();
+    app.client.app = member_server(&["30"]);
+    let _ = app.sync();
+    let plugins = [id::COPY_MENTION, id::COPY_PROFILE_LINK];
+    let switch = |app: &mut App, on| {
+        for found in plugins {
+            let plugin = place(found).expect("the plugin");
+            changed(
+                &mut app.layout,
+                &mut app.client,
+                Change::Switch { plugin, on },
+            );
+        }
+    };
+    switch(&mut app, true);
+    let _ = crate::person_menu::open_person_menu(
+        &mut app,
+        "4",
+        Point::new(300.0, 200.0),
+        crate::person_menu::CONTEXT_MENU,
+    );
+    let rows: Vec<_> = app.win.menu.as_ref().expect("a menu").rows.clone();
+    switch(&mut app, false);
+    for label in ["Copy mention", "Copy profile link"] {
+        let row = rows.iter().find(|row| row.label == label);
+        assert!(row.is_some_and(|row| row.icon.is_some()), "{label}");
+    }
+}
