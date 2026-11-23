@@ -347,6 +347,49 @@ fn a_messages_menu_has_mention_only_for_someone_elses_discord_message() {
     assert!(!has_row(&mut app, "discord:42"));
 }
 
+/// Copy sticker link in the sticker picker: a tile's right click opens the
+/// row, which copies the sticker's address without the thumbnail size; with
+/// the plugin off nothing opens.
+#[test]
+fn a_sticker_picker_tile_has_copy_sticker_link() {
+    use crate::halocord::{Change, Event, changed, place};
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let picture = "https://media.discordapp.net/stickers/1400000000000000300.png?size=160";
+    let ask = |app: &mut crate::app::App| {
+        let _ = app.update(crate::app::Message::HaloCord(Event::StickerMenu(
+            picture.into(),
+        )));
+        let rows: Vec<(String, String)> = app.win.menu.as_ref().map_or_else(Vec::new, |menu| {
+            menu.rows
+                .iter()
+                .map(|row| (row.label.to_string(), row.key.clone()))
+                .collect()
+        });
+        app.win.menu = None;
+        rows
+    };
+    assert!(ask(&mut app).is_empty(), "off at first");
+    let plugin = place("copy-sticker-links").expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    assert_eq!(
+        ask(&mut app),
+        [(
+            "Copy sticker link".to_owned(),
+            "https://media.discordapp.net/stickers/1400000000000000300.png".to_owned()
+        )]
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}
+
 /// A spoiler beside a card's text: a click uncovers it, the next shows
 /// it large, and a right click opens the message's menu with its rows.
 fn a_thumbnail_uncovers_opens_and_has_its_menu(message: ChatMessage) {

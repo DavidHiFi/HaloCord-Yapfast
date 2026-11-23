@@ -167,6 +167,8 @@ Window (`yapfast-iced`):
   colors' rows after the engine's.
 - `message/attachments.rs`: plug-in point 5, `file_card` and `stickers` wrap what they draw in a
   right click (`RightPress`, `Event::Attachment`; a few lines each).
+- `picker/stickers.rs`: a sticker tile's `mouse_area` goes through `halocord::sticker_tile`,
+  which adds Copy sticker link's right click while it's on (one line).
 - `image_viewer.rs`: the `Event::Attachment` variant and its empty arm.
 - `app/screens.rs`: one arm in `image_event` calling `halocord::attachment_menu`.
 - `account.rs`: the User area plugin's options. `height(compact)` beside `HEIGHT`,
