@@ -398,6 +398,7 @@ mod navigation;
 mod people;
 mod pickers;
 mod polls;
+mod rail_drag;
 mod rows;
 mod server;
 mod server_dialogs;

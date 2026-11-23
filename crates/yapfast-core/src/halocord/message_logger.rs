@@ -312,13 +312,10 @@ impl Hooks for MessageLogger {
             clear();
             return Picked {
                 actions: vec![Action::Republish],
-                copy: None,
+                ..Picked::default()
             };
         }
-        Picked {
-            actions: Vec::new(),
-            copy: None,
-        }
+        Picked::default()
     }
 }
 

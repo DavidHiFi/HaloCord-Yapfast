@@ -273,6 +273,57 @@ fn the_input_menu_measures_the_microphone_only_while_it_shows() {
 }
 
 #[test]
+fn the_docks_status_right_clicked_hides_and_shows_the_calls_faces() {
+    let (mut app, _folder, _room) = in_call();
+    assert!(!app.layout.hide_voice_faces, "shown at first, as Discord's");
+    interact(&mut app, |ui| super::right_click(ui, "Preview voice"));
+    assert!(shows(&app, "Show people in the call"));
+    for hidden in [true, false] {
+        interact(&mut app, |ui| {
+            let row = last(ui, "Show people in the call");
+            ui.point_at(row);
+            ui.simulate(iced_test::simulator::click());
+        });
+        assert_eq!(app.layout.hide_voice_faces, hidden);
+        assert!(shows(&app, "Show people in the call"), "a tick keeps it open");
+    }
+}
+
+#[test]
+fn dont_show_this_again_moves_calls_without_asking_from_then_on() {
+    let (mut app, _folder, _room) = in_call();
+    let other = app
+        .client
+        .state()
+        .rooms
+        .iter()
+        .find(|room| room.voice && room.id != "lounge")
+        .map(|room| room.id.clone())
+        .expect("another voice channel");
+    app.client
+        .dispatch(Action::RequestJoinVoice(other.clone()));
+    let _ = app.sync();
+    assert!(shows(&app, "Don't show this again"));
+    interact(&mut app, |ui| {
+        let tick = last(ui, "Don't show this again");
+        ui.point_at(tick);
+        ui.simulate(iced_test::simulator::click());
+    });
+    assert!(app.call.switch_ticked);
+    let _ = app.update(crate::app::Message::Call(Event::Switch(true)));
+    let _ = app.sync();
+    assert!(app.layout.skip_switch_prompt && app.client.state().skip_switch_prompt);
+    assert_eq!(app.client.state().voice.room.as_deref(), Some(other.as_str()));
+    // Back to Lounge: no prompt.
+    app.client
+        .dispatch(Action::RequestJoinVoice("lounge".into()));
+    let _ = app.sync();
+    assert!(app.client.state().switch_voice.is_none());
+    assert_eq!(app.client.state().voice.room.as_deref(), Some("lounge"));
+    assert!(!shows(&app, "Don't show this again"));
+}
+
+#[test]
 fn clicking_the_docks_channel_line_opens_the_call() {
     let (mut app, _folder, room) = in_call();
     app.client

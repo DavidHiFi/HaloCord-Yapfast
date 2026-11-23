@@ -786,6 +786,38 @@ fn native_voice_switch_is_explicit_and_rechecks_trust_before_leaving() {
 }
 
 #[test]
+fn a_skipped_switch_prompt_moves_calls_at_once_and_still_joins_the_first() {
+    let mut app = connected();
+    app.dispatch(Action::SkipSwitchPrompt(true));
+    // Not in a call: joining needs no switch.
+    assert!(matches!(
+        app.dispatch(Action::RequestJoinVoice("lounge".into())).as_slice(),
+        [Effect::Backend(Command::Voice(voice::Command::Join(id)))] if id == "lounge"
+    ));
+    app.apply(Event::Voice(voice::State {
+        phase: Phase::Connected,
+        room: Some("lounge".into()),
+        ..Default::default()
+    }));
+    // In one, another moves there without asking.
+    assert!(matches!(
+        app.dispatch(Action::RequestJoinVoice("party-voice".into())).as_slice(),
+        [
+            Effect::Backend(Command::Voice(voice::Command::Leave)),
+            Effect::Backend(Command::Voice(voice::Command::Join(id)))
+        ] if id == "party-voice"
+    ));
+    assert!(app.state.switch_voice.is_none());
+    // Turned back on in the settings, it asks again.
+    app.dispatch(Action::SkipSwitchPrompt(false));
+    assert!(
+        app.dispatch(Action::RequestJoinVoice("games".into()))
+            .is_empty()
+    );
+    assert_eq!(app.state.switch_voice.as_deref(), Some("games"));
+}
+
+#[test]
 #[cfg(feature = "discord")]
 fn discord_dm_calls_start_ring_and_are_answered() {
     use yapfast_discord::service::{Conversation, Snapshot, Status, VoiceMember};

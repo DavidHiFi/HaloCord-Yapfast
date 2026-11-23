@@ -344,13 +344,11 @@ fn sharing_line<'a>(
             })
             .into()
     };
-    let watchers = sharing.viewers.len();
-    let words = if !live {
-        super::stage::share_status(voice).to_owned()
-    } else if watchers > 0 {
-        format!("Streaming to {} · {watchers} watching", voice.name)
-    } else {
+    // How many watch shows on its own row, under this one.
+    let words = if live {
         format!("Streaming to {}", voice.name)
+    } else {
+        super::stage::share_status(voice).to_owned()
     };
     row![
         container(lead).width(LEAD).align_y(Alignment::Center),
@@ -460,21 +458,38 @@ fn call_faces<'a>(
 /// Who watches this account's screen, under its line: an eye, how many,
 /// the first three's faces overlapping and how many more, everyone's
 /// names in its tooltip.
+/// Who in the call watches your stream, and how many watch in all: Discord
+/// counts some who watch from outside the call too.
+fn watching<'a>(
+    participants: &'a [voice::Participant],
+    viewers: &[String],
+) -> (Vec<&'a voice::Participant>, usize) {
+    let people: Vec<&voice::Participant> = participants
+        .iter()
+        .filter(|person| !person.local && viewers.contains(&person.id))
+        .collect();
+    let me = participants.iter().find(|person| person.local);
+    let others = viewers
+        .iter()
+        .filter(|id| me.is_none_or(|me| &me.id != *id))
+        .count();
+    let count = others.max(people.len());
+    (people, count)
+}
+
 fn watchers<'a>(
     ctx: crate::ctx::Ctx<'a>,
     voice: &'a voice::State,
     sharing: &'a voice::Sharing,
 ) -> Option<Element<'a, Message>> {
-    if sharing.phase != voice::SharePhase::Live || sharing.viewers.is_empty() {
+    if sharing.phase != voice::SharePhase::Live {
         return None;
     }
     let theme = ctx.look.theme;
-    let people: Vec<&voice::Participant> = voice
-        .participants
-        .iter()
-        .filter(|person| !person.local && sharing.viewers.contains(&person.id))
-        .collect();
-    let count = sharing.viewers.len().max(people.len());
+    let (people, count) = watching(&voice.participants, &sharing.viewers);
+    if count == 0 {
+        return None;
+    }
     let shown = people.len().min(3);
     let ring = theme.panel;
     let wide = if shown == 0 {
@@ -575,6 +590,43 @@ fn dock_icon<'a>(
 
 #[cfg(test)]
 mod tests {
+    use yapfast_core::voice;
+
+    #[test]
+    fn your_stream_counts_everyone_watching_and_shows_those_in_the_call() {
+        let person = |id: &str, local: bool| voice::Participant {
+            id: id.into(),
+            user: id.into(),
+            person: id.into(),
+            local,
+            muted: false,
+            deafened: false,
+            server_muted: false,
+            server_deafened: false,
+            speaking: false,
+            connected: true,
+            problem: None,
+            streaming: local,
+            video: None,
+            avatar: None,
+        };
+        let people = [person("me", true), person("ann", false), person("bob", false)];
+        let viewers = ["ann".to_owned(), "far".to_owned()];
+        let (watching, count) = super::watching(&people, &viewers);
+        // Bob doesn't watch; the one from outside the call still counts.
+        assert_eq!(
+            watching
+                .iter()
+                .map(|person| person.id.as_str())
+                .collect::<Vec<_>>(),
+            ["ann"]
+        );
+        assert_eq!(count, 2);
+        // Never you, even if Discord lists you.
+        let viewers = ["me".to_owned()];
+        assert_eq!(super::watching(&people, &viewers), (Vec::new(), 0));
+    }
+
     #[test]
     fn the_call_time_reads_as_a_clock() {
         use std::time::Duration;

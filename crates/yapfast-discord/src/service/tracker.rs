@@ -2666,6 +2666,54 @@ mod tests {
             order(&tracker),
             ["Echo", "Bravo", "Delta", "Alpha", "Charlie"]
         );
+        assert_eq!(tracker.snapshot().folders, [games.clone()]);
+
+        // A drag on the rail shows at once, before Discord agrees.
+        let moved = settings::write_server_list(&[
+            settings::Folder { servers: vec!["30".into()], ..Default::default() },
+            settings::Folder { servers: vec!["20".into()], ..Default::default() },
+            games.clone(),
+        ]);
+        tracker.arrange_servers(Some(&moved));
+        assert_eq!(
+            order(&tracker),
+            ["Echo", "Charlie", "Bravo", "Delta", "Alpha"]
+        );
+        // A second drag before the answer still falls back to Discord's.
+        let again = settings::write_server_list(&[
+            games.clone(),
+            settings::Folder { servers: vec!["30".into()], ..Default::default() },
+            settings::Folder { servers: vec!["20".into()], ..Default::default() },
+        ]);
+        tracker.arrange_servers(Some(&again));
+        assert_eq!(
+            order(&tracker),
+            ["Echo", "Delta", "Alpha", "Charlie", "Bravo"]
+        );
+        // Discord refused: its own order comes back.
+        tracker.arrange_servers(None);
+        assert_eq!(
+            order(&tracker),
+            ["Echo", "Bravo", "Delta", "Alpha", "Charlie"]
+        );
+        tracker.arrange_servers(None);
+        assert_eq!(
+            order(&tracker),
+            ["Echo", "Bravo", "Delta", "Alpha", "Charlie"],
+            "nothing sent, nothing to put back"
+        );
+
+        // Sent, then Discord's settings arrive with it: they stand.
+        tracker.arrange_servers(Some(&moved));
+        tracker.apply(
+            &Event::UserSettingsProtoUpdate,
+            &json!({"settings": {"type": 1, "proto": moved}}),
+        );
+        tracker.arrange_servers(None);
+        assert_eq!(
+            order(&tracker),
+            ["Echo", "Charlie", "Bravo", "Delta", "Alpha"]
+        );
         assert_eq!(tracker.snapshot().folders, [games]);
     }
 

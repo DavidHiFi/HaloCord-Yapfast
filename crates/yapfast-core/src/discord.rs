@@ -1817,6 +1817,48 @@ mod tests {
     use super::*;
 
     #[test]
+    fn the_rails_order_becomes_discords_folders_with_fresh_ids_for_new_ones() {
+        let folder = |id: &str, name: Option<&str>| chat::ServerFolder {
+            id: id.into(),
+            name: name.map(str::to_owned),
+            color: Some(0x89b4fa),
+        };
+        let groups = [
+            chat::ServerGroup {
+                folder: None,
+                servers: vec![server_id("30")],
+            },
+            chat::ServerGroup {
+                folder: Some(folder("discord-folder:7", Some("Games"))),
+                servers: vec![server_id("10"), server_id("40")],
+            },
+            // Two the drag just made, before Discord named them.
+            chat::ServerGroup {
+                folder: Some(folder("", None)),
+                servers: vec![server_id("20"), server_id("50")],
+            },
+            chat::ServerGroup {
+                folder: Some(folder("discord-folder:new", None)),
+                servers: vec![server_id("60"), server_id("70")],
+            },
+        ];
+        let entries = server_list_entries(&groups);
+        assert_eq!(entries.len(), 4);
+        assert!(entries[0].id.is_empty() && entries[0].servers == ["30"]);
+        assert_eq!(entries[1].id, "7");
+        assert_eq!(entries[1].name.as_deref(), Some("Games"));
+        assert_eq!(entries[1].color, Some(0x89b4fa));
+        assert_eq!(entries[1].servers, ["10", "40"]);
+        let fresh: Vec<u64> = entries[2..]
+            .iter()
+            .map(|entry| entry.id.parse().expect("a number"))
+            .collect();
+        assert!(fresh.iter().all(|&id| id != 0 && id != 7 && id <= 0xffff_ffff));
+        assert_ne!(fresh[0], fresh[1], "each new folder has its own");
+        assert_eq!(entries[3].servers, ["60", "70"]);
+    }
+
+    #[test]
     fn a_frames_layers_decode_larger_than_a_decorations_still() {
         let cdn = "https://cdn.discordapp.com/media/v1/collectibles-shop";
         assert!(is_frame_layer(&format!("{cdn}/9/a/static")));
