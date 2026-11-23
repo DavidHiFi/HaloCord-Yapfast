@@ -4,7 +4,7 @@
 use iced::Task;
 use yapfast_core::{application::Action, chat::ChatMessage, halocord as engine};
 
-use super::{Plugin, id};
+use super::{Plugin, id, off};
 use crate::{
     app::{App, Message},
     menus::{MenuAct, MenuRow},
@@ -94,9 +94,20 @@ pub(super) const COPY_PROFILE_COLORS: Plugin = Plugin {
 pub(super) const FIND_REPLY: Plugin = Plugin {
     id: id::FIND_REPLY,
     name: "Find reply",
-    about: "Adds Jump to reply to a message's right-click menu when someone replied to it. It takes you to the first reply.",
+    about: "Adds Jump to reply to a message's right-click menu when someone replied to it. It takes you to the first reply. With a switch below on, it can also take you to a later reply to the author, or a mention of them.",
     on_at_first: false,
-    settings: &[],
+    settings: &[
+        off(
+            "author",
+            "Also replies to the author",
+            "Counts a later reply from someone else to any of the author's messages, not only this one.",
+        ),
+        off(
+            "pings",
+            "Also messages that mention the author",
+            "Counts a later message from someone else that @mentions the author.",
+        ),
+    ],
     apply: |_, _| {},
     hooks: None,
 };
@@ -141,20 +152,60 @@ fn profile_colors(app: &App, user: &str) -> Option<String> {
     Some(format!("#{primary:06X}, #{accent:06X}"))
 }
 
-/// The first loaded message that replies to `item` (Find reply).
+/// The first loaded message that replies to `item` (Find reply), or, with
+/// its switches on, a later one that answers or mentions its author.
 fn first_reply(app: &App, item: &str) -> Option<String> {
-    app.client
-        .state()
-        .messages
+    let messages = &app.client.state().messages;
+    let answers = |later: &ChatMessage| {
+        later.reply.as_ref().and_then(|reply| reply.item.as_deref()) == Some(item)
+    };
+    let kept = &app.layout.halocord;
+    let (to_author, pings) = (
+        kept.flag(&FIND_REPLY, &FIND_REPLY.settings[0]),
+        kept.flag(&FIND_REPLY, &FIND_REPLY.settings[1]),
+    );
+    let at = messages.iter().position(|message| message.item == item);
+    let (Some(at), true) = (at, to_author || pings) else {
+        return messages
+            .iter()
+            .find(|message| answers(message))
+            .map(|message| message.item.clone());
+    };
+    // The switches: later messages from someone else that answer the
+    // author, or mention them.
+    let message = &messages[at];
+    let user = yapfast_core::discord::sender_user(&message.sender).filter(|user| !user.is_empty());
+    messages[at + 1..]
         .iter()
-        .find(|message| {
-            message
-                .reply
-                .as_ref()
-                .and_then(|reply| reply.item.as_deref())
-                == Some(item)
+        .find(|later| {
+            let someone_else = later.sender != message.sender;
+            answers(later)
+                || (to_author
+                    && someone_else
+                    && later.reply.as_ref().is_some_and(|reply| {
+                        // By the answered message's sender when it's loaded;
+                        // else by the name the reply shows, as a reply
+                        // carries no sender of its own.
+                        match reply
+                            .item
+                            .as_deref()
+                            .and_then(|item| messages.iter().find(|shown| shown.item == item))
+                        {
+                            Some(answered) => answered.sender == message.sender,
+                            None => reply.author == message.author,
+                        }
+                    }))
+                || (pings
+                    && someone_else
+                    && user.is_some_and(|user| {
+                        later.mentions.iter().any(|mentioned| {
+                            matches!(&mentioned.target, yapfast_core::mention::Target::User(id)
+                                if id == user
+                                    || yapfast_core::discord::sender_user(id) == Some(user))
+                        })
+                    }))
         })
-        .map(|message| message.item.clone())
+        .map(|found| found.item.clone())
 }
 
 /// A row of the window's own plugins, which need more than the engine is
