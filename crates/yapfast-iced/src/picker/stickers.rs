@@ -361,10 +361,10 @@ impl<'a> View<'a> {
                             4.0,
                         ));
                     }
-                    mouse_area(layers)
+                    let tile = mouse_area(layers)
                         .on_enter(Message::Picker(Event::Hover(index)))
-                        .on_exit(Message::Picker(Event::Left(index)))
-                        .into()
+                        .on_exit(Message::Picker(Event::Left(index)));
+                    crate::halocord::sticker_tile(self.cx, picture, tile).into()
                 }
             });
         let grid: Element<'a, Message> = if tab.grid.tiles.is_empty() {

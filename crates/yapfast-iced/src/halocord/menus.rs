@@ -44,12 +44,40 @@ pub(super) const COPY_FILE_TEXT: Plugin = Plugin {
 pub(super) const COPY_STICKER_LINK: Plugin = Plugin {
     id: id::COPY_STICKER_LINK,
     name: "Copy sticker link",
-    about: "Adds Copy sticker link to a sticker's right-click menu. It copies the web address of the sticker.",
+    about: "Adds Copy sticker link to a sticker's right-click menu, in a message and in the sticker picker. It copies the web address of the sticker.",
     on_at_first: false,
     settings: &[],
     apply: |_, _| {},
     hooks: Some(&engine::copy_sticker_link::CopyStickerLink),
 };
+
+/// Copy sticker link in the sticker picker: a tile's right click opens
+/// the row, while the plugin is on.
+pub fn sticker_tile<'a>(
+    cx: crate::ctx::Ctx<'a>,
+    picture: &str,
+    tile: iced::widget::MouseArea<'a, Message>,
+) -> iced::widget::MouseArea<'a, Message> {
+    if !cx.layout.halocord.on(&COPY_STICKER_LINK) || picture.is_empty() {
+        return tile;
+    }
+    tile.on_right_press(Message::HaloCord(super::Event::StickerMenu(
+        picture.to_owned(),
+    )))
+}
+
+/// A picker tile's menu: Copy sticker link, the sticker's address without
+/// the picker's thumbnail size.
+pub(super) fn sticker_menu(app: &mut App, picture: &str) -> Task<Message> {
+    if !app.layout.halocord.on(&COPY_STICKER_LINK) {
+        return Task::none();
+    }
+    let link = picture.split_once('?').map_or(picture, |(base, _)| base);
+    // No icon, as the row on a sent sticker has none.
+    let copy = MenuRow::plain(MenuAct::CopyTextLink, "Copy sticker link").key(link);
+    app.win.menu = Some(crate::menus::Menu::new(app.pressed.get(), vec![copy]));
+    iced::widget::operation::focus(crate::app::NOBODY)
+}
 
 pub(super) const QUICK_MENTION: Plugin = Plugin {
     id: id::QUICK_MENTION,
