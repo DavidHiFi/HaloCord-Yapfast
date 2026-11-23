@@ -11,6 +11,7 @@ pub mod copy_user_mention;
 pub mod copy_user_url;
 pub mod fix_file_extensions;
 pub mod new_user;
+pub mod notification_title;
 pub mod quick_mention;
 pub mod send_timestamps;
 pub mod staff;

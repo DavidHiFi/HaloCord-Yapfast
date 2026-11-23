@@ -240,6 +240,16 @@ pub(super) const SEND_TIMESTAMPS: Plugin = Plugin {
     hooks: None,
 };
 
+pub(super) const NOTIFICATION_TITLE: Plugin = Plugin {
+    id: id::NOTIFICATION_TITLE,
+    name: "Notification title",
+    about: "A reply's notification says whom it replies to: \"Sam replied to Lena\" where it says \"Sam\".",
+    on_at_first: false,
+    settings: &[],
+    apply: |kept, plugin| engine::notification_title::set(kept.on(plugin)),
+    hooks: None,
+};
+
 pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     id: id::FIX_FILE_EXTENSIONS,
     name: "Fix file extensions",

@@ -174,3 +174,26 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Notification title: its switch reaches the core, which then names whom a
+/// reply's notification replies to, and stops again once it's off.
+#[test]
+fn notification_title_names_whom_a_reply_replies_to() {
+    use yapfast_core::halocord::notification_title::author;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let lena = || Some("Lena".to_owned());
+    assert_eq!(author("Sam".into(), lena), "Sam", "off at first");
+    turn_on(&mut app, id::NOTIFICATION_TITLE);
+    assert_eq!(author("Sam".into(), lena), "Sam replied to Lena");
+    assert_eq!(author("Sam".into(), || None), "Sam", "not a reply");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::NOTIFICATION_TITLE).expect("the plugin"),
+            on: false,
+        },
+    );
+    assert_eq!(author("Sam".into(), lena), "Sam");
+}

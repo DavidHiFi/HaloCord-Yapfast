@@ -20,6 +20,17 @@ pub(super) fn notification(
             &message.author_id,
         )
         .unwrap_or_else(|| message.author.clone());
+    // HaloCord's Notification title (docs/halocord.md): "Sam replied to Lena".
+    let author = crate::halocord::notification_title::author(author, || match &message.reply {
+        Some(yapfast_discord::message::Reply::Message {
+            author_id, author, ..
+        }) => Some(
+            discord
+                .name(guild.unwrap_or(yapfast_discord::ready::PRIVATE), author_id)
+                .unwrap_or_else(|| author.clone()),
+        ),
+        _ => None,
+    });
     // A message of components says what its first text does.
     let text = match message.content.as_str() {
         "" => message
