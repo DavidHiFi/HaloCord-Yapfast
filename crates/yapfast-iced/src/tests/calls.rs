@@ -1023,3 +1023,59 @@ fn user_voice_show_marks_messages_and_profiles() {
         "someone not in voice"
     );
 }
+
+/// Staff tag outside chat: each place's switch, off at first, puts the tag
+/// by an admin's name in the member list, under voice channels and on
+/// profiles; the owner gets none in the member list, which crowns them, but
+/// does under voice channels; an ordinary member gets none.
+#[test]
+fn staff_tag_shows_in_each_place_switched_on() {
+    use crate::halocord::{Change, Place, STAFF_TAG, changed, name_marks, place};
+    let (mut app, _folder) = super::preview();
+    app.client.app = yapfast_core::application::member_server(&["30"]);
+    app.client.app.state.account = Some("1".into());
+    app.client.app.state.selected = Some("discord:10:12".into());
+    let _ = app.sync();
+    let plugin = place(STAFF_TAG).unwrap();
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: true },
+    );
+    let places = [Place::MemberList, Place::Voice, Place::Profile];
+    for at in places {
+        assert!(
+            name_marks(app.ctx(), "6", at).is_none(),
+            "{at:?} off at first"
+        );
+    }
+    for setting in [2, 3, 4] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Flag {
+                plugin,
+                setting,
+                on: true,
+            },
+        );
+    }
+    for at in places {
+        assert!(
+            name_marks(app.ctx(), "6", at).is_some(),
+            "Gus, an admin: {at:?}"
+        );
+        assert!(
+            name_marks(app.ctx(), "3", at).is_none(),
+            "Cara, no rank: {at:?}"
+        );
+    }
+    assert!(
+        name_marks(app.ctx(), "99", Place::MemberList).is_none(),
+        "the owner's crown"
+    );
+    assert!(
+        name_marks(app.ctx(), "99", Place::Voice).is_some(),
+        "the owner elsewhere"
+    );
+}

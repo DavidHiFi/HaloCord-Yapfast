@@ -41,7 +41,8 @@ whole list to carry across.
   and the plug-in points: the `Hooks` a plugin writes, `plug` to put
   them in or take them out, and the calls each hook below makes.
 - `crates/yapfast-core/src/halocord/staff.rs`: the staff tag plugin's hook (owner,
-  admin and mod by names in chat) and its crown and role-colour switches.
+  admin and mod by names in chat), its crown and role-colour switches, and `tag_of`, the
+  tag by a name outside chat (member list, voice channels, profiles).
 - `crates/yapfast-core/src/halocord/copy_user_mention.rs`: Copy mention in a
   Discord user's menu.
 - `crates/yapfast-core/src/halocord/copy_media_link.rs`: Copy file link in a file's
@@ -182,6 +183,7 @@ Window (`yapfast-iced`):
   before the badge on a voice channel's row (one `if let`).
 - `members.rs`: `member_row` draws the timed-out clock with `halocord::timeout_clock` (Show
   timeout duration's time left on pointing), pushes `halocord::in_voice_mark` after it, then
+  `halocord::name_marks` with `Place::MemberList` (Staff tag's admins and mods), then
   `halocord::platform_marks` (one `if let` each).
 - `sidebar/dms.rs` (a DM's row, after its tags, through `halocord::dm_marks` by the room),
   `message/mod.rs` (`author_line`, after the
