@@ -237,6 +237,18 @@ fn search_result_menu_jumps_to_a_found_message() {
         Some(item.as_str()),
         "jumped to it"
     );
+    // A hit with no text (a file alone): no Copy text, as in a message's
+    // own menu.
+    super::change(&mut app, |state| {
+        if let Some(search) = &mut state.search {
+            search.results[0].message.body = String::new();
+        }
+    });
+    let labels = open(&mut app).expect("the menu");
+    assert!(
+        !labels.iter().any(|label| label == "Copy text"),
+        "{labels:?}"
+    );
     changed(
         &mut app.layout,
         &mut app.client,

@@ -375,13 +375,14 @@ fn search_hit<'a>(app: &'a App, item: &str) -> Option<&'a yapfast_core::chat::Se
         .find(|hit| hit.message.item == item)
 }
 
-/// A Discord message's link and id, by its room and item.
+/// A Discord message's link and id, by its room and item, made as Copy
+/// message link makes them.
 fn search_link(room: &str, item: &str) -> Option<(String, String)> {
-    let (guild, channel) = yapfast_core::discord::parse_room(room)?;
-    let id = item.strip_prefix("d:")?;
+    let id = yapfast_core::discord::item_order(item)?;
+    yapfast_core::discord::parse_room(room)?;
     Some((
-        format!("https://discord.com/channels/{guild}/{channel}/{id}"),
-        id.to_owned(),
+        format!("{}/{id}", yapfast_core::application::network_link(room)),
+        id.to_string(),
     ))
 }
 
@@ -395,10 +396,10 @@ pub(super) fn search_menu(app: &mut App, room: String, item: String) -> Task<Mes
     let row = |label: &'static str, icon: Icon, action: &str| {
         MenuRow::new(MenuAct::Plugin, label, icon).key(format!("{}/{action}", id::SEARCH_MENU))
     };
-    let mut rows = vec![
-        row("Jump to message", Icon::ArrowRight, "jump"),
-        row("Copy text", Icon::Copy, "text"),
-    ];
+    let mut rows = vec![row("Jump to message", Icon::ArrowRight, "jump")];
+    if !message.body.is_empty() {
+        rows.push(row("Copy text", Icon::Copy, "text"));
+    }
     if search_link(&room, &item).is_some() {
         rows.push(row("Copy message link", Icon::Chain, "link"));
         rows.push(row("Copy message ID", Icon::Id, "id"));
