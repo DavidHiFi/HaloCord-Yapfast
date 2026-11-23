@@ -168,6 +168,7 @@ pub struct App {
     pub server_dialogs: crate::server_dialogs::Dialogs,
     /// What's chosen in an event's, gift's or authorization's dialog.
     pub link_dialogs: crate::link_dialogs::LinkDialogs,
+    pub fake_dm: crate::halocord::FakeDialog,
     /// Whether Discord heard nobody is using Yapfast.
     pub away: crate::away::Away,
     pub channel_screen: crate::slot::Slot<crate::channel_settings::Screen>,
@@ -235,6 +236,7 @@ impl App {
         layout.remember(&mut client.app);
         // How calls send and play, as Voice's settings keep it; message
         // times on the clock Messages chose; the games named by hand.
+        yapfast_core::halocord::fake_dms::open(client.root());
         layout.halocord.apply();
         layout.voice.apply();
         layout.mochacord.apply();
@@ -305,6 +307,7 @@ impl App {
             server_screen: Default::default(),
             server_dialogs: Default::default(),
             link_dialogs: Default::default(),
+            fake_dm: Default::default(),
             away: Default::default(),
             channel_screen: Default::default(),
             status: Default::default(),
@@ -542,6 +545,10 @@ impl App {
             Message::ServerDialog(event) => {
                 let mut cx = crate::ctx::cx!(self);
                 self.server_dialogs.update(event, &mut cx)
+            }
+            Message::FakeDm(event) => {
+                let mut cx = crate::ctx::cx!(self);
+                self.fake_dm.update(event, &mut cx)
             }
             Message::LinkDialog(event) => {
                 let mut cx = crate::ctx::cx!(self);

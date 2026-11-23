@@ -376,6 +376,7 @@ mod halocord_feature_pictures;
 mod halocord_features;
 mod halocord_fixes;
 mod halocord_menu_pictures;
+mod halocord_messages;
 mod halocord_pictures;
 mod header;
 mod link_dialogs;

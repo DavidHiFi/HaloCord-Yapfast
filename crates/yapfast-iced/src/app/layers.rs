@@ -33,6 +33,8 @@ pub enum Layer {
     NewDm,
     Poll,
     LinkDialog,
+    /// HaloCord's Fake DMs box.
+    FakeDm,
     ServerDialog,
     /// A search's Filters dialog.
     SearchFilters,
@@ -71,7 +73,7 @@ pub enum Layer {
 }
 
 /// Every layer, in the order they take keys and Escape.
-const LAYERS: [Layer; 42] = [
+const LAYERS: [Layer; 43] = [
     Layer::Inbox,
     Layer::Mfa,
     Layer::ConfirmDelete,
@@ -82,6 +84,7 @@ const LAYERS: [Layer; 42] = [
     Layer::NewDm,
     Layer::Poll,
     Layer::LinkDialog,
+    Layer::FakeDm,
     Layer::ServerDialog,
     Layer::SearchFilters,
     Layer::StatusEditor,
@@ -169,6 +172,7 @@ impl Layer {
                 | Layer::NewDm
                 | Layer::Poll
                 | Layer::LinkDialog
+                | Layer::FakeDm
                 | Layer::ServerDialog
                 | Layer::SearchFilters
                 | Layer::StatusEditor
@@ -243,6 +247,7 @@ impl Layer {
                 | Layer::Switcher
                 | Layer::ServerDialog
                 | Layer::LinkDialog
+                | Layer::FakeDm
                 | Layer::SearchFilters
                 | Layer::HeaderPopover
                 | Layer::Search
@@ -267,6 +272,7 @@ impl App {
             Layer::NewDm => state.new_dm.is_some(),
             Layer::Poll => state.poll_draft.is_some(),
             Layer::LinkDialog => crate::link_dialogs::is_open(state),
+            Layer::FakeDm => self.fake_dm.is_open(),
             Layer::SearchFilters => crate::search_filters::is_open(self),
             Layer::ServerDialog => crate::server_dialogs::is_open(state),
             Layer::StatusEditor => state.status_editor.is_some(),
@@ -502,6 +508,7 @@ impl App {
                 let mut cx = crate::ctx::cx!(self);
                 self.link_dialogs.key(named, &mut cx)
             }
+            (Layer::FakeDm, _) => self.fake_dm.key(named),
             (Layer::ServerDialog, _) => {
                 let mut cx = crate::ctx::cx!(self);
                 self.server_dialogs.key(named, &mut cx)
@@ -626,6 +633,7 @@ impl App {
             | Layer::Viewer
             | Layer::Switcher
             | Layer::LinkDialog
+            | Layer::FakeDm
             | Layer::ServerDialog
             | Layer::PersonDialog => Task::none(),
         }

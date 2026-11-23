@@ -2834,6 +2834,11 @@ pub enum DiscordCommand {
         room: String,
         item: String,
     },
+    /// Draws `room`'s open chat again, with no request: HaloCord's Fake DMs
+    /// changed its fake messages.
+    Republish {
+        room: String,
+    },
     /// The GIF picker's home: trending terms with a GIF each, and a GIF for
     /// "Trending GIFs"; [`Event::GifCategories`] follows.
     GifCategories,

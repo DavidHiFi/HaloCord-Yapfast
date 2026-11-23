@@ -357,7 +357,7 @@ pub fn open_menu(app: &mut App, index: usize, at: Point) -> Task<Message> {
     let Some(message) = crate::timeline::row_message(app, index).cloned() else {
         return Task::none();
     };
-    if message.deleted {
+    if message.deleted && !crate::halocord::kept_deleted(&message) {
         return Task::none();
     }
     let row = MenuRow::new;
@@ -418,6 +418,7 @@ pub fn open_menu(app: &mut App, index: usize, at: Point) -> Task<Message> {
     // only this account sees or one still to come.
     let takes_apps = index < crate::timeline::ASIDE
         && sent
+        && !crate::halocord::is_fake_row(&message)
         && message.flags & (crate::message::EPHEMERAL | crate::message::LOADING) == 0;
     let apps = takes_apps.then(|| apps_row(app)).flatten();
     let apps_due = takes_apps && apps.is_none();

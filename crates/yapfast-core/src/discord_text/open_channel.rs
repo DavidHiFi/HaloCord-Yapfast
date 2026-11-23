@@ -1514,6 +1514,7 @@ impl OpenChannel {
         self.load_originals(discord, done);
         let snapshot = discord.snapshots().borrow().clone();
         let me = snapshot.user_id.clone().unwrap_or_default();
+        crate::halocord::message_logger::note_me(&me);
         let server = snapshot
             .servers
             .iter()
@@ -1591,6 +1592,18 @@ impl OpenChannel {
             self.rendered.insert(*order, Arc::clone(&row));
             rows.push(row);
         }
+        crate::halocord::fake_dms::merge(
+            &mut rows,
+            &self.room,
+            &me,
+            self.detached(),
+            &|user, fallback| crate::halocord::fake_dms::Who {
+                name: name(user, fallback),
+                avatar: Some(discord.avatar(Some(&self.guild), user)),
+                color: server.and_then(|server| discord.color(server, user)),
+            },
+            &|text| rendered(discord, server.map(|server| &**server), text),
+        );
         let me_name = name(&me, "You");
         let me_avatar = discord.avatar(Some(&self.guild), &me);
         let me_color = server.and_then(|server| discord.color(server, &me));
@@ -1788,7 +1801,7 @@ impl OpenChannel {
         // Discord's client: Discord has no copy to reply to, react to, pin
         // or delete.
         let shared = !message.ephemeral;
-        ChatMessage {
+        let mut row = ChatMessage {
             id,
             item: format!("d:{}", message.id),
             application_id: message.application_id.clone(),
@@ -1857,7 +1870,9 @@ impl OpenChannel {
             poll: message.poll.as_ref().map(|poll| chat_poll(poll, own)),
             voice: chat_voice(message),
             notice: chat_notice(message),
-        }
+        };
+        crate::halocord::message_logger::mark(&mut row, &message.id);
+        row
     }
 
     /// The thread a message leads to, as Yapfast knows it now if it does: its
@@ -1988,6 +2003,13 @@ fn change(messages: &mut BTreeMap<u64, Message>, channel: &str, event: &Live) ->
     match event {
         Live::Updated(message) if message.channel_id == channel => {
             let known = messages.get_mut(&message.order())?;
+            crate::halocord::message_logger::edited(
+                &known.author_id,
+                known.bot,
+                &known.id,
+                &known.content,
+                &message.content,
+            );
             // Updates don't always carry reactions; keep the counted ones,
             // and a poll's votes unless it carries them, and the original a
             // reply answers unless it says what became of it.
@@ -2024,6 +2046,11 @@ fn change(messages: &mut BTreeMap<u64, Message>, channel: &str, event: &Live) ->
             id: message,
         } if id == channel => {
             let order = message.parse().unwrap_or_default();
+            let known = messages.get(&order)?;
+            // HaloCord's Message Logger keeps it in the chat, marked deleted.
+            if crate::halocord::message_logger::keeps(&known.author_id, known.bot, &known.id) {
+                return Some(order);
+            }
             messages.remove(&order).map(|_| order)
         }
         Live::Reaction {

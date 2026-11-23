@@ -133,6 +133,7 @@ pub enum Message {
     /// (`server_dialogs.rs`).
     ServerDialog(crate::server_dialogs::Event),
     LinkDialog(crate::link_dialogs::Event),
+    FakeDm(crate::halocord::FakeEvent),
     ChannelSettings(crate::channel_settings::Event),
     Status(crate::status::Event),
     Switcher(crate::switcher::Event),
