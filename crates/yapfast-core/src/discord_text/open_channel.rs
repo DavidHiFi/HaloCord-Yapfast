@@ -804,6 +804,8 @@ impl OpenChannel {
                     let data = tokio::fs::read(&path)
                         .await
                         .map_err(|_| format!("Yapfast could not read {name}."))?;
+                    // HaloCord's Auto zipper.
+                    let (name, data) = crate::halocord::auto_zipper::zipped(name, data);
                     read.push((upload_name(&name, spoiler), data));
                 }
                 let sending = yapfast_discord::api::Sending {

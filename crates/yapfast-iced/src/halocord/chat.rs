@@ -364,6 +364,29 @@ pub(super) const EMBEDDED_URLS: Plugin = Plugin {
     hooks: None,
 };
 
+pub(super) const AUTO_ZIPPER: Plugin = Plugin {
+    id: id::AUTO_ZIPPER,
+    name: "Auto zipper",
+    about: "A file with one of these extensions goes up as a ZIP holding it, named like scene.blend.zip, so Discord takes it whole as an archive. The ZIP is made from the file as it's sent, with no compression, so a file over Discord's upload limit is still over it.",
+    on_at_first: false,
+    settings: &[Setting {
+        key: "extensions",
+        heading: "EXTENSIONS",
+        note: "Separated by commas.",
+        kind: Kind::Text {
+            placeholder: ".psd, .blend",
+            unless_changed: ".psd,.blend,.exe,.apk",
+        },
+    }],
+    apply: |kept, plugin| {
+        engine::auto_zipper::set(
+            kept.on(plugin)
+                .then(|| kept.text(plugin, &plugin.settings[0])),
+        );
+    },
+    hooks: None,
+};
+
 pub(super) const FIX_FILE_EXTENSIONS: Plugin = Plugin {
     id: id::FIX_FILE_EXTENSIONS,
     name: "Fix file extensions",

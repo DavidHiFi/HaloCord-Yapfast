@@ -108,6 +108,8 @@ whole list to carry across.
   `.jfif` photo goes up as `.jpg`) and its tests.
 - `crates/yapfast-core/src/halocord/embedded_urls.rs`: Embedded URLs (a post's link goes
   up with an embed fixer's site in its place) and its tests.
+- `crates/yapfast-core/src/halocord/auto_zipper.rs`: Auto zipper (a listed file goes up
+  as a stored ZIP of it, made in memory) and its tests.
 - `crates/yapfast-core/src/discord_audio/flat.rs`: the stereo loader's flat
   microphone, and the switch between it and Yapfast's own capture mid-call.
 
@@ -307,7 +309,9 @@ Window (`yapfast-iced`):
   `halocord::send_timestamps::wire` first (Send timestamps), then
   `halocord::embedded_urls::wire` (Embedded URLs).
 - Core `discord_text/open_channel.rs`: `upload_name` runs the name through
-  `halocord::fix_file_extensions::name` first (Fix file extensions).
+  `halocord::fix_file_extensions::name` first (Fix file extensions), and
+  `start_send` runs each file's name and bytes through `halocord::auto_zipper::zipped`
+  before naming it (Auto zipper).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
 - `tests/calls.rs`, `tests/media.rs`, `tests/menus.rs`, `tests/navigation.rs`,
   `tests/writing.rs`: tests of the Volume booster, the copy rows, the buttons beside

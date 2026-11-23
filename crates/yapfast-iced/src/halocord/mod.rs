@@ -126,6 +126,7 @@ pub mod id {
     pub const MESSAGE_LOGGER: &str = "message-logger";
     pub const STREAM_DECK: &str = "stream-deck";
     pub const EMBEDDED_URLS: &str = "embedded-urls";
+    pub const AUTO_ZIPPER: &str = "auto-zipper";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -176,6 +177,7 @@ pub static PLUGINS: &[Plugin] = &[
     messages::MESSAGE_LOGGER,
     deck::STREAM_DECK,
     chat::EMBEDDED_URLS,
+    chat::AUTO_ZIPPER,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
