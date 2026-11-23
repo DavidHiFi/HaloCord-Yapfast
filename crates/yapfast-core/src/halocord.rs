@@ -2,7 +2,7 @@
 //! Yapfast's own files carry only the hooks that call in. `docs/halocord.md`
 //! lists every hook.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 pub mod copy_file_contents;
 pub mod copy_media_link;
@@ -15,7 +15,7 @@ pub mod staff;
 pub mod themes;
 
 use crate::{
-    application::{Action, Application, Effect},
+    application::{Action, Application, Effect, INVITE_AGES, INVITE_USES},
     chat::{ChatMessage, Command, Event},
 };
 
@@ -76,6 +76,43 @@ pub fn set_volume_cap(percent: Option<u32>) {
 /// How far a person's and a stream's volume slider goes, in percent.
 pub fn volume_cap() -> u32 {
     VOLUME_CAP.load(Ordering::Relaxed)
+}
+
+/// No first invite picked: a new invite dialog starts as Discord's does.
+const NO_INVITE: u64 = u64::MAX;
+#[cfg(not(test))]
+static FIRST_INVITE: AtomicU64 = AtomicU64::new(NO_INVITE);
+
+#[cfg(test)]
+thread_local! {
+    // Each test picks its own, out of the way of the tests beside it.
+    static FIRST_INVITE: AtomicU64 = const { AtomicU64::new(NO_INVITE) };
+}
+
+fn first_invite_cell<T>(with: impl FnOnce(&AtomicU64) -> T) -> T {
+    #[cfg(not(test))]
+    return with(&FIRST_INVITE);
+    #[cfg(test)]
+    return FIRST_INVITE.with(with);
+}
+
+/// Sets what a new invite dialog's link starts with (Invite defaults): how
+/// long it lasts and how many times it works, in seconds and uses, or
+/// Discord's 7 days and any number of times for `None`. A pair that isn't
+/// one of the dialog's own choices counts as `None`.
+pub fn set_first_invite(invite: Option<(u32, u32)>) {
+    let packed = invite
+        .filter(|(age, uses)| INVITE_AGES.contains(age) && INVITE_USES.contains(uses))
+        .map_or(NO_INVITE, |(age, uses)| {
+            u64::from(age) << 32 | u64::from(uses)
+        });
+    first_invite_cell(|cell| cell.store(packed, Ordering::Relaxed));
+}
+
+/// What a new invite dialog's link starts with, when Invite defaults set it.
+pub fn first_invite() -> Option<(u32, u32)> {
+    let packed = first_invite_cell(|cell| cell.load(Ordering::Relaxed));
+    (packed != NO_INVITE).then_some(((packed >> 32) as u32, packed as u32))
 }
 
 static MONO: AtomicBool = AtomicBool::new(false);

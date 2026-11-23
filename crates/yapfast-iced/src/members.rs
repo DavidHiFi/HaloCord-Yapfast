@@ -695,8 +695,8 @@ impl<'a> View<'a> {
                 .gap(6),
             );
         }
-        if look.timed_out {
-            name_line = name_line.push(self.cx.look.glyph(Icon::Clock, 14, theme.danger));
+        if let Some(until) = look.timed_out {
+            name_line = name_line.push(crate::halocord::timeout_clock(self.cx, until));
         }
         if let Some(mark) = crate::halocord::in_voice_mark(self.cx, &look.id) {
             name_line = name_line.push(mark);

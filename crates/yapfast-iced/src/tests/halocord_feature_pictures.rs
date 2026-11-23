@@ -1,4 +1,4 @@
-//! Pictures of build 8's features, drawn by the window in the MochaCord
+//! Pictures of build 8's and 9's features, drawn by the window in the MochaCord
 //! theme. Each test is ignored: it writes `audit/plugins/features-<name>.png`
 //! for the owner to look at. Run them with `cargo test -p yapfast-iced --lib
 //! -- --include-ignored halocord_feature_pictures`.
@@ -41,6 +41,12 @@ fn turn_on(app: &mut App, id: &str) {
 /// A window in the MochaCord theme, the system's bar replaced by Yapfast's.
 fn mocha() -> (App, tempfile::TempDir) {
     let (mut app, folder) = preview();
+    themed(&mut app);
+    (app, folder)
+}
+
+/// `app` in the MochaCord theme, the system's bar replaced by Yapfast's.
+fn themed(app: &mut App) {
     app.shell.frame.height = 2400.0;
     let _ = app.update(Message::Settings(Event::Open(Section::Appearance)));
     let _ = app.update(crate::settings::appearance_event(
@@ -50,9 +56,8 @@ fn mocha() -> (App, tempfile::TempDir) {
     let _ = app.update(Message::PopupGone(Popup::Layer(Layer::Settings)));
     app.shell.frame = FRAME;
     app.shell.own_title_bar = true;
-    crate::window_bar::fit_window(&mut app);
+    crate::window_bar::fit_window(app);
     let _ = app.sync();
-    (app, folder)
 }
 
 fn draw(app: &App, name: &str) {
@@ -156,4 +161,49 @@ fn newest_says(app: &mut App, body: &str) -> String {
         state.messages = Arc::new(messages);
     });
     item
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_build_9_plugins() {
+    let (mut app, _folder) = mocha();
+    turn_on(&mut app, id::INVITE_DEFAULTS);
+    let _ = app.update(Message::Settings(Event::Open(Section::HaloCord)));
+    for (query, name) in [
+        ("invite", "Invite defaults"),
+        ("pending", "No pending count"),
+        ("timeout", "Show timeout duration"),
+    ] {
+        let _ = app.update(Message::Settings(Event::Search(query.into())));
+        let _ = app.sync();
+        assert!(shows(&app, name), "{name}");
+        draw(&app, &format!("plugin-{query}"));
+    }
+}
+
+#[test]
+#[ignore = "writes a picture for the owner to look at"]
+fn picture_of_show_timeout_duration() {
+    use yapfast_core::{
+        application::{Action, Navigation},
+        yapfast_discord::commands::USE_APPLICATION_COMMANDS,
+    };
+    let (mut app, _folder) = super::server::discord_server(USE_APPLICATION_COMMANDS, |_, _| {});
+    app.client
+        .dispatch(Action::Navigate(Navigation::Server("discord:10".into())));
+    app.client
+        .dispatch(Action::SelectRoom("discord:10:11".into()));
+    themed(&mut app);
+    turn_on(&mut app, id::SHOW_TIMEOUT);
+    let until = yapfast_core::clock::now_ms() + 3 * 3_600_000 + 60_000;
+    super::change(&mut app, |state| {
+        let room = state
+            .rooms
+            .iter_mut()
+            .find(|room| room.id == "discord:10:11")
+            .expect("#general");
+        Arc::make_mut(room).timed_out_until = Some(until);
+    });
+    let _ = app.sync();
+    draw(&app, "show-timeout-duration");
 }

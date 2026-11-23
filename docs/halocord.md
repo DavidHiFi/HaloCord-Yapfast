@@ -13,7 +13,7 @@ whole list to carry across.
     each plugin in the page's order), and search.
   - `kept.rs`: what a plugin is, its settings (a choice, a switch, a slider or a
     text), what `layout.json` keeps (`halocord.plugins.<id>`) and `changed`.
-  - `voice.rs`, `chat.rs`, `menus.rs`, `buttons.rs`, `members.rs`: the plugins of
+  - `voice.rs`, `chat.rs`, `menus.rs`, `buttons.rs`, `members.rs`, `servers.rs`: the plugins of
     each area, what each tells the core, the hooks it plugs in while it's on, and
     what the window draws for it. `menus.rs` is the window's side of plug-in
     point 5 (`menu_rows`, `pick`).
@@ -171,7 +171,8 @@ Window (`yapfast-iced`):
   mark beside someone muted for this account (one `if let`).
 - `sidebar/channels.rs`: `room_row` pushes `halocord::voice_count` (the Voice count plugin's number)
   before the badge on a voice channel's row (one `if let`).
-- `members.rs`: `member_row` pushes `halocord::in_voice_mark` after the timed-out clock, then
+- `members.rs`: `member_row` draws the timed-out clock with `halocord::timeout_clock` (Show
+  timeout duration's time left on pointing), pushes `halocord::in_voice_mark` after it, then
   `halocord::platform_marks` (one `if let` each).
 - `shell.rs`: in `shell_sync`, a copied download goes through `halocord::copied_text` first:
   text Copy file text asked for goes on the clipboard as text, anything else as a picture.
@@ -179,16 +180,22 @@ Window (`yapfast-iced`):
   is on, and a spoiler click reveals the message's other spoilers while Reveal all
   spoilers is on (one `if` each).
 - `rail.rs`: `folder_face` draws the open face while Plain folder icon is on.
+- `sync.rs`: `make_lists` drops friend requests from the DM home's count and the count
+  beside Friends while No pending count is on (one `if` each).
+- Core `application/places.rs`: `open_invite` starts a new link with
+  `halocord::first_invite()` (Invite defaults) in place of 7 days and no limit.
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
-- `tests/calls.rs`, `tests/media.rs`, `tests/menus.rs`, `tests/navigation.rs`: tests of
-  the Volume booster, the copy rows and the buttons beside Settings, in Yapfast's own
-  test files.
+- `tests/calls.rs`, `tests/media.rs`, `tests/menus.rs`, `tests/navigation.rs`,
+  `tests/writing.rs`: tests of the Volume booster, the copy rows, the buttons beside
+  Settings and Show timeout duration, in Yapfast's own test files.
+- Core `application/tests/servers.rs`: the invite test's Invite defaults lines.
 - `window_bar.rs`: `Event::Halo(Press)` with its arm in `update` (a plugin's button
   pressed), and the buttons `halocord::presses` lists, pushed before Inbox in
   `window_bar`.
 - `account.rs`: the same buttons beside Settings, when the window has no title bar of
   its own.
 - `composer.rs`: `composer_box` pushes one slot (the counter, or a `Space`) between the field and the emoji button.
+  `composer_look` ends the timed-out line with `halocord::timeout_note` (the time left).
 - `sidebar/channels.rs`: the Direct Messages heading pushes the close all button when its plugin is on.
 - `sync.rs`: after the member list's lines are made, `halocord::add_member_count` puts the count's line first.
 - `settings/mod.rs`: the `theme_file` field on `Settings`, and `return` before
