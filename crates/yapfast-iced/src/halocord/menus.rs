@@ -404,9 +404,36 @@ fn song_link_page(app: &App, item: &str) -> Option<String> {
     Some(song_page(link, country))
 }
 
+/// View icons: the decoration `user` wears around their avatar, in the
+/// open server where they set one there, else their own.
+fn decoration(app: &App, user: &str) -> Option<String> {
+    let state = app.client.state();
+    let guild = state
+        .selected
+        .as_deref()
+        .and_then(yapfast_core::discord::parse_room)
+        .map(|(guild, _)| guild)
+        .filter(|guild| *guild != "@me");
+    let names = state.discord_names.as_ref()?;
+    let found = names.read().decoration(guild, user)?;
+    Some(found.to_string())
+}
+
+/// View icons: a decoration's picture at 512 pixels, moving.
+pub fn decoration_page(decoration: &str) -> String {
+    let path = decoration.split('?').next().unwrap_or(decoration);
+    format!("{path}?size=512&passthrough=true")
+}
+
 /// What a pick of one of the window's own plugin rows does, if it's one.
 fn own_pick(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Option<Task<Message>> {
     let copy = match (key, place) {
+        (id::VIEW_ICONS, Some(user)) => {
+            if let Some(decoration) = decoration(app, user) {
+                crate::browser::open(&decoration_page(&decoration));
+            }
+            return Some(Task::none());
+        }
         (id::COPY_STATUS_URLS, Some(user)) => status_link(app, user),
         (id::COPY_PROFILE_COLORS, Some(user)) => profile_colors(app, user),
         (id::SONG_LINK, None) => {
@@ -449,6 +476,9 @@ pub fn person_rows(app: &App, user: &str) -> Vec<MenuRow> {
             Icon::Link,
             id::COPY_STATUS_URLS,
         ));
+    }
+    if on(id::VIEW_ICONS) && decoration(app, user).is_some() {
+        rows.push(own_row("View decoration", Icon::Image, id::VIEW_ICONS));
     }
     if on(id::COPY_PROFILE_COLORS) && profile_colors(app, user).is_some() {
         rows.push(own_row(

@@ -1216,3 +1216,33 @@ fn clickable_roles_open_a_role_card_from_a_member_list_heading() {
         },
     );
 }
+
+/// View icons' View decoration: no row in someone's menu while Yapfast
+/// knows no decoration for them (the preview knows none), and the page a
+/// decoration opens is its picture at 512 pixels, moving.
+#[test]
+fn view_decoration_opens_the_decoration_moving() {
+    use crate::halocord::{decoration_page, person_rows};
+    let (mut app, _folder) = preview();
+    turn_on(&mut app, id::VIEW_ICONS);
+    assert!(
+        !person_rows(&app, "4")
+            .iter()
+            .any(|row| row.label == "View decoration"),
+        "none known"
+    );
+    assert_eq!(
+        decoration_page(
+            "https://cdn.discordapp.com/avatar-decoration-presets/a_1.png?size=96&passthrough=false"
+        ),
+        "https://cdn.discordapp.com/avatar-decoration-presets/a_1.png?size=512&passthrough=true"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::VIEW_ICONS).expect("the plugin"),
+            on: false,
+        },
+    );
+}

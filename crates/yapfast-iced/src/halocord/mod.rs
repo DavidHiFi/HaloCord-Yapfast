@@ -63,10 +63,7 @@ pub use members::{
     timeout_clock, timeout_note, tip_member_count,
 };
 pub use members::{heading_role, message_timeout, role_heading, role_press, server_tip, zoom_size, zoomable};
-pub use menus::{
-    attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, search_result,
-    sticker_tile,
-};
+pub use menus::{attachment_menu, chosen, copied_text, decoration_page, mention_button, message_rows, person_rows, search_result, sticker_tile};
 #[cfg(test)]
 pub use menus::{song_links, song_page};
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
