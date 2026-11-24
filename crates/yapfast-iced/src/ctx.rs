@@ -100,6 +100,7 @@ pub struct Ctx<'a> {
     pub active_now: &'a [crate::active_now::Card],
     pub account_pointed: bool,
     pub account_more: bool,
+    pub tray_leaving: bool,
     pub browse_filter: &'a str,
     /// The thread's width beside the conversation, as dragged and kept.
     pub aside_width: f32,

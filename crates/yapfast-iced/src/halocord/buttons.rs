@@ -347,11 +347,11 @@ fn beside_name(
     ((room - controls - 12.0).max(0.0), small)
 }
 
-/// The tray, while it's open and the card has buttons in it: those buttons
-/// in a row on a menu's panel, its foot 4 px above the card and its right
-/// edge at the card's.
+/// The tray, while it's open or drawn going and the card has buttons in
+/// it: those buttons in a row on a menu's panel, its foot 4 px above the
+/// card and its right edge at the card's, growing in as popups do.
 pub fn card_tray<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<iced::Element<'a, Message>> {
-    if !ctx.account_more {
+    if !ctx.account_more && !ctx.tray_leaving {
         return None;
     }
     let compact = ctx.layout.halocord.dock().compact;
@@ -378,7 +378,7 @@ pub fn card_tray<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<iced::Element<'a, Messa
     let bottom = ctx.look.window.height - account::full_height(ctx) - account::INSET - 4.0;
     Some(
         crate::widgets::Place::new(
-            iced::widget::opaque(tray),
+            crate::widgets::motion::grow(iced::widget::opaque(tray)),
             iced::Point::new((right - width).max(account::INSET), bottom),
             8.0,
         )

@@ -190,12 +190,14 @@ impl App {
             );
         }
         if let Some(tray) = crate::halocord::card_tray(self.ctx()) {
-            layers = layers
-                .push(outside(
+            // Going, it takes no click outside it.
+            if self.account_more {
+                layers = layers.push(outside(
                     Message::Account(crate::account::Event::More(false)),
                     false,
-                ))
-                .push(tray);
+                ));
+            }
+            layers = layers.push(self.popup(L(Layer::CardTray), tray));
         }
         if let Some(popover) = crate::status::popover_view(&self.status, self.ctx()) {
             layers = layers

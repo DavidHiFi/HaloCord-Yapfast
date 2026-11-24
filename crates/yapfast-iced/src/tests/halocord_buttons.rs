@@ -389,12 +389,29 @@ fn the_settings_cog_is_always_on_the_card() {
     assert!(opens_settings(&app), "on the narrowest sidebar");
     assert!(opens_tray(&app), "the tray's button ends the plugin row");
     assert!(crate::halocord::card_tray(app.ctx()).is_none());
+    assert!(app.popups_moving().is_empty());
     let _ = app.update(Message::Account(crate::account::Event::More(true)));
     assert!(
         crate::halocord::card_tray(app.ctx()).is_some(),
         "the tray shows the card's other buttons"
     );
+    // It grows in as popups do, and shrinks away drawn going.
+    let opening = app.popups_moving();
+    assert_eq!(opening.len(), 1, "the tray's motion");
+    assert!(!opening[0].1, "opening");
     let _ = app.update(Message::Account(crate::account::Event::More(false)));
+    if !crate::widgets::motion::still() {
+        assert!(
+            crate::halocord::card_tray(app.ctx()).is_some(),
+            "drawn going"
+        );
+        assert_eq!(app.popups_moving(), [(opening[0].0, true)], "closing");
+        let _ = app.update(Message::PopupGone(crate::app::layers::Popup::Layer(
+            crate::app::layers::Layer::CardTray,
+        )));
+    }
+    assert!(crate::halocord::card_tray(app.ctx()).is_none(), "gone");
+    assert!(app.popups_moving().is_empty());
     app.layout.sidebar_width = None;
     flag(&mut app, 0, true);
     assert!(opens_settings(&app), "compact");

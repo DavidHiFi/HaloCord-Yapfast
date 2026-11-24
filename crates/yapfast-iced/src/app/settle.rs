@@ -65,6 +65,7 @@ impl App {
             active_now: &self.active_now,
             account_pointed: self.account_pointed,
             account_more: self.account_more,
+            tray_leaving: self.tray_leaving,
             browse_filter: &self.sidebar.browse_filter,
             aside_width: crate::thread::aside_width(self),
             open: crate::ctx::Open {
@@ -166,8 +167,11 @@ impl App {
         // HaloCord's User area: its tray of buttons shuts once nothing is left
         // in it (the sidebar widened, a button switched off), so it can't
         // open again by itself.
-        if self.account_more && crate::halocord::card_tray(self.ctx()).is_none() {
+        if (self.account_more || self.tray_leaving)
+            && crate::halocord::card_tray(self.ctx()).is_none()
+        {
             self.account_more = false;
+            self.tray_leaving = false;
         }
         let recording = self.recording_keybind();
         if recording != self.keybinds.paused {
@@ -191,7 +195,7 @@ impl App {
                     Request::Close(screen) => self.close_screen(screen, Why::User),
                     Request::CloseMenus => {
                         self.win.menu = None;
-                        self.account_more = false;
+                        self.close_tray();
                     }
                     Request::ClosePopups => {
                         crate::call::popups::close_popup(self);

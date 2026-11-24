@@ -223,7 +223,12 @@ pub fn update(app: &mut App, event: Event) -> iced::Task<Message> {
             return app.ask();
         }
         Event::More(open) => {
-            app.account_more = open;
+            if open {
+                app.account_more = true;
+                app.tray_leaving = false;
+            } else {
+                app.close_tray();
+            }
             return iced::Task::none();
         }
         // In a call they toggle once its voice is through; out of one

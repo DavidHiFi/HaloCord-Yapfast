@@ -40,6 +40,8 @@ pub enum Layer {
     SearchFilters,
     StatusEditor,
     AccountPopover,
+    /// HaloCord's User area tray: the card's buttons that don't fit.
+    CardTray,
     HeaderPopover,
     ProfileEditor,
     Settings,
@@ -73,7 +75,7 @@ pub enum Layer {
 }
 
 /// Every layer, in the order they take keys and Escape.
-const LAYERS: [Layer; 43] = [
+const LAYERS: [Layer; 44] = [
     Layer::Inbox,
     Layer::Mfa,
     Layer::ConfirmDelete,
@@ -89,6 +91,7 @@ const LAYERS: [Layer; 43] = [
     Layer::SearchFilters,
     Layer::StatusEditor,
     Layer::AccountPopover,
+    Layer::CardTray,
     Layer::HeaderPopover,
     Layer::ProfileEditor,
     Layer::Settings,
@@ -176,6 +179,7 @@ impl Layer {
                 | Layer::ServerDialog
                 | Layer::SearchFilters
                 | Layer::StatusEditor
+                | Layer::CardTray
                 | Layer::HeaderPopover
                 | Layer::ProfileEditor
                 | Layer::Settings
@@ -212,6 +216,7 @@ impl Layer {
                 | Layer::TagCard
                 | Layer::Card
                 | Layer::RoleCard
+                | Layer::CardTray
                 | Layer::Selection
                 | Layer::TagsMenu
                 | Layer::Search
@@ -277,6 +282,7 @@ impl App {
             Layer::ServerDialog => crate::server_dialogs::is_open(state),
             Layer::StatusEditor => state.status_editor.is_some(),
             Layer::AccountPopover => self.status.popover.is_some(),
+            Layer::CardTray => self.account_more,
             Layer::HeaderPopover => crate::header_popovers::popover_open(self),
             Layer::ProfileEditor => self.editor_open(),
             Layer::Settings => self.win.settings.is_open(),
@@ -386,6 +392,9 @@ impl App {
         if self.fake_dm.leaving() {
             leaving |= 1 << Popup::Layer(Layer::FakeDm).bit();
         }
+        if self.tray_leaving {
+            leaving |= 1 << Popup::Layer(Layer::CardTray).bit();
+        }
         leaving
     }
 
@@ -395,12 +404,22 @@ impl App {
             Popup::Layer(Layer::Settings) => self.win.settings.gone(),
             Popup::Layer(Layer::TagCard) => self.win.tag_card.gone(),
             Popup::Layer(Layer::FakeDm) => self.fake_dm.gone(),
+            Popup::Layer(Layer::CardTray) => self.tray_leaving = false,
             _ => {}
         }
         let bit = popup.bit();
         self.opening
             .moving
             .retain(|moving| !(moving.closing && moving.bit == bit));
+    }
+
+    /// Shuts HaloCord's tray of the card's buttons, drawn going unless
+    /// things are kept still.
+    pub(crate) fn close_tray(&mut self) {
+        if self.account_more {
+            self.account_more = false;
+            self.tray_leaving = !motion::still();
+        }
     }
 
     /// The popups moving, by their bits and whether each is closing, for
@@ -571,6 +590,10 @@ impl App {
             Layer::Poll => self.switcher_event(crate::switcher::Event::ClosePoll),
             Layer::StatusEditor => self.status_event(crate::status::Event::Cancel),
             Layer::AccountPopover => self.status_event(crate::status::Event::Close),
+            Layer::CardTray => {
+                self.close_tray();
+                Task::none()
+            }
             Layer::HeaderPopover => {
                 crate::header_popovers::popover_event(self, crate::header_popovers::Event::Close)
             }
