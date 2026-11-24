@@ -77,6 +77,9 @@ pub enum Pref {
     StartOnSignIn(bool),
     DiscordLinks(bool),
     SystemTitleBar(bool),
+    /// HaloCord's window setting: the window may shrink past Yapfast's own
+    /// least size. It shows from the next start.
+    NoMinSize(bool),
 }
 
 /// My account's and the Discord page's buttons.
@@ -310,6 +313,10 @@ impl Settings {
                 cx.layout.system_title_bar = Some(on);
                 cx.keep("system_title_bar", on);
                 cx.request(Request::TitleBar(on));
+            }
+            Pref::NoMinSize(on) => {
+                cx.layout.no_min_size = Some(on);
+                cx.keep("no_min_size", on);
             }
         }
         cx.touch();

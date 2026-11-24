@@ -344,6 +344,28 @@ impl<'a> Page<'a> {
             row(jumps).spacing(8).wrap().vertical_spacing(8).into(),
             form::heading(theme, "LINKS"),
             row(links).spacing(8).wrap().vertical_spacing(8).into(),
+            form::heading(theme, "WINDOW"),
+            self.title_bar_switch(),
+            form::switch(
+                "Acrylic behind the window",
+                self.cx.layout.mochacord.glass,
+                Some(pref(Pref::MochaCord(crate::mochacord::Change::Glass(
+                    !self.cx.layout.mochacord.glass,
+                )))),
+            )
+            .description("Windows blurs the desktop behind Yapfast, as Vencord's Acrylic material. The strength is with the other look options, on the Themes page.")
+            .fresh(self.fresh("halocord-glass"))
+            .view(self.cx.look),
+            form::switch(
+                "Disable the minimum window size",
+                self.cx.layout.no_min_size.unwrap_or(false),
+                Some(pref(Pref::NoMinSize(
+                    !self.cx.layout.no_min_size.unwrap_or(false),
+                ))),
+            )
+            .description("The window may shrink smaller than Yapfast normally allows. It shows from the next time Yapfast opens.")
+            .fresh(self.fresh("halocord-no-min-size"))
+            .view(self.cx.look),
         ])
     }
 

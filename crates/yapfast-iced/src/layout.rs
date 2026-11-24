@@ -79,6 +79,9 @@ pub struct Layout {
     /// desktop's way decides.
     pub zoom: Option<f32>,
     pub system_title_bar: Option<bool>,
+    /// The window may shrink past Yapfast's own least size (HaloCord's
+    /// window setting); unset, it may not.
+    pub no_min_size: Option<bool>,
     /// The window's size, its place and whether it was maximized, for the
     /// next start.
     pub placement: Option<Placement>,

@@ -287,12 +287,18 @@ impl App {
             return;
         };
         let zoom = self.shell.zoom;
-        // What the window's settings take: the app's units.
+        // What the window's settings take: the app's units. With HaloCord's
+        // least size lifted, the kept size comes back as it was kept.
         let size = Size::new(kept.width as f32 / zoom, kept.height as f32 / zoom);
-        self.shell.size = Some(Size::new(
-            size.width.clamp(MIN_SIZE.width, MOST),
-            size.height.clamp(MIN_SIZE.height, MOST),
-        ));
+        let least = if self.layout.no_min_size.unwrap_or(false) {
+            size
+        } else {
+            Size::new(
+                size.width.clamp(MIN_SIZE.width, MOST),
+                size.height.clamp(MIN_SIZE.height, MOST),
+            )
+        };
+        self.shell.size = Some(least);
         self.shell.position = kept.position;
         self.shell.maximized = kept.maximized;
     }
@@ -303,10 +309,11 @@ impl App {
     /// full screen or minimized, what it had.
     pub fn keep_placement(&mut self) {
         let frame = self.shell.frame;
+        // HaloCord's least-size lift lets a tiny window keep its size too.
+        let least = self.layout.no_min_size.unwrap_or(false);
         if self.shell.window.is_none()
             || self.shell.full_screen
-            || frame.width < MIN_SIZE.width
-            || frame.height < MIN_SIZE.height
+            || (!least && (frame.width < MIN_SIZE.width || frame.height < MIN_SIZE.height))
         {
             return;
         }
@@ -444,10 +451,16 @@ impl App {
     /// place kept it's made hidden, and shown once it's there
     /// (`App::opened`).
     pub(crate) fn window_settings(&self) -> window::Settings {
+        // HaloCord's window setting may lift Yapfast's own least size.
+        let least = if self.layout.no_min_size.unwrap_or(false) {
+            None
+        } else {
+            Some(MIN_SIZE)
+        };
         let mut settings = window::Settings {
             size: self.shell.size.unwrap_or(self.shell.frame),
             visible: self.shell.position.is_none(),
-            min_size: Some(MIN_SIZE),
+            min_size: least,
             decorations: !self.shell.own_title_bar,
             exit_on_close_request: false,
             transparent: yapfast_iced_kit::renderer::glass_wanted(),

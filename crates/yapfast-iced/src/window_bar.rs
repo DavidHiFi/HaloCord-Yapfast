@@ -500,16 +500,33 @@ pub fn window_bar(app: &App) -> Option<Element<'_, Message>> {
         .push(caption_button(app, Icon::CaptionClose, Event::Close, true));
     // The bar's ground moves the window; its buttons sit over it. Its
     // moves are messages only once pressed: a pointer passing over it
-    // sends none.
-    let mut ground = mouse_area(container(Space::new()).width(Length::Fill).height(HEIGHT))
-        .interaction(Interaction::Idle)
-        .on_press(Message::Bar(Event::Press))
-        .on_release(Message::Bar(Event::Release))
-        .on_double_click(Message::Bar(Event::Maximize));
+    // sends none. The ground takes no fill of its own, so the window's
+    // material runs through the bar and meets the view under it without
+    // a line; only the navigation's width keeps the rail's, so the rail
+    // and the sidebar read as one piece from the window's top down.
+    let rail = if workspace {
+        crate::mochacord::glass(theme.rail, crate::mochacord::Dock::Rail)
+    } else {
+        iced::Color::TRANSPARENT
+    };
+    let mut ground = mouse_area(
+        row![
+            container(Space::new())
+                .width(Length::Fixed(crate::conversation::navigation(&app.layout)))
+                .height(HEIGHT)
+                .style(move |_| crate::style::fill(rail)),
+            Space::new().width(Length::Fill).height(HEIGHT),
+        ]
+        .width(Length::Fill)
+        .height(HEIGHT),
+    )
+    .interaction(Interaction::Idle)
+    .on_press(Message::Bar(Event::Press))
+    .on_release(Message::Bar(Event::Release))
+    .on_double_click(Message::Bar(Event::Maximize));
     if app.bar_drag.armed.is_some() {
         ground = ground.on_move(|at| Message::Bar(Event::Moved(at)));
     }
-    let rail = crate::mochacord::glass(theme.rail, crate::mochacord::Dock::Rail);
     let bar = stack![
         ground,
         container(middle)
@@ -521,13 +538,7 @@ pub fn window_bar(app: &App) -> Option<Element<'_, Message>> {
             .height(HEIGHT)
             .align_y(Alignment::Center),
     ];
-    Some(
-        container(bar)
-            .width(Length::Fill)
-            .height(HEIGHT)
-            .style(move |_| crate::style::fill(rail))
-            .into(),
-    )
+    Some(container(bar).width(Length::Fill).height(HEIGHT).into())
 }
 
 /// The bar's buttons: Discord draws the back and forward arrows 16 px in

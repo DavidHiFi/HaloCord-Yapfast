@@ -405,7 +405,8 @@ impl<'a> Page<'a> {
                 )
                 .small(),
             ),
-            self.title_bar_switch(),
+            // The title bar's switch lives on HaloCord's page now, with the
+            // other window settings.
             column![
                 form::heading(theme, "PROFILES"),
                 profile(
