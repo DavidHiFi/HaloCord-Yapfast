@@ -301,6 +301,9 @@ Window (`yapfast-iced`):
   role's heading opens its card).
 - `profile/body.rs`: the connections show when `halocord::connections_on_card` too (Show
   connections).
+- `sync.rs`: `make_lists` starts with `halocord::note_presences` (Last online: who of the DMs
+  went offline); `sidebar/dms.rs`: a DM's row says `halocord::last_online` under the name when
+  nothing else is said there.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
 - `app/message.rs`: `Message::HaloCord(halocord::Event)`, the plugins' own messages

@@ -36,6 +36,7 @@ pub mod deck;
 mod clicks;
 mod fake_dialog;
 mod kept;
+mod last_online;
 mod members;
 mod menus;
 mod messages;
@@ -56,6 +57,7 @@ pub use clicks::{Clicks, click_keys, click_row};
 pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
+pub use last_online::{dm_line as last_online, note_presences};
 #[cfg(test)]
 pub use members::time_left;
 pub use members::{
@@ -154,6 +156,7 @@ pub mod id {
     pub const SONG_LINK: &str = "song-link";
     pub const FAVORITE_ANYTHING: &str = "favorite-anything";
     pub const SHOW_CONNECTIONS: &str = "show-connections";
+    pub const LAST_ONLINE: &str = "last-online";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -219,6 +222,7 @@ pub static PLUGINS: &[Plugin] = &[
     menus::SONG_LINK,
     chat::FAVORITE_ANYTHING,
     members::SHOW_CONNECTIONS,
+    last_online::LAST_ONLINE,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
