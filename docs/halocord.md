@@ -17,7 +17,10 @@ whole list to carry across.
   - `voice.rs`, `chat.rs`, `menus.rs`, `buttons.rs`, `members.rs`, `servers.rs`: the plugins of
     each area, what each tells the core, the hooks it plugs in while it's on, and
     what the window draws for it. `menus.rs` is the window's side of plug-in
-    point 5 (`menu_rows`, `pick`).
+    point 5 (`menu_rows`, `pick`). `buttons.rs` also shares the account card
+    (`card_fit`: the room the name keeps, the plugin buttons on the row above it
+    and the tray for the rest in `card_tray`, the name cut by `ellipsized`, from
+    SickoHours' pull request 2).
   - `presence.rs`: Custom RPC and Animated status, what each tells the Discord
     service (`set_custom_rpc`, `set_animated`).
   - `fake_dialog.rs`: Fake DMs' box (who says it, the text, when, Add) and its
@@ -273,8 +276,17 @@ Window (`yapfast-iced`):
   (smaller, inside the channel list), hidden dropdown arrows and the extra buttons,
   and says "Faking mute" or "Faking deafen" under the name in a call. The Game
   activity button's `Event::ShowGame` and its arm send `Action::ShowGame`. The
-  plugin buttons (`plugin_buttons`) sit in a row of their own above the name
-  (the kit's `dock_button`), and `full_height` is the card's height with that row.
+  plugin buttons (`plugin_buttons`, each drawn by `plugin_button`) sit in a row of
+  their own above the name (the kit's `dock_button`), and `full_height` is the card's
+  height with that row. `halocord::card_fit` says how many stay on that row (the rest
+  go behind its last button, "More buttons") and the room the name keeps, cut by
+  `halocord::ellipsized`; `Event::More(bool)` opens and shuts their tray, and
+  `COMPACT_AVATAR`, `COMPACT_BUTTON`, `plugin_buttons` and `plugin_button` are
+  `pub(crate)` for it.
+- `app/mod.rs` and `ctx.rs`: the `account_more` flag (the tray is open); `app/settle.rs`
+  `settle`: one `if` shuts it once nothing is left in the tray, and `CloseMenus` shuts it.
+- `app/view.rs`: `halocord::card_tray`, the tray's layer over the card, with a click
+  outside sending `Event::More(false)`.
 - `profile/body.rs`: `member_since` draws both dates through `halocord::exact_day`
   (Better joined date's whole date and days ago on pointing), and `profile_top` asks
   `halocord::full_picture` what a click on the banner, or on the full profile's

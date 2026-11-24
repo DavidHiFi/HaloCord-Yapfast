@@ -64,6 +64,7 @@ impl App {
             friends: &self.friends,
             active_now: &self.active_now,
             account_pointed: self.account_pointed,
+            account_more: self.account_more,
             browse_filter: &self.sidebar.browse_filter,
             aside_width: crate::thread::aside_width(self),
             open: crate::ctx::Open {
@@ -162,6 +163,12 @@ impl App {
         }
         // Keybinds rest while one is recorded, so pressing a toggle's keys
         // to record them doesn't toggle it.
+        // HaloCord's User area: its tray of buttons shuts once nothing is left
+        // in it (the sidebar widened, a button switched off), so it can't
+        // open again by itself.
+        if self.account_more && crate::halocord::card_tray(self.ctx()).is_none() {
+            self.account_more = false;
+        }
         let recording = self.recording_keybind();
         if recording != self.keybinds.paused {
             self.keybinds.paused = recording;
@@ -182,7 +189,10 @@ impl App {
             for request in std::mem::take(&mut self.requests) {
                 match request {
                     Request::Close(screen) => self.close_screen(screen, Why::User),
-                    Request::CloseMenus => self.win.menu = None,
+                    Request::CloseMenus => {
+                        self.win.menu = None;
+                        self.account_more = false;
+                    }
                     Request::ClosePopups => {
                         crate::call::popups::close_popup(self);
                         // They cover the signal, whose touch says nothing

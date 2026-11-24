@@ -47,7 +47,10 @@ pub mod theme_files;
 mod voice;
 
 pub use areas::{Area, area};
-pub use buttons::{Press, press, presses, start_button};
+pub(crate) use buttons::card_fit;
+pub use buttons::{Press, card_tray, ellipsized, press, presses, start_button};
+#[cfg(test)]
+pub(crate) use buttons::{shared, words_width};
 use chat::thousands;
 pub use chat::{
     chat_buttons, count_color, count_words, double_click, inserts_gif, tag, upload_button,

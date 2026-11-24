@@ -6,6 +6,7 @@ use yapfast_core::application::Action;
 
 use super::{Kept, PLUGINS, Plugin, id, off};
 use crate::{
+    account,
     app::{App, Message},
     pictures::Icon,
 };
@@ -221,4 +222,241 @@ pub fn press(app: &mut App, press: Press) -> Task<Message> {
         }
     }
     app.sync()
+}
+
+// The User area's card: the room its name keeps beside the mic, the
+// headphones and Settings, how many plugin buttons fit on the row above it,
+// the tray for the rest, and the name cut to its room (`account::view`
+// calls these).
+
+/// The gap between the buttons beside the name, and the least the name
+/// keeps beside them (its padding included) before they take the compact
+/// size.
+const GAP: f32 = 5.0;
+const NAME_LEAST: f32 = 64.0;
+/// The least a plugin button keeps on the row above the name, the gap
+/// between those buttons and the row's inset from the card's sides.
+const PLUGIN_LEAST: f32 = 32.0;
+const PLUGIN_GAP: f32 = 4.0;
+const PLUGIN_INSET: f32 = 8.0;
+
+/// How the card is shared: how many plugin buttons stay on the row above
+/// the name, whether the rest sit in the tray, and the room left for the
+/// name's words.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Fit {
+    pub inline: usize,
+    pub more: bool,
+    pub name_room: f32,
+    /// The card is too narrow for the full size (the sidebar dragged to
+    /// its least): the buttons beside the name take the compact size.
+    pub small: bool,
+}
+
+/// The card's width: the rail's and the sidebar's, inset, or the
+/// sidebar's alone when compact.
+fn card_width(ctx: crate::ctx::Ctx<'_>, compact: bool) -> f32 {
+    crate::conversation::navigation(ctx.layout)
+        - 2.0 * account::INSET
+        - if compact { crate::rail::WIDTH } else { 0.0 }
+}
+
+/// Shares the card: beside the name the avatar, the mic and the headphones
+/// with their carets, Reconnect while offline, and Settings always; above
+/// it as many of the `extras` (the plugin buttons) as keep
+/// [`PLUGIN_LEAST`] each, the rest behind the tray's button.
+pub(crate) fn card_fit(
+    ctx: crate::ctx::Ctx<'_>,
+    compact: bool,
+    extras: usize,
+    reconnect: bool,
+) -> Fit {
+    let dock = ctx.layout.halocord.dock();
+    shared(
+        card_width(ctx, compact),
+        compact,
+        !dock.arrows_hidden,
+        extras,
+        reconnect,
+    )
+}
+
+pub(crate) fn shared(
+    card: f32,
+    compact: bool,
+    carets: bool,
+    extras: usize,
+    reconnect: bool,
+) -> Fit {
+    let (inline, more) = plugin_row(card, extras);
+    let tried = beside_name(card, compact, compact, carets, reconnect);
+    let (name_room, small) = if compact || tried.0 + 12.0 >= NAME_LEAST {
+        tried
+    } else {
+        beside_name(card, compact, true, carets, reconnect)
+    };
+    Fit {
+        inline,
+        more,
+        name_room,
+        small,
+    }
+}
+
+/// How many of `extras` plugin buttons stay on the row above the name,
+/// [`PLUGIN_LEAST`] each at the least, and whether the rest go in the tray:
+/// then the row's last place is the tray's button.
+fn plugin_row(card: f32, extras: usize) -> (usize, bool) {
+    let room = card - 2.0 * PLUGIN_INSET;
+    let places = (((room + PLUGIN_GAP) / (PLUGIN_LEAST + PLUGIN_GAP)).floor() as usize).max(1);
+    if extras <= places {
+        (extras, false)
+    } else {
+        (places - 1, true)
+    }
+}
+
+/// The room the name's words keep beside the card's own buttons at their
+/// full or `small` size, and that size.
+fn beside_name(
+    card: f32,
+    compact: bool,
+    small: bool,
+    carets: bool,
+    reconnect: bool,
+) -> (f32, bool) {
+    let side = if small { account::COMPACT_BUTTON } else { 32.0 };
+    let caret = match (carets, small) {
+        (false, _) => 0.0,
+        (true, true) => 16.0,
+        (true, false) => 20.0,
+    };
+    let (face, right, spacing) = if compact {
+        (account::COMPACT_AVATAR + 8.0, 8.0, 3.0)
+    } else {
+        (50.0, 14.0, 5.0)
+    };
+    // The names' and the buttons' room, after the avatar and the gaps.
+    let room = card - right - face - 2.0 * spacing;
+    // The mic and the headphones with their carets, Reconnect, Settings.
+    let items = 3 + usize::from(reconnect);
+    let controls = 2.0 * (side + caret)
+        + side * (1.0 + f32::from(u8::from(reconnect)))
+        + GAP * (items - 1) as f32;
+    // The names' padding is 6 px a side.
+    ((room - controls - 12.0).max(0.0), small)
+}
+
+/// The tray, while it's open and the card has buttons in it: those buttons
+/// in a row on a menu's panel, its foot 4 px above the card and its right
+/// edge at the card's.
+pub fn card_tray<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<iced::Element<'a, Message>> {
+    if !ctx.account_more {
+        return None;
+    }
+    let compact = ctx.layout.halocord.dock().compact;
+    let buttons = account::plugin_buttons(ctx);
+    let (inline, more) = plugin_row(card_width(ctx, compact), buttons.len());
+    if !more {
+        return None;
+    }
+    let hidden: Vec<_> = buttons.into_iter().skip(inline).collect();
+    let count = hidden.len();
+    let line = hidden.into_iter().fold(
+        iced::widget::Row::new().spacing(PLUGIN_GAP),
+        |line, (icon, label, ink, message)| {
+            line.push(account::plugin_button(ctx, icon, label, ink, message))
+        },
+    );
+    let width = count as f32 * PLUGIN_LEAST + (count - 1) as f32 * PLUGIN_GAP + 12.0;
+    let tray = iced::widget::container(line)
+        .width(width)
+        .padding(6)
+        .style(crate::controls::menu_panel(ctx.look.theme));
+    let right =
+        account::INSET + if compact { crate::rail::WIDTH } else { 0.0 } + card_width(ctx, compact);
+    let bottom = ctx.look.window.height - account::full_height(ctx) - account::INSET - 4.0;
+    Some(
+        crate::widgets::Place::new(
+            iced::widget::opaque(tray),
+            iced::Point::new((right - width).max(account::INSET), bottom),
+            8.0,
+        )
+        .anchor(crate::widgets::Anchor::Bottom)
+        .into(),
+    )
+}
+
+/// How wide `words` are on one line, at `size` in `font`.
+pub fn words_width(words: &str, size: f32, font: iced::Font) -> f32 {
+    use iced::advanced::{
+        graphics::text::Paragraph,
+        text::{self, LineHeight, Paragraph as _, Shaping, Wrapping},
+    };
+    Paragraph::with_text(text::Text {
+        content: words,
+        bounds: iced::Size::INFINITE,
+        size: size.into(),
+        line_height: LineHeight::default(),
+        font,
+        align_x: text::Alignment::Default,
+        align_y: iced::alignment::Vertical::Top,
+        shaping: Shaping::Advanced,
+        wrapping: Wrapping::None,
+    })
+    .min_width()
+}
+
+/// `words` as they fit in `room` px on one line, at `size` in `font`:
+/// whole, or cut with an ellipsis where they'd run past it.
+pub fn ellipsized(words: &str, size: f32, font: iced::Font, room: f32) -> String {
+    type Key = (String, u32, u32, u32);
+    thread_local! {
+        // The card draws on every view: each name is measured once a room.
+        static CUT: std::cell::RefCell<std::collections::HashMap<Key, String>> =
+            std::cell::RefCell::default();
+    }
+    let weight = if font == crate::fonts::BOLD { 1 } else { 0 };
+    let key = (
+        words.to_owned(),
+        size.to_bits(),
+        weight,
+        room.round() as u32,
+    );
+    if let Some(cut) = CUT.with(|kept| kept.borrow().get(&key).cloned()) {
+        return cut;
+    }
+    let cut = cut_to(words, size, font, room.round());
+    CUT.with(|kept| {
+        let mut kept = kept.borrow_mut();
+        if kept.len() > 256 {
+            kept.clear();
+        }
+        kept.insert(key, cut.clone());
+    });
+    cut
+}
+
+fn cut_to(words: &str, size: f32, font: iced::Font, room: f32) -> String {
+    if words.is_empty() || words_width(words, size, font) <= room {
+        return words.to_owned();
+    }
+    let ends: Vec<usize> = words
+        .char_indices()
+        .map(|(at, _)| at)
+        .skip(1)
+        .chain([words.len()])
+        .collect();
+    let cut = |count: usize| format!("{}…", words[..ends[count - 1]].trim_end());
+    // The most letters that fit with the ellipsis; a letter and it at least.
+    let (mut low, mut high) = (1, ends.len());
+    while low < high {
+        let middle = (low + high).div_ceil(2);
+        if words_width(&cut(middle), size, font) <= room {
+            low = middle;
+        } else {
+            high = middle - 1;
+        }
+    }
+    cut(low)
 }
