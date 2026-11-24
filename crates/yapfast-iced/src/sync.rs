@@ -207,6 +207,9 @@ impl App {
     /// follows (a scroll, pictures to ask for, rows to report).
     pub fn sync(&mut self) -> Task<Message> {
         let state = self.client.state();
+        // HaloCord's Show badges in chat (docs/halocord.md): the open
+        // profiles' badges.
+        crate::halocord::note_badges(&self.layout.halocord, state);
         // The DM search's filter is the DM home's: it goes as the rail
         // goes to a server, or back home.
         if self.sidebar.filtered_in.as_ref() != Some(&state.navigation) {
@@ -878,6 +881,10 @@ impl App {
                     .tag(message.tag.as_ref())
                     .and_then(|tag| tag.badge.as_deref()),
             );
+            // HaloCord's Show badges in chat (docs/halocord.md).
+            for url in crate::halocord::badge_pictures(&self.layout.halocord, &message.sender) {
+                want(Some(&url));
+            }
             if self.pointed.message.as_deref() == Some(message.item.as_str()) {
                 want(decoration.map(looks::animated_url).as_deref());
             }

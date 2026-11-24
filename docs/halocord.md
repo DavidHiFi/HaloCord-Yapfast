@@ -184,6 +184,9 @@ Window (`yapfast-iced`):
 - Core `chat.rs`, `discord_text/render.rs`, `application/profiles.rs` and
   `yapfast-discord/src/ready.rs`: `ProfileRole::id`, which `named_roles` gives, and
   `show_role` names and colours a role from the open profile (Clickable roles).
+- `message/mod.rs`: after the plugins' tags by an author's name, `halocord::chat_badges` (Show
+  badges in chat); `sync.rs`: `sync` notes the open profiles' badges with `halocord::note_badges`,
+  and asks for `halocord::badge_pictures` with a message's other pictures.
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.

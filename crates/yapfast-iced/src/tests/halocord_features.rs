@@ -174,3 +174,74 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Show badges in chat: once someone's profile was opened, their badges
+/// show by their name on messages (and are asked for with the message's
+/// pictures) while it's on, the Nitro one only with its switch; someone
+/// whose profile wasn't opened shows none.
+#[test]
+fn show_badges_in_chat_for_profiles_already_opened() {
+    use yapfast_core::{
+        application::ProfileView,
+        chat::{Profile, ProfileBadge},
+    };
+
+    use crate::halocord::{badge_pictures, chat_badges};
+    let (mut app, _folder) = preview();
+    let badge = |description: &str, icon: &str| ProfileBadge {
+        description: description.into(),
+        icon: format!("https://cdn.discordapp.com/badge-icons/{icon}.png"),
+        link: None,
+        level: None,
+    };
+    turn_on(&mut app, id::SHOW_BADGES);
+    let pictures = |app: &App, sender: &str| badge_pictures(&app.layout.halocord, sender);
+    assert!(
+        pictures(&app, "discord:3456789012").is_empty(),
+        "not opened yet"
+    );
+    super::change(&mut app, |state| {
+        state.profile = Some(std::sync::Arc::new(ProfileView {
+            profile: Profile {
+                id: "3456789012".into(),
+                badges: vec![
+                    badge("HypeSquad Bravery", "brave"),
+                    badge("Subscriber since 1 Jan 2020", "nitro"),
+                ],
+                ..Default::default()
+            },
+            ..Default::default()
+        }));
+    });
+    assert_eq!(
+        pictures(&app, "discord:3456789012").len(),
+        2,
+        "both, by the message's sender"
+    );
+    assert!(
+        chat_badges(app.ctx(), "discord:3456789012").is_none(),
+        "pictures not here yet"
+    );
+    let plugin = place(id::SHOW_BADGES).expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 1,
+            on: false,
+        },
+    );
+    assert_eq!(
+        pictures(&app, "discord:3456789012"),
+        ["https://cdn.discordapp.com/badge-icons/brave.png"],
+        "the Nitro badge only with its switch"
+    );
+    assert!(pictures(&app, "discord:999").is_empty(), "someone else");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert!(pictures(&app, "discord:3456789012").is_empty(), "off");
+}
