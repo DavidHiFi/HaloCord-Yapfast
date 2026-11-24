@@ -28,6 +28,9 @@ impl<'a> super::View<'a> {
         let theme = self.cx.look.theme;
         let pointed = self.cx.pointed.side.as_deref() == Some(room.id.as_str());
         let (ink, opacity) = self.row_ink(room, pointed);
+        // HaloCord's Custom user colours (docs/halocord.md).
+        let custom = crate::halocord::dm_name_color(self.cx, &room.id);
+        let ink = custom.unwrap_or(ink);
         let row_ground = if room.selected {
             theme.active
         } else if pointed {
@@ -46,12 +49,16 @@ impl<'a> super::View<'a> {
                     Point::new(20.0, 20.0),
                 )
             }));
-        let mut name = row![self.cx.person_name(
-            &room.name,
-            NameInk::new(15.0, 500, ink).style(room.style.as_ref()),
-        )]
-        .spacing(4)
-        .align_y(Alignment::Center);
+        let mut name =
+            row![
+                self.cx.person_name(
+                    &room.name,
+                    NameInk::new(15.0, 500, ink)
+                        .style(room.style.as_ref().filter(|_| custom.is_none())),
+                )
+            ]
+            .spacing(4)
+            .align_y(Alignment::Center);
         if let Some((letters, badge)) = &room.tag {
             name = name.push(self.cx.tag_chip(
                 letters,

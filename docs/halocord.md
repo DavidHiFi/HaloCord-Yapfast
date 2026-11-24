@@ -303,6 +303,10 @@ Window (`yapfast-iced`):
   `show_role` names and colours a role from the open profile, or else from the server's own
   roles (`server_roles`) for a role clicked where nothing else names it, as a member list
   heading (Clickable roles).
+- `message/mod.rs` (`author_line`), `members.rs` (a member's row) and `sidebar/dms.rs` (a DM's
+  row): a name takes `halocord::name_color` / `dm_name_color` in place of its colour and style
+  when one is set (Custom user colours); `sync.rs`' `make_lists` starts with
+  `halocord::load_user_colors`.
 - `status.rs`: the popover's bottom uses `account::full_height`.
 - `rail.rs`: `home_tile` asks `halocord::home_face` first (Home typing's dots while someone
   types in a DM), else draws the logo; `typing.rs`: `dots`, the typing line's dots on their

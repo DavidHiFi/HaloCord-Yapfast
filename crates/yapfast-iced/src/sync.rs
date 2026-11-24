@@ -140,6 +140,8 @@ impl App {
     /// again, keeping each that comes out the same.
     fn make_lists(&mut self) {
         let state = self.client.state();
+        // HaloCord's Custom user colours (docs/halocord.md): read once.
+        crate::halocord::load_user_colors(&self.layout.halocord, self.client.root());
         // HaloCord's Last online (docs/halocord.md): who of the DMs went
         // offline.
         crate::halocord::note_presences(&self.layout.halocord, self.client.root(), state);

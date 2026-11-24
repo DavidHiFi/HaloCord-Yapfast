@@ -431,6 +431,10 @@ fn own_pick(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Option
             }
             return Some(Task::none());
         }
+        (key, Some(user)) if key.starts_with(id::USER_COLORS) => {
+            super::user_colors::pick(app, key, user)?;
+            return Some(Task::none());
+        }
         (id::COPY_STATUS_URLS, Some(user)) => status_link(app, user),
         (id::COPY_PROFILE_COLORS, Some(user)) => profile_colors(app, user),
         (id::SONG_LINK, None) => {
@@ -484,6 +488,7 @@ pub fn person_rows(app: &App, user: &str) -> Vec<MenuRow> {
             id::COPY_PROFILE_COLORS,
         ));
     }
+    rows.extend(super::user_colors::rows(app, user));
     set_apart(rows)
 }
 

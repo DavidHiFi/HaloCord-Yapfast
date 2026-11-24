@@ -44,6 +44,7 @@ mod presence;
 mod servers;
 mod song_buttons;
 pub mod theme_files;
+mod user_colors;
 mod voice;
 
 pub use areas::{Area, area};
@@ -81,6 +82,7 @@ pub use servers::{KeptChannel, home_face, home_mentions, keep_channel, no_reques
 pub use song_buttons::buttons as song_buttons;
 #[cfg(test)]
 pub use song_buttons::known as song_buttons_known;
+pub use user_colors::{dm_name_color, load_user_colors, name_color};
 pub use voice::{in_voice_mark, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
@@ -163,6 +165,7 @@ pub mod id {
     pub const FAVORITE_ANYTHING: &str = "favorite-anything";
     pub const SHOW_CONNECTIONS: &str = "show-connections";
     pub const LAST_ONLINE: &str = "last-online";
+    pub const USER_COLORS: &str = "custom-user-colors";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -229,6 +232,7 @@ pub static PLUGINS: &[Plugin] = &[
     chat::FAVORITE_ANYTHING,
     members::SHOW_CONNECTIONS,
     last_online::LAST_ONLINE,
+    user_colors::CUSTOM_USER_COLORS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
