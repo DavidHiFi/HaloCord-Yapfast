@@ -159,7 +159,7 @@ Thanks to everyone who followed HaloCord over here.
 | Who | What |
 |---|---|
 | **Yapfast** ([yapfast/yapfast](https://github.com/yapfast/yapfast)) | The whole client. HaloCord adds its plugins on top. |
-| **SickoHours** ([SickoHours](https://github.com/SickoHours)) | Contributor: 41 pull requests of plugins and fixes, among them sticker links, staff and platform marks, Auto zipper, Timestamp picker, Universal mention, Song link, Favorite anything, Message logger ignore lists and the More buttons tray. |
+| **SickoHours** ([SickoHours](https://github.com/SickoHours)) | Contributor: 45 pull requests of plugins and fixes, among them sticker links, staff and platform marks, Auto zipper, Timestamp picker, Universal mention, Song link, Favorite anything, Message logger ignore lists, the More buttons tray, Custom user colours, Better user tools and Show badges in chat. |
 | **TestCord** ([Codeberg](https://codeberg.org/Testcord/testcord)) | The stereo loader idea, from TestCord's plugin of the same name. |
 | **Vencord** ([vencord.dev](https://vencord.dev)) and **Equicord** ([Equicord/Equicord](https://github.com/Equicord/Equicord)) plugin authors | The ideas behind the copy rows, quick mention, character counter, new account tag, member count, close all DMs, voice count and user voice show. |
 | **Discord Userdoccers** ([docs.discord.food](https://docs.discord.food)) | The Discord documentation Yapfast is built from. |
