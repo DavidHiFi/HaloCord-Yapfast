@@ -40,7 +40,7 @@ pub use members::{
     add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
 };
 pub use members::{role_press, zoom_size, zoomable};
-pub use menus::{attachment_menu, chosen, copied_text, decoration_page, message_rows, person_rows};
+pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
 pub use servers::{home_mentions, no_request_badge};
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
 
@@ -53,6 +53,8 @@ pub(crate) use buttons::{close_dm_actions, read_all_actions};
 pub use chat::{Fill, counter_words};
 #[cfg(test)]
 pub use members::member_totals;
+#[cfg(test)]
+pub use menus::decoration_page;
 #[cfg(test)]
 pub use voice::voice_room_of;
 

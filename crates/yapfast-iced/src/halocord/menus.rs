@@ -196,10 +196,15 @@ fn decoration(app: &App, user: &str) -> Option<String> {
     Some(found.to_string())
 }
 
-/// View icons: a decoration's picture at 512 pixels, moving.
+/// View icons: a decoration's moving picture, from the still one Yapfast
+/// draws (`…/collectibles-shop/{sku}/static`): Discord's own client asks
+/// for `…/animated`, an APNG, for any decoration it lets move.
 pub fn decoration_page(decoration: &str) -> String {
     let path = decoration.split('?').next().unwrap_or(decoration);
-    format!("{path}?size=512&passthrough=true")
+    match path.strip_suffix("/static") {
+        Some(shop) => format!("{shop}/animated"),
+        None => path.to_owned(),
+    }
 }
 
 /// What a pick of one of the window's own plugin rows does, if it's one.

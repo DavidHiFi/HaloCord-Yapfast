@@ -210,7 +210,7 @@ fn day_words(day: &str, today: NaiveDate) -> Option<String> {
 pub(super) const VIEW_ICONS: Plugin = Plugin {
     id: id::VIEW_ICONS,
     name: "View icons",
-    about: "Click the banner on a profile, or the picture on a full profile, to open it full size in your browser; View decoration in someone's menu opens the decoration around their picture.",
+    about: "Click the banner on a profile, or the picture on a full profile, to open it full size in your browser; View decoration in someone's menu opens the decoration around their picture, moving.",
     on_at_first: false,
     settings: &[],
     apply: |_, _| {},

@@ -176,11 +176,12 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
 }
 
 /// View icons' View decoration: no row in someone's menu while Yapfast
-/// knows no decoration for them (the preview knows none), and the page a
-/// decoration opens is its picture at 512 pixels, moving.
+/// knows no decoration for them (the preview knows none), and a decoration
+/// as Yapfast draws it, still, opens moving.
 #[test]
 fn view_decoration_opens_the_decoration_moving() {
     use crate::halocord::{decoration_page, person_rows};
+    use yapfast_core::yapfast_discord::collectibles;
     let (mut app, _folder) = preview();
     turn_on(&mut app, id::VIEW_ICONS);
     assert!(
@@ -189,11 +190,12 @@ fn view_decoration_opens_the_decoration_moving() {
             .any(|row| row.label == "View decoration"),
         "none known"
     );
+    let still = collectibles::picture(1_144_058_844_004_233_369);
+    assert!(still.ends_with("/collectibles-shop/1144058844004233369/static"));
     assert_eq!(
-        decoration_page(
-            "https://cdn.discordapp.com/avatar-decoration-presets/a_1.png?size=96&passthrough=false"
-        ),
-        "https://cdn.discordapp.com/avatar-decoration-presets/a_1.png?size=512&passthrough=true"
+        decoration_page(&still),
+        still.replace("/static", "/animated"),
+        "the APNG"
     );
     changed(
         &mut app.layout,
