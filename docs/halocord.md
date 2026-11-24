@@ -313,8 +313,8 @@ Window (`yapfast-iced`):
   `app/mod.rs`: the `halocord_kept` field it keeps its state in.
 - `members.rs`: `heading_row` wraps the heading in `halocord::role_heading` (Clickable roles: a
   role's heading opens its card).
-- `profile/body.rs`: the connections show when `halocord::connections_on_card` too (Show
-  connections).
+- `profile/body.rs`: the card (`Mode::Card`) shows the connections when
+  `halocord::connections_on_card` (Show connections).
 - `sync.rs`: `make_lists` starts with `halocord::note_presences` (Last online: who of the DMs
   went offline); `sidebar/dms.rs`: a DM's row says `halocord::last_online` under the name when
   nothing else is said there.
