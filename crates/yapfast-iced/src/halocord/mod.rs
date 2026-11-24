@@ -73,7 +73,7 @@ pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, messag
 pub use servers::{
     KeptChannel, home_face, home_mentions, keep_channel, no_request_badge,
 };
-pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
+pub use voice::{in_voice_mark, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
 #[cfg(test)]

@@ -49,8 +49,7 @@ impl Settings {
 
     /// Ids from a list separated by commas, spaces or lines.
     pub fn ids(list: &str) -> Vec<String> {
-        list.split([',', ' ', '
-'])
+        list.split([',', ' ', '\n', '\r'])
             .map(str::trim)
             .filter(|id| !id.is_empty())
             .map(str::to_owned)
@@ -343,13 +342,10 @@ impl Hooks for MessageLogger {
             clear();
             return Picked {
                 actions: vec![Action::Republish],
-                copy: None,
+                ..Picked::default()
             };
         }
-        Picked {
-            actions: Vec::new(),
-            copy: None,
-        }
+        Picked::default()
     }
 }
 

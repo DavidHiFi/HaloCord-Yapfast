@@ -449,6 +449,7 @@ impl Hooks for FakeDms {
                 Vec::new()
             },
             copy: None,
+            open: None,
         }
     }
 }
