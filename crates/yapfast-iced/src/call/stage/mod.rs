@@ -419,9 +419,13 @@ fn join_view(app: &App) -> Element<'_, Message> {
             .center(48)
             .style(move |_| rounded(raised, 24));
             let marks = |icon: Icon, red: bool| {
-                container(app.look().glyph(icon, 13, if red { theme.danger } else { theme.secondary }))
-                    .center(20)
-                    .style(move |_| rounded(raised, 10))
+                container(app.look().glyph(
+                    icon,
+                    13,
+                    if red { theme.danger } else { theme.secondary },
+                ))
+                .center(20)
+                .style(move |_| rounded(raised, 10))
             };
             let mut column = column![face].spacing(4).align_x(Alignment::Center);
             if person.muted || person.server_muted {

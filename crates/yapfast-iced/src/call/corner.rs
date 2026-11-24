@@ -101,11 +101,12 @@ pub fn corner_view(app: &App) -> Option<Element<'_, Message>> {
     // The video takes the frame's rounded corners (cut over its own black
     // ground), so its square corners stop poking past the border over the
     // game.
-    let content =
-        crate::call::stage::frame(app, &key, Some((RADIUS as u32, crate::theme::rgb(
-            Color::BLACK,
-        ))))
-        .unwrap_or_else(|| {
+    let content = crate::call::stage::frame(
+        app,
+        &key,
+        Some((RADIUS as u32, crate::theme::rgb(Color::BLACK))),
+    )
+    .unwrap_or_else(|| {
         container(text(status).size(14).color(NOTE).align_x(Alignment::Center))
             .padding([0, 16])
             .center(Length::Fill)
