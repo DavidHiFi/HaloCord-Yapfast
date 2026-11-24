@@ -297,6 +297,8 @@ Window (`yapfast-iced`):
   conversation kept in `halocord-channel` in the app's folder opens once listed, if the plugin
   was on as the window started and nothing else was opened first, and the one open is kept);
   `app/mod.rs`: the `halocord_kept` field it keeps its state in.
+- `members.rs`: `heading_row` wraps the heading in `halocord::role_heading` (Clickable roles: a
+  role's heading opens its card).
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
 - `app/message.rs`: `Message::HaloCord(halocord::Event)`, the plugins' own messages
@@ -338,6 +340,9 @@ Window (`yapfast-iced`):
   terms as a double press.
 - `sync.rs`: `make_lists` drops friend requests from the DM home's count and the count
   beside Friends while No pending count is on (one `if` each).
+- Core `application/profiles.rs`: `show_role` also names and colours a role from the server's
+  own roles (`server_roles`), for a role clicked where nothing else names it (Clickable roles'
+  member list headings).
 - Core `application/places.rs`: `open_invite` starts a new link with
   `halocord::first_invite()` (Invite defaults) in place of 7 days and no limit.
 - Core `application.rs` and `application/messages.rs`: `Action::JumpToStart`, and

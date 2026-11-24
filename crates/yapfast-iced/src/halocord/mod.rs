@@ -62,7 +62,7 @@ pub use members::{
     Place, add_member_count, dm_marks, exact_day, full_picture, name_marks, platform_marks,
     timeout_clock, timeout_note, tip_member_count,
 };
-pub use members::{message_timeout, role_press, server_tip, zoom_size, zoomable};
+pub use members::{heading_role, message_timeout, role_heading, role_press, server_tip, zoom_size, zoomable};
 pub use menus::{
     attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, search_result,
     sticker_tile,
