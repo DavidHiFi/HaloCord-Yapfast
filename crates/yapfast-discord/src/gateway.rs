@@ -385,7 +385,8 @@ impl Gateway {
 
     /// Join a voice channel, or leave voice with `channel_id` set to `None`.
     /// Sending it again in the same channel only changes the mute and deafen
-    /// state others see.
+    /// state others see. `self_stream` says Go Live is on, as HaloCord's
+    /// Fake stream holds up without a stream behind it.
     pub async fn update_voice_state(
         &mut self,
         guild_id: Option<&str>,
@@ -393,6 +394,7 @@ impl Gateway {
         self_mute: bool,
         self_deaf: bool,
         self_video: bool,
+        self_stream: bool,
     ) -> Result<()> {
         self.send(
             VOICE_STATE_UPDATE,
@@ -402,6 +404,7 @@ impl Gateway {
                 "self_mute": self_mute,
                 "self_deaf": self_deaf,
                 "self_video": self_video,
+                "self_stream": self_stream,
             }),
         )
         .await

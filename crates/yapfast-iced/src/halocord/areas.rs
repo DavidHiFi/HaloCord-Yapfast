@@ -51,6 +51,8 @@ pub fn area(id: &str) -> Area {
         id::STEREO
         | id::FAKE_MUTE
         | id::FAKE_DEAFEN
+        | id::FAKE_CAMERA
+        | id::FAKE_STREAM
         | id::VOLUME_BOOSTER
         | id::FORCE_MONO
         | id::CLICK_TO_UNMUTE

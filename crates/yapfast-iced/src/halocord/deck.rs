@@ -67,6 +67,8 @@ pub enum Press {
     Share,
     FakeMute,
     FakeDeafen,
+    FakeCamera,
+    FakeStream,
     VoiceMode,
     Leave,
     /// Share this screen, switch the stream to it, or stop it there.
@@ -93,6 +95,8 @@ struct Shown {
     can_share: bool,
     fake_mute: bool,
     fake_deafen: bool,
+    fake_camera: bool,
+    fake_stream: bool,
     talk_mode: bool,
     shared_screen: Option<u64>,
 }
@@ -134,6 +138,8 @@ fn shown(app: &App) -> Shown {
         can_share: crate::call::stage::can_share(app.ctx()),
         fake_mute: app.layout.halocord.is(id::FAKE_MUTE),
         fake_deafen: app.layout.halocord.is(id::FAKE_DEAFEN),
+        fake_camera: app.layout.halocord.is(id::FAKE_CAMERA),
+        fake_stream: app.layout.halocord.is(id::FAKE_STREAM),
         talk_mode: app.layout.voice.input_mode == crate::layout::InputMode::PushToTalk,
         shared_screen: match stream_worker::current_pick() {
             Source::Display(screen) if sharing => Some(screen),
@@ -187,6 +193,8 @@ fn pressed(app: &mut App, press: Press) -> Result<Task<Message>, &'static str> {
         },
         Press::FakeMute => switch(app, id::FAKE_MUTE)?,
         Press::FakeDeafen => switch(app, id::FAKE_DEAFEN)?,
+        Press::FakeCamera => switch(app, id::FAKE_CAMERA)?,
+        Press::FakeStream => switch(app, id::FAKE_STREAM)?,
         Press::VoiceMode => {
             crate::keybinds::toggled(app, yapfast_core::keybinds::Action::ToggleVoiceMode)
         }
@@ -426,6 +434,8 @@ fn route(path: &str, asks: &tokio::sync::mpsc::UnboundedSender<Asked>) -> (u16, 
         "share" => Press::Share,
         "fake-mute" => Press::FakeMute,
         "fake-deafen" => Press::FakeDeafen,
+        "fake-camera" => Press::FakeCamera,
+        "fake-stream" => Press::FakeStream,
         "voice-mode" => Press::VoiceMode,
         "leave" => Press::Leave,
         _ => match key
@@ -482,6 +492,8 @@ fn state() -> String {
         "canShare": shown.can_share,
         "fakeMute": shown.fake_mute,
         "fakeDeafen": shown.fake_deafen,
+        "fakeCamera": shown.fake_camera,
+        "fakeStream": shown.fake_stream,
         "pttMode": shown.talk_mode,
         "talking": push_to_talk::held(),
         "muteHeld": push_to_talk::muting(),

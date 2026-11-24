@@ -114,6 +114,8 @@ pub mod id {
     pub const STEREO: &str = "stereo-loader";
     pub const FAKE_MUTE: &str = "fake-mute";
     pub const FAKE_DEAFEN: &str = "fake-deafen";
+    pub const FAKE_CAMERA: &str = "fake-camera";
+    pub const FAKE_STREAM: &str = "fake-stream";
     pub const STAFF_TAG: &str = "staff-tag";
     pub const USER_AREA: &str = "user-area";
     pub const COPY_MENTION: &str = "copy-user-mention";
@@ -183,6 +185,8 @@ pub static PLUGINS: &[Plugin] = &[
     voice::STEREO,
     voice::FAKE_MUTE,
     voice::FAKE_DEAFEN,
+    voice::FAKE_CAMERA,
+    voice::FAKE_STREAM,
     chat::STAFF_TAG,
     buttons::USER_AREA,
     menus::COPY_MENTION,

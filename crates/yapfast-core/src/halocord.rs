@@ -149,6 +149,29 @@ pub fn add_mono(sum: &mut [f32], samples: &[i16], gain: f32) {
 
 static FAKE_MUTE: AtomicBool = AtomicBool::new(false);
 static FAKE_DEAF: AtomicBool = AtomicBool::new(false);
+static FAKE_CAMERA: AtomicBool = AtomicBool::new(false);
+static FAKE_STREAM: AtomicBool = AtomicBool::new(false);
+
+/// Makes others see this account's camera or Go Live as on, whatever it
+/// really is: the voice state sent to Discord says so, with no camera and
+/// no stream behind it. It starts off each time Yapfast opens, with the
+/// rest of the fake voice state.
+pub fn set_fake_media(camera: bool, stream: bool) {
+    FAKE_CAMERA.store(camera, Ordering::Relaxed);
+    FAKE_STREAM.store(stream, Ordering::Relaxed);
+}
+
+/// Whether the voice state should say this account's camera is on while it
+/// isn't (Fake camera).
+pub fn fake_camera() -> bool {
+    FAKE_CAMERA.load(Ordering::Relaxed)
+}
+
+/// Whether the voice state should say this account is going live while it
+/// isn't (Fake stream).
+pub fn fake_stream() -> bool {
+    FAKE_STREAM.load(Ordering::Relaxed)
+}
 
 /// Makes others see this account muted, or muted and deafened, in calls,
 /// whatever it really is: the voice state sent to Discord says so, while the

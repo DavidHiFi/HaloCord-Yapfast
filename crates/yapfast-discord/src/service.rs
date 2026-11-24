@@ -719,6 +719,7 @@ enum Request {
         mute: bool,
         deaf: bool,
         video: bool,
+        stream: bool,
     },
     View {
         guild: String,
@@ -4109,14 +4110,24 @@ impl Discord {
     }
 
     /// Shows others whether this account is muted or deafened, and whether
-    /// its camera is on.
-    pub fn set_self(&self, guild: &str, channel: &str, mute: bool, deaf: bool, video: bool) {
+    /// its camera is on or it goes live: Fake camera and Fake stream may
+    /// say so while neither really is.
+    pub fn set_self(
+        &self,
+        guild: &str,
+        channel: &str,
+        mute: bool,
+        deaf: bool,
+        video: bool,
+        stream: bool,
+    ) {
         let _ = self.requests.send(Request::SelfState {
             guild: guild.into(),
             channel: channel.into(),
             mute,
             deaf,
             video,
+            stream,
         });
     }
 

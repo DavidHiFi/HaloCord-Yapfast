@@ -415,6 +415,7 @@ impl Session<'_> {
                         true,
                         crate::halocord::fake_deafened(),
                         false,
+                        false,
                     )
                     .await;
                 self.join.start(guild, channel, reply);
@@ -427,7 +428,7 @@ impl Session<'_> {
                     return Ok(());
                 }
                 gateway
-                    .update_voice_state(server(&guild), None, false, false, false)
+                    .update_voice_state(server(&guild), None, false, false, false, false)
                     .await
             }
             Request::SelfState {
@@ -436,9 +437,10 @@ impl Session<'_> {
                 mute,
                 deaf,
                 video,
+                stream,
             } => {
                 gateway
-                    .update_voice_state(server(&guild), Some(&channel), mute, deaf, video)
+                    .update_voice_state(server(&guild), Some(&channel), mute, deaf, video, stream)
                     .await
             }
             // It opens once it lists, so it lists as on screen already.

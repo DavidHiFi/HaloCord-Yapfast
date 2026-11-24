@@ -750,6 +750,22 @@ pub(crate) fn plugin_buttons(
             "Fake deafen",
         );
     }
+    if dock.fake_camera {
+        switch(
+            crate::halocord::FAKE_CAMERA,
+            Icon::Video,
+            "Stop faking camera",
+            "Fake camera",
+        );
+    }
+    if dock.fake_stream {
+        switch(
+            crate::halocord::FAKE_STREAM,
+            Icon::ScreenShare,
+            "Stop faking stream",
+            "Fake stream",
+        );
+    }
     if dock.stereo {
         switch(
             crate::halocord::STEREO,

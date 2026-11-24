@@ -55,6 +55,26 @@ pub(super) const FAKE_DEAFEN: Plugin = Plugin {
     hooks: None,
 };
 
+pub(super) const FAKE_CAMERA: Plugin = Plugin {
+    id: id::FAKE_CAMERA,
+    name: "Fake camera",
+    about: "Others see your camera as on in calls while it isn't: no picture is sent, and your own camera stays off. It starts off each time Yapfast opens.",
+    on_at_first: false,
+    settings: &[],
+    apply: tell_media,
+    hooks: None,
+};
+
+pub(super) const FAKE_STREAM: Plugin = Plugin {
+    id: id::FAKE_STREAM,
+    name: "Fake stream",
+    about: "Others see you going live in calls while you aren't sharing anything. Your own screen stays as it is. It starts off each time Yapfast opens.",
+    on_at_first: false,
+    settings: &[],
+    apply: tell_media,
+    hooks: None,
+};
+
 pub(super) const VOLUME_BOOSTER: Plugin = Plugin {
     id: id::VOLUME_BOOSTER,
     name: "Volume booster",
@@ -137,6 +157,11 @@ fn tell_voice(kept: &Kept, _: &Plugin) {
     engine::set_fake_voice(kept.is(id::FAKE_MUTE), kept.is(id::FAKE_DEAFEN));
 }
 
+/// Tells the core what Fake camera and Fake stream do; both plugins say it.
+fn tell_media(kept: &Kept, _: &Plugin) {
+    engine::set_fake_media(kept.is(id::FAKE_CAMERA), kept.is(id::FAKE_STREAM));
+}
+
 impl Kept {
     /// What Fake mute or Fake deafen is doing, to say on the user area while
     /// in a call; deafen wins, as it shows both.
@@ -145,6 +170,10 @@ impl Kept {
             Some("Faking deafen")
         } else if self.is(id::FAKE_MUTE) {
             Some("Faking mute")
+        } else if self.is(id::FAKE_CAMERA) {
+            Some("Faking camera")
+        } else if self.is(id::FAKE_STREAM) {
+            Some("Faking stream")
         } else {
             None
         }
