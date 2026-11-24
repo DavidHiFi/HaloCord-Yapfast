@@ -1179,6 +1179,8 @@ fn clickable_roles_open_a_role_card_from_a_member_list_heading() {
         server.role_names = Arc::new(HashMap::from([
             ("10".to_owned(), "@everyone".to_owned()),
             ("20".to_owned(), "Mods".to_owned()),
+            ("30".to_owned(), "Helpers".to_owned()),
+            ("31".to_owned(), "Helpers".to_owned()),
         ]));
         server.role_colors = Arc::new(HashMap::from([("20".to_owned(), (1, 0x89B4FA))]));
     });
@@ -1196,6 +1198,11 @@ fn clickable_roles_open_a_role_card_from_a_member_list_heading() {
         heading_role(app.ctx(), "Raiders — 1"),
         None,
         "not a role here"
+    );
+    assert_eq!(
+        heading_role(app.ctx(), "Helpers — 2"),
+        None,
+        "two roles share the name: no card"
     );
     turn_on(&mut app, id::CLICKABLE_ROLES);
     let _ = app.update(Message::Info(Card::ProfileRole("20".into())));
