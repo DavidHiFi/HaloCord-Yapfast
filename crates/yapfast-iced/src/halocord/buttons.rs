@@ -146,6 +146,9 @@ pub enum Press {
     JumpStart,
     /// Hide chat buttons' arrow by the message box.
     ChatButtons,
+    /// Better user tools' rows in the account's popover.
+    MicTest,
+    OffTheRadar,
 }
 
 /// The buttons the plugins that are on add: icon, tip and what they do.
@@ -220,6 +223,8 @@ pub fn press(app: &mut App, press: Press) -> Task<Message> {
                 app.client.dispatch(action);
             }
         }
+        Press::MicTest => super::user_tools::toggle_mic_test(app),
+        Press::OffTheRadar => super::user_tools::toggle_radar(app),
     }
     app.sync()
 }

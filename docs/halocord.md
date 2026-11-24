@@ -308,6 +308,9 @@ Window (`yapfast-iced`):
   when one is set (Custom user colours); `sync.rs`' `make_lists` starts with
   `halocord::load_user_colors`.
 - `status.rs`: the popover's bottom uses `account::full_height`.
+  Before User Settings, `halocord::popover_rows`' rows (Better user tools), each sending its
+  `Press` as the top bar's buttons do.
+- `sync.rs`: `sync` starts with `halocord::stop_mic_test_in_call` (Better user tools).
 - `rail.rs`: `home_tile` asks `halocord::home_face` first (Home typing's dots while someone
   types in a DM), else draws the logo; `typing.rs`: `dots`, the typing line's dots on their
   own, `pub(crate)` for it.

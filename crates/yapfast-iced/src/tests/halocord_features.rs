@@ -1492,3 +1492,51 @@ fn custom_user_colors_take_a_hex_code_from_the_clipboard() {
         },
     );
 }
+
+/// Better user tools: the account popover's rows while it's on; Mic test
+/// starts and stops, and stops once a call starts; Off the radar is on, then
+/// back as it was.
+#[test]
+fn better_user_tools_test_the_mic_and_go_off_the_radar() {
+    use crate::halocord::{Press, mic_testing, off_the_radar, popover_rows};
+    let press = |app: &mut App, press| {
+        let _ = app.update(Message::Bar(crate::window_bar::Event::Halo(press)));
+    };
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    super::change(&mut app, |state| state.discord_user = Some("1".into()));
+    let labels = |app: &App| -> Vec<&'static str> {
+        popover_rows(app.ctx())
+            .into_iter()
+            .map(|(label, _, _)| label)
+            .collect()
+    };
+    assert!(labels(&app).is_empty(), "off");
+    turn_on(&mut app, id::USER_TOOLS);
+    assert_eq!(labels(&app), ["Mic test", "Off the radar"]);
+    press(&mut app, Press::MicTest);
+    assert!(mic_testing());
+    assert_eq!(labels(&app)[0], "Stop mic test");
+    press(&mut app, Press::MicTest);
+    assert!(!mic_testing(), "stopped");
+    press(&mut app, Press::MicTest);
+    super::change(&mut app, |state| {
+        state.voice.room = Some("discord:10:14".into());
+    });
+    assert!(!mic_testing(), "a call stops it");
+    assert!(!labels(&app).contains(&"Mic test"), "no mic test in a call");
+    super::change(&mut app, |state| state.voice.room = None);
+    press(&mut app, Press::OffTheRadar);
+    assert!(off_the_radar());
+    assert!(labels(&app).contains(&"Back on the radar"));
+    press(&mut app, Press::OffTheRadar);
+    assert!(!off_the_radar(), "back as it was");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::USER_TOOLS).expect("the plugin"),
+            on: false,
+        },
+    );
+}

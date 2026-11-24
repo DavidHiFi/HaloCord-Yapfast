@@ -45,6 +45,7 @@ mod servers;
 mod song_buttons;
 pub mod theme_files;
 mod user_colors;
+mod user_tools;
 mod voice;
 
 pub use areas::{Area, area};
@@ -83,6 +84,7 @@ pub use song_buttons::buttons as song_buttons;
 #[cfg(test)]
 pub use song_buttons::known as song_buttons_known;
 pub use user_colors::{dm_name_color, load_user_colors, name_color};
+pub use user_tools::{popover_rows, stop_mic_test_in_call};
 pub use voice::{in_voice_mark, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
@@ -98,6 +100,8 @@ pub use clicks::presses_so_far;
 pub use members::member_totals;
 #[cfg(test)]
 pub use user_colors::parse_hex;
+#[cfg(test)]
+pub use user_tools::{mic_testing, off_the_radar};
 #[cfg(test)]
 pub use voice::voice_room_of;
 
@@ -168,6 +172,7 @@ pub mod id {
     pub const SHOW_CONNECTIONS: &str = "show-connections";
     pub const LAST_ONLINE: &str = "last-online";
     pub const USER_COLORS: &str = "custom-user-colors";
+    pub const USER_TOOLS: &str = "better-user-tools";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -235,6 +240,7 @@ pub static PLUGINS: &[Plugin] = &[
     members::SHOW_CONNECTIONS,
     last_online::LAST_ONLINE,
     user_colors::CUSTOM_USER_COLORS,
+    user_tools::BETTER_USER_TOOLS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

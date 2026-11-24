@@ -293,6 +293,14 @@ impl<'a> View<'a> {
             second =
                 second.push(self.popover_row("Copy User ID", Icon::Copy, message(Event::CopyId)));
         }
+        // HaloCord's Better user tools (docs/halocord.md).
+        for (label, icon, press) in crate::halocord::popover_rows(self.cx) {
+            second = second.push(self.popover_row(
+                label,
+                icon,
+                Message::Bar(crate::window_bar::Event::Halo(press)),
+            ));
+        }
         second = second.push(self.popover_row(
             "User Settings",
             Icon::Settings,

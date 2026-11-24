@@ -220,6 +220,8 @@ impl App {
     /// Takes in what changed in the client's state; returns the work that
     /// follows (a scroll, pictures to ask for, rows to report).
     pub fn sync(&mut self) -> Task<Message> {
+        // HaloCord's Better user tools (docs/halocord.md): no mic test in a call.
+        crate::halocord::stop_mic_test_in_call(self);
         let state = self.client.state();
         // The DM search's filter is the DM home's: it goes as the rail
         // goes to a server, or back home.
