@@ -646,10 +646,16 @@ impl<'a> View<'a> {
                     .filter(|presence| *presence != Presence::Offline)
                     .map(|presence| (presence, rgb(theme.sidebar), Point::new(20.0, 20.0))),
             );
-        let color = faded(look.color.map_or(theme.secondary, hex), opacity);
+        // HaloCord's Custom user colours (docs/halocord.md): yours in place of
+        // theirs.
+        let custom = crate::halocord::name_color(self.cx, &look.id, self.cx.in_server, false);
+        let color = faded(
+            custom.unwrap_or_else(|| look.color.map_or(theme.secondary, hex)),
+            opacity,
+        );
         let name = self.cx.person_name(
             &look.name,
-            NameInk::new(16.0, 500, color).style(look.style.as_ref()),
+            NameInk::new(16.0, 500, color).style(look.style.as_ref().filter(|_| custom.is_none())),
         );
         let mut name_line = row![name].spacing(4).align_y(Alignment::Center);
         if let Some(icon) = look

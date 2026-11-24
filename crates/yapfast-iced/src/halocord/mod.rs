@@ -27,6 +27,7 @@ mod members;
 mod menus;
 mod servers;
 pub mod theme_files;
+mod user_colors;
 mod voice;
 
 pub use buttons::{Press, press, presses, start_button};
@@ -42,6 +43,7 @@ pub use members::{
 pub use members::{role_press, zoom_size, zoomable};
 pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
 pub use servers::{home_mentions, no_request_badge};
+pub use user_colors::{dm_name_color, load_user_colors, name_color};
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
@@ -100,6 +102,7 @@ pub mod id {
     pub const COPY_PROFILE_COLORS: &str = "copy-profile-colors";
     pub const FIND_REPLY: &str = "find-reply";
     pub const IMAGE_ZOOM: &str = "image-zoom";
+    pub const USER_COLORS: &str = "custom-user-colors";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -144,6 +147,7 @@ pub static PLUGINS: &[Plugin] = &[
     menus::COPY_PROFILE_COLORS,
     menus::FIND_REPLY,
     members::IMAGE_ZOOM,
+    user_colors::CUSTOM_USER_COLORS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

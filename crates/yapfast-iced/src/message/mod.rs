@@ -627,6 +627,11 @@ fn author_line<'a>(
         Some(style) if !ctx.in_server => style.colors.first().map_or(color, |rgb| hex(*rgb)),
         _ => color,
     };
+    // HaloCord's Custom user colours (docs/halocord.md): yours in place of
+    // theirs.
+    let custom = crate::halocord::name_color(ctx, &message.sender, ctx.in_server, false);
+    let style = if custom.is_some() { None } else { style };
+    let color = custom.unwrap_or(color);
     let name = Piece::new(
         vec![
             span(

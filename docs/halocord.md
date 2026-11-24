@@ -184,6 +184,10 @@ Window (`yapfast-iced`):
 - Core `chat.rs`, `discord_text/render.rs`, `application/profiles.rs` and
   `yapfast-discord/src/ready.rs`: `ProfileRole::id`, which `named_roles` gives, and
   `show_role` names and colours a role from the open profile (Clickable roles).
+- `message/mod.rs` (`author_line`), `members.rs` (a member's row) and `sidebar/dms.rs` (a DM's
+  row): a name takes `halocord::name_color` / `dm_name_color` in place of its colour and style
+  when one is set (Custom user colours); `sync.rs`' `make_lists` starts with
+  `halocord::load_user_colors`.
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.

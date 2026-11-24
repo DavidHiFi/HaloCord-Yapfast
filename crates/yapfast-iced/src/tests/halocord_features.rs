@@ -174,3 +174,72 @@ fn no_pending_count_leaves_requests_out_of_the_counts() {
     crate::halocord::no_request_badge(&mut rows);
     assert!(matches!(&rows[0], crate::sidebar::SideRow::Screens { badge, .. } if badge.is_empty()));
 }
+
+/// Custom user colours: "Set colour" and its swatches in someone's menu
+/// while it's on; a swatch colours their name (kept in the app's folder),
+/// in servers only with "In servers too", and "Reset colour" puts theirs
+/// back.
+#[test]
+fn custom_user_colors_colour_a_name_until_reset() {
+    use crate::halocord::{chosen, name_color, person_rows};
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let someone = "1234567890";
+    let labels = |app: &App| -> Vec<String> {
+        person_rows(app, someone)
+            .iter()
+            .map(|row| row.label.to_string())
+            .collect()
+    };
+    assert!(!labels(&app).contains(&"Set colour".to_owned()), "off");
+    turn_on(&mut app, id::USER_COLORS);
+    let rows = person_rows(&app, someone);
+    let set = rows
+        .iter()
+        .find(|row| row.label == "Set colour")
+        .expect("Set colour");
+    assert_eq!(set.submenu.len(), 12, "a swatch each");
+    assert!(
+        !labels(&app).contains(&"Reset colour".to_owned()),
+        "none set yet"
+    );
+    let _ = chosen(&mut app, "custom-user-colors/set/e91e63", "", Some(someone));
+    let pink = Some(crate::style::hex(0xe9_1e_63));
+    assert_eq!(name_color(app.ctx(), someone, false, false), pink);
+    assert_eq!(
+        name_color(app.ctx(), &format!("discord:{someone}"), false, false),
+        pink,
+        "a message's sender"
+    );
+    let kept =
+        std::fs::read_to_string(app.client.root().join("halocord-user-colors.json")).expect("kept");
+    assert!(kept.contains("15277667"), "{kept}");
+    assert!(labels(&app).contains(&"Reset colour".to_owned()));
+    let plugin = place(id::USER_COLORS).expect("the plugin");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 1,
+            on: false,
+        },
+    );
+    assert_eq!(
+        name_color(app.ctx(), someone, true, false),
+        None,
+        "not in servers"
+    );
+    assert_eq!(
+        name_color(app.ctx(), someone, false, false),
+        pink,
+        "in DMs still"
+    );
+    let _ = chosen(&mut app, "custom-user-colors/reset", "", Some(someone));
+    assert_eq!(name_color(app.ctx(), someone, false, false), None, "reset");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+}

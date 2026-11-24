@@ -131,6 +131,8 @@ impl App {
     /// again, keeping each that comes out the same.
     fn make_lists(&mut self) {
         let state = self.client.state();
+        // HaloCord's Custom user colours (docs/halocord.md): read once.
+        crate::halocord::load_user_colors(&self.layout.halocord, self.client.root());
         let mut rail = rail(state, &self.layout.open_folders);
         // HaloCord (yapfast#286): the DM being read, at its newest message
         // with the window in front, is marked read as a message comes, so
