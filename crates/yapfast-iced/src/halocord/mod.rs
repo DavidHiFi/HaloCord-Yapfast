@@ -58,6 +58,8 @@ pub use chat::{Fill, counter_words};
 #[cfg(test)]
 pub use members::member_totals;
 #[cfg(test)]
+pub use user_colors::parse_hex;
+#[cfg(test)]
 pub use voice::voice_room_of;
 
 pub use id::*;
@@ -177,12 +179,18 @@ pub fn place(id: &str) -> Option<usize> {
 pub enum Event {
     /// Click to unmute: this person, unmuted for this account.
     Unmute(String),
+    /// Custom user colours: the clipboard's text, read for this person's
+    /// "Hex from clipboard".
+    UserColorHex(String, Option<String>),
 }
 
 /// Carries out a plugin's message.
 pub fn update(app: &mut crate::app::App, event: Event) -> iced::Task<crate::app::Message> {
     match event {
         Event::Unmute(person) => voice::unmute(app, &person),
+        Event::UserColorHex(person, text) => {
+            user_colors::from_clipboard(app, &person, text.as_deref());
+        }
     }
     iced::Task::none()
 }

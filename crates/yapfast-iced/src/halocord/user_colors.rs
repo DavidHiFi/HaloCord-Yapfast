@@ -10,7 +10,7 @@ use iced::Color;
 
 use super::{Kept, Kind, Plugin, Setting, id};
 use crate::{
-    app::App,
+    app::{App, Message},
     ctx::Ctx,
     menus::{MenuAct, MenuRow},
     pictures::Icon,
@@ -172,6 +172,14 @@ pub fn rows(app: &App, user: &str) -> Vec<MenuRow> {
                 .key(format!("{}/set/{rgb:06x}", id::USER_COLORS))
         })
         .collect();
+    let mut hex = MenuRow::new(
+        MenuAct::Plugin,
+        "Hex from clipboard (#rrggbb)",
+        Icon::Palette,
+    )
+    .key(format!("{}/clipboard", id::USER_COLORS));
+    hex.separated = true;
+    set.submenu.push(hex);
     let mut rows = vec![set];
     if user_color(kept, user, false, false).is_some() {
         rows.push(
@@ -183,16 +191,44 @@ pub fn rows(app: &App, user: &str) -> Vec<MenuRow> {
 }
 
 /// What one of its rows does for `user`, if `key` is one.
-pub fn pick(app: &App, key: &str, user: &str) -> Option<()> {
+pub fn pick(app: &App, key: &str, user: &str) -> Option<iced::Task<Message>> {
     let action = key.strip_prefix(id::USER_COLORS)?.strip_prefix('/')?;
     let root = app.client.root();
     match action {
         "reset" => set(root, user, None),
         "menu" => {}
+        "clipboard" => {
+            let user = user.to_owned();
+            return Some(iced::clipboard::read().map(move |text| {
+                Message::HaloCord(super::Event::UserColorHex(user.clone(), text))
+            }));
+        }
         _ => {
             let rgb = u32::from_str_radix(action.strip_prefix("set/")?, 16).ok()?;
             set(root, user, Some(rgb));
         }
     }
-    Some(())
+    Some(iced::Task::none())
+}
+
+/// A colour typed as hex: `#ff8800`, `ff8800`, `#f80` or `f80`.
+pub fn parse_hex(text: &str) -> Option<u32> {
+    let hex = text.trim().trim_start_matches('#');
+    if !hex.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return None;
+    }
+    let full: String = match hex.len() {
+        3 => hex.chars().flat_map(|digit| [digit, digit]).collect(),
+        6 => hex.to_owned(),
+        _ => return None,
+    };
+    u32::from_str_radix(&full, 16).ok()
+}
+
+/// "Hex from clipboard": the clipboard's `text`, as `user`'s colour when
+/// it's one; anything else changes nothing.
+pub fn from_clipboard(app: &App, user: &str, text: Option<&str>) {
+    if let Some(rgb) = text.and_then(parse_hex) {
+        set(app.client.root(), user, Some(rgb));
+    }
 }
