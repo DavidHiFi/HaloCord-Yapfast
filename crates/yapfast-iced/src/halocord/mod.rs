@@ -27,6 +27,7 @@ mod members;
 mod menus;
 mod servers;
 pub mod theme_files;
+mod user_tools;
 mod voice;
 
 pub use buttons::{Press, press, presses, start_button};
@@ -42,6 +43,7 @@ pub use members::{
 pub use members::{role_press, zoom_size, zoomable};
 pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
 pub use servers::{home_mentions, no_request_badge};
+pub use user_tools::{popover_rows, stop_mic_test_in_call};
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
@@ -53,6 +55,8 @@ pub(crate) use buttons::{close_dm_actions, read_all_actions};
 pub use chat::{Fill, counter_words};
 #[cfg(test)]
 pub use members::member_totals;
+#[cfg(test)]
+pub use user_tools::{mic_testing, off_the_radar};
 #[cfg(test)]
 pub use voice::voice_room_of;
 
@@ -100,6 +104,7 @@ pub mod id {
     pub const COPY_PROFILE_COLORS: &str = "copy-profile-colors";
     pub const FIND_REPLY: &str = "find-reply";
     pub const IMAGE_ZOOM: &str = "image-zoom";
+    pub const USER_TOOLS: &str = "better-user-tools";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -144,6 +149,7 @@ pub static PLUGINS: &[Plugin] = &[
     menus::COPY_PROFILE_COLORS,
     menus::FIND_REPLY,
     members::IMAGE_ZOOM,
+    user_tools::BETTER_USER_TOOLS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
