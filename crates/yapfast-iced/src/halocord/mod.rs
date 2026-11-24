@@ -97,6 +97,8 @@ pub use clicks::presses_so_far;
 #[cfg(test)]
 pub use members::member_totals;
 #[cfg(test)]
+pub use user_colors::parse_hex;
+#[cfg(test)]
 pub use voice::voice_room_of;
 
 pub use id::*;
@@ -294,6 +296,9 @@ pub enum Event {
         Result<Vec<yapfast_core::yapfast_discord::halocord::SongPlatform>, String>,
     ),
     OpenSong(String),
+    /// Custom user colours: the clipboard's text, read for this person's
+    /// "Hex from clipboard".
+    UserColorHex(String, Option<String>),
 }
 
 /// Carries out a plugin's message.
@@ -322,6 +327,9 @@ pub fn update(app: &mut crate::app::App, event: Event) -> iced::Task<crate::app:
         Event::SongLinks(link) => return song_buttons::ask(app, link),
         Event::SongLinksFound(link, found) => song_buttons::found(link, found),
         Event::OpenSong(address) => crate::browser::open(&address),
+        Event::UserColorHex(person, text) => {
+            user_colors::from_clipboard(app, &person, text.as_deref());
+        }
     }
     iced::Task::none()
 }

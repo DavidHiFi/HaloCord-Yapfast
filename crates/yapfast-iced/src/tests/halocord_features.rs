@@ -1393,7 +1393,7 @@ fn custom_user_colors_colour_a_name_until_reset() {
         .iter()
         .find(|row| row.label == "Set colour")
         .expect("Set colour");
-    assert_eq!(set.submenu.len(), 12, "a swatch each");
+    assert_eq!(set.submenu.len(), 13, "a swatch each and the hex code");
     assert!(
         !labels(&app).contains(&"Reset colour".to_owned()),
         "none set yet"
@@ -1436,5 +1436,59 @@ fn custom_user_colors_colour_a_name_until_reset() {
         &mut app.layout,
         &mut app.client,
         Change::Switch { plugin, on: false },
+    );
+}
+
+/// Custom user colours from a hex code: the clipboard's text as a colour,
+/// written #ff8800, ff8800 or #f80; anything else changes nothing.
+#[test]
+fn custom_user_colors_take_a_hex_code_from_the_clipboard() {
+    use crate::halocord::{Event, name_color, parse_hex, person_rows};
+    assert_eq!(parse_hex("#ff8800"), Some(0xff_88_00));
+    assert_eq!(parse_hex(" ff8800\n"), Some(0xff_88_00));
+    assert_eq!(parse_hex("#f80"), Some(0xff_88_00));
+    assert_eq!(parse_hex("orange"), None);
+    assert_eq!(parse_hex("#ff88"), None);
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    turn_on(&mut app, id::USER_COLORS);
+    let someone = "2345678901";
+    let rows = person_rows(&app, someone);
+    let set = rows
+        .iter()
+        .find(|row| row.label == "Set colour")
+        .expect("Set colour");
+    assert!(
+        set.submenu
+            .iter()
+            .any(|row| row.label == "Hex from clipboard (#rrggbb)"),
+        "the hex row"
+    );
+    let clipboard = |app: &mut App, text: Option<&str>| {
+        let _ = app.update(Message::HaloCord(Event::UserColorHex(
+            someone.into(),
+            text.map(str::to_owned),
+        )));
+    };
+    clipboard(&mut app, Some("no colour here"));
+    assert_eq!(name_color(app.ctx(), someone, false, false), None);
+    clipboard(&mut app, Some("#f80"));
+    assert_eq!(
+        name_color(app.ctx(), someone, false, false),
+        Some(crate::style::hex(0xff_88_00))
+    );
+    clipboard(&mut app, None);
+    assert_eq!(
+        name_color(app.ctx(), someone, false, false),
+        Some(crate::style::hex(0xff_88_00)),
+        "an empty clipboard changes nothing"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::USER_COLORS).expect("the plugin"),
+            on: false,
+        },
     );
 }

@@ -432,8 +432,7 @@ fn own_pick(app: &mut App, key: &str, item: &str, place: Option<&str>) -> Option
             return Some(Task::none());
         }
         (key, Some(user)) if key.starts_with(id::USER_COLORS) => {
-            super::user_colors::pick(app, key, user)?;
-            return Some(Task::none());
+            return super::user_colors::pick(app, key, user);
         }
         (id::COPY_STATUS_URLS, Some(user)) => status_link(app, user),
         (id::COPY_PROFILE_COLORS, Some(user)) => profile_colors(app, user),
