@@ -58,16 +58,21 @@ pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 pub use last_online::{dm_line as last_online, note_presences};
-#[cfg(test)]
-pub use members::time_left;
 pub use members::{
     Place, add_member_count, dm_marks, exact_day, full_picture, name_marks, platform_marks,
     timeout_clock, timeout_note, tip_member_count,
 };
-pub use members::{connections_on_card, heading_role, message_timeout, role_heading, role_press, server_tip, zoom_size, zoomable};
-pub use menus::{attachment_menu, chosen, copied_text, decoration_page, mention_button, message_rows, person_rows, search_result, sticker_tile};
+pub use members::{
+    connections_on_card, message_timeout, role_heading, role_press, server_tip, zoom_size, zoomable,
+};
 #[cfg(test)]
-pub use menus::{song_links, song_page};
+pub use members::{heading_role, time_left};
+pub use menus::{
+    attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, search_result,
+    sticker_tile,
+};
+#[cfg(test)]
+pub use menus::{decoration_page, song_links, song_page};
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
 pub use servers::{KeptChannel, home_face, home_mentions, keep_channel, no_request_badge};
 pub use song_buttons::buttons as song_buttons;

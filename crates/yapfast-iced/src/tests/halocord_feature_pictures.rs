@@ -439,3 +439,33 @@ fn picture_of_build_16_look() {
     assert!(app.win.menu.is_some(), "the member's menu");
     draw(&app, "look-menu");
 }
+
+/// Build 18's call panel: everyone's face under Voice connected, then your
+/// stream with the faces of those in the call watching it and how many do.
+#[test]
+#[ignore = "writes pictures for a person to look at"]
+fn picture_of_build_18_call_panel() {
+    use yapfast_core::{application::Action, voice};
+    let (mut app, _folder) = mocha();
+    app.client.dispatch(Action::SelectRoom("lounge".into()));
+    let _ = app.sync();
+    let voice = &app.client.state().voice;
+    assert!(voice.active(), "the preview joins");
+    let mut viewers: Vec<String> = voice
+        .participants
+        .iter()
+        .filter(|person| !person.local)
+        .map(|person| person.id.clone())
+        .take(2)
+        .collect();
+    assert!(!viewers.is_empty(), "others in the call");
+    viewers.push("from-outside".into());
+    super::change(&mut app, |state| {
+        state.voice.sharing = Some(voice::Sharing {
+            phase: voice::SharePhase::Live,
+            frames: Arc::new(yapfast_core::frames::Frames::create(16, 16).unwrap()),
+            viewers,
+        });
+    });
+    draw(&app, "build-18-call-panel");
+}
