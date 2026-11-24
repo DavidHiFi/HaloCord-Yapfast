@@ -107,4 +107,4 @@ mod tests {
 }
 
 mod song_link;
-pub use song_link::{SongPlatform, song_platforms};
+pub use song_link::{SongPlatform, percent_encode, song_platforms};
