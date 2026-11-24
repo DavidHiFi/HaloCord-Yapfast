@@ -212,7 +212,7 @@ pub fn unmute_mark<'a>(
     let theme = cx.look.theme;
     let mark = cx.look.glyph(Icon::VolumeOff, 16, theme.danger);
     let area = iced::widget::mouse_area(mark)
-        .on_press(Message::Call(crate::call::Event::Unmute(key)))
+        .on_press(Message::HaloCord(super::Event::Unmute(key)))
         .interaction(iced::mouse::Interaction::Pointer);
     Some(
         iced::widget::tooltip(
@@ -227,7 +227,7 @@ pub fn unmute_mark<'a>(
 
 /// Unmutes `person` for this account, as their voice menu's Mute box does,
 /// and keeps it (Click to unmute).
-pub fn unmute(app: &mut App, person: &str) {
+pub(super) fn unmute(app: &mut App, person: &str) {
     yapfast_core::volume::mute(person, false);
     let people = &mut app.layout.voice.muted_people;
     people.remove(person);

@@ -10,7 +10,8 @@ whole list to carry across.
 - `crates/yapfast-iced/src/halocord/`: the window's side of the plugins, one file
   per area, matching the core's `halocord/`.
   - `mod.rs`: the plugin ids (`id`), the plugin list (`PLUGINS`, which only names
-    each plugin in the page's order), and search.
+    each plugin in the page's order), search, and the plugins' own messages
+    (`Event`, carried by `Message::HaloCord`, and `update`).
   - `kept.rs`: what a plugin is, its settings (a choice, a switch, a slider or a
     text), what `layout.json` keeps (`halocord.plugins.<id>`) and `changed`.
   - `voice.rs`, `chat.rs`, `menus.rs`, `buttons.rs`, `members.rs`, `servers.rs`: the plugins of
@@ -89,7 +90,10 @@ whole list to carry across.
    };
    ```
 
-4. Put it in `PLUGINS` where it belongs on the page.
+4. Put it in `PLUGINS` where it belongs on the page. If the window side needs
+   messages of its own (a press on something it draws, a task's reply), add a
+   variant to `Event` in `halocord/mod.rs` and its arm in `update`; buttons send
+   `Message::HaloCord(..)`, so no Yapfast file changes for them.
 5. Tests: one for what the hook does (core), and one that switches it on through
    `changed` and checks the window (`tests/halocord_buttons.rs` has examples).
 6. If a Yapfast file has to call in, add the call and name the file under "Hooks in
@@ -191,7 +195,9 @@ Window (`yapfast-iced`):
 - `status.rs`: the popover's bottom uses `account::height(compact)`.
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
-- `call/mod.rs`: `Event::Unmute(person)` and its arm, which calls `halocord::unmute`.
+- `app/message.rs`: `Message::HaloCord(halocord::Event)`, the plugins' own messages
+  (Click to unmute's click, and any plugin's press or reply); `app/mod.rs`: its arm in
+  `update`, which calls `halocord::update`.
 - `sidebar/voice.rs`: `voice_person` ends its marks with `halocord::unmute_mark`, a click-to-unmute
   mark beside someone muted for this account (one `if let`).
 - `sidebar/channels.rs`: `room_row` pushes `halocord::voice_count` (the Voice count plugin's number)
