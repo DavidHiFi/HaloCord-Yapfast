@@ -302,6 +302,30 @@ impl<'a> Page<'a> {
             go("Themes", Look::Plain, Section::Themes),
             go("Backup & Restore", Look::Plain, Section::Backup),
         ];
+        // HaloCord's own links: where to help, the owner's server and his
+        // Ko-fi, as the other clients put on their About pages.
+        const REPO: &str = "https://github.com/DavidHiFi/HaloCord-Yapfast";
+        const LOCKER: &str = "https://discord.gg/PETWgTfS9x";
+        const KOFI: &str = "https://ko-fi.com/davidhifi";
+        let open_link = |label: &'static str, icon: crate::pictures::Icon, page: &'static str| {
+            action(
+                theme,
+                label,
+                Look::Plain,
+                Some(super::account_message(super::AccountEvent::Open(page))),
+            )
+            .icon(self.cx.look.icon(icon, 18, crate::theme::rgb(theme.text)))
+            .into()
+        };
+        let links: Vec<Element<'a, Message>> = vec![
+            open_link("Contribute on GitHub", crate::pictures::Icon::GitHub, REPO),
+            open_link(
+                "Join Davey Jones' Locker",
+                crate::pictures::Icon::Discord,
+                LOCKER,
+            ),
+            open_link("Donate on Ko-fi", crate::pictures::Icon::Star, KOFI),
+        ];
         form::page([
             form::title(theme, "HaloCord"),
             form::card(
@@ -318,6 +342,8 @@ impl<'a> Page<'a> {
             ),
             tiles.into(),
             row(jumps).spacing(8).wrap().vertical_spacing(8).into(),
+            form::heading(theme, "LINKS"),
+            row(links).spacing(8).wrap().vertical_spacing(8).into(),
         ])
     }
 
