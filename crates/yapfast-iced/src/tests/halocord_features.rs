@@ -1246,3 +1246,53 @@ fn view_decoration_opens_the_decoration_moving() {
         },
     );
 }
+
+/// Show connections: someone's profile card shows their connections only
+/// while it's on; the full profile shows them either way, as now.
+#[test]
+fn show_connections_puts_them_on_the_profile_card() {
+    use yapfast_core::chat::ProfileConnection;
+    let (mut app, _folder) = preview();
+    let riley = app
+        .client
+        .state()
+        .members
+        .iter()
+        .flatten()
+        .flat_map(|members| members.iter())
+        .find(|member| member.name == "Riley")
+        .map(|member| member.id.clone())
+        .expect("Riley in the preview");
+    let _ = app.open_card(riley, iced::Point::new(500.0, 200.0));
+    let view = app
+        .client
+        .app
+        .state
+        .profile
+        .as_mut()
+        .map(std::sync::Arc::make_mut)
+        .expect("the card open");
+    view.profile.connections = vec![ProfileConnection {
+        kind: "github".into(),
+        name: "halo-test-account".into(),
+        verified: true,
+        url: Some("https://github.com/halo-test-account".into()),
+        since: None,
+    }];
+    let _ = app.sync();
+    assert!(
+        !super::shows(&app, "halo-test-account"),
+        "off: not on the card"
+    );
+    turn_on(&mut app, id::SHOW_CONNECTIONS);
+    assert!(super::shows(&app, "halo-test-account"), "on: on the card");
+    assert!(super::shows(&app, "Connections"));
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::SHOW_CONNECTIONS).expect("the plugin"),
+            on: false,
+        },
+    );
+}

@@ -62,7 +62,7 @@ pub use members::{
     Place, add_member_count, dm_marks, exact_day, full_picture, name_marks, platform_marks,
     timeout_clock, timeout_note, tip_member_count,
 };
-pub use members::{heading_role, message_timeout, role_heading, role_press, server_tip, zoom_size, zoomable};
+pub use members::{connections_on_card, heading_role, message_timeout, role_heading, role_press, server_tip, zoom_size, zoomable};
 pub use menus::{attachment_menu, chosen, copied_text, decoration_page, mention_button, message_rows, person_rows, search_result, sticker_tile};
 #[cfg(test)]
 pub use menus::{song_links, song_page};
@@ -153,6 +153,7 @@ pub mod id {
     pub const SHOW_SONG_NAME: &str = "show-song-name";
     pub const SONG_LINK: &str = "song-link";
     pub const FAVORITE_ANYTHING: &str = "favorite-anything";
+    pub const SHOW_CONNECTIONS: &str = "show-connections";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -217,6 +218,7 @@ pub static PLUGINS: &[Plugin] = &[
     members::SHOW_SONG_NAME,
     menus::SONG_LINK,
     chat::FAVORITE_ANYTHING,
+    members::SHOW_CONNECTIONS,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

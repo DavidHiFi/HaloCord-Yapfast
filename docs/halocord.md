@@ -299,6 +299,8 @@ Window (`yapfast-iced`):
   `app/mod.rs`: the `halocord_kept` field it keeps its state in.
 - `members.rs`: `heading_row` wraps the heading in `halocord::role_heading` (Clickable roles: a
   role's heading opens its card).
+- `profile/body.rs`: the connections show when `halocord::connections_on_card` too (Show
+  connections).
 - `call/popups/person.rs`: `volumes_view` ends the sliders at `halocord::volume_cap()`
   (200 unless the Volume booster is on), in place of 200.
 - `app/message.rs`: `Message::HaloCord(halocord::Event)`, the plugins' own messages
