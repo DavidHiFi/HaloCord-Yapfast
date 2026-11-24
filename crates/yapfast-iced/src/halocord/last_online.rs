@@ -14,12 +14,12 @@ use crate::ctx::Ctx;
 pub(super) const LAST_ONLINE: Plugin = Plugin {
     id: id::LAST_ONLINE,
     name: "Last online",
-    about: "A DM's row says how long ago its person went offline, as Yapfast saw them go. Nothing is asked of Discord: someone who went offline while Yapfast was closed shows nothing until they come and go again.",
+    about: "A DM's row says how long ago its person went offline, as Yapfast saw them go; going invisible counts as going offline. Nothing is asked of Discord: someone who went offline while Yapfast was closed shows nothing until they come and go again.",
     on_at_first: false,
     settings: &[Setting {
         key: "kept",
         heading: "Kept across restarts",
-        note: "In halocord-last-online.json in Yapfast's folder.",
+        note: "A file on this computer, halocord-last-online.json in Yapfast's folder, records when each DM's person went offline, for every account using that folder; nothing leaves the computer, and deleting the file forgets it. A time read from it at the next launch may be out of date: they may have come and gone while Yapfast was closed.",
         kind: Kind::Switch {
             unless_changed: true,
         },
@@ -65,10 +65,15 @@ pub fn note_presences(kept: &Kept, root: &Path, state: &AppState) {
         .filter(|room| room.direct)
         .filter_map(|room| Some((room.id.as_str(), room.presence?)));
     let json = seen(|held| {
-        if !held.read {
+        // Read once kept, also when switched to kept later on; what this
+        // run saw stays newer than the file.
+        if keeps && !held.read {
             held.read = true;
-            if keeps && let Ok(read) = std::fs::read(&file) {
-                held.last = serde_json::from_slice(&read).unwrap_or_default();
+            if let Ok(read) = std::fs::read(&file) {
+                let kept: BTreeMap<String, u64> = serde_json::from_slice(&read).unwrap_or_default();
+                for (room, when) in kept {
+                    held.last.entry(room).or_insert(when);
+                }
             }
         }
         let went = note(held, people, yapfast_core::clock::now_ms());
@@ -77,10 +82,18 @@ pub fn note_presences(kept: &Kept, root: &Path, state: &AppState) {
             .flatten()
     });
     if let Some(json) = json
-        && let Err(error) = std::fs::write(&file, json)
+        && let Err(error) = write_whole(&file, &json)
     {
         tracing::warn!(%error, "Last online can't keep its times");
     }
+}
+
+/// Writes `json` to `file` whole: to a file beside it, then renamed over it,
+/// so a crash mid-write leaves the last good one.
+fn write_whole(file: &Path, json: &[u8]) -> std::io::Result<()> {
+    let beside = file.with_extension("json.new");
+    std::fs::write(&beside, json)?;
+    std::fs::rename(&beside, file)
 }
 
 /// Notes each person's presence; whether someone went offline.
@@ -88,9 +101,17 @@ fn note<'p>(seen: &mut Seen, people: impl Iterator<Item = (&'p str, Presence)>, 
     let mut went = false;
     for (person, presence) in people {
         let online = presence != Presence::Offline;
-        if seen.online.insert(person.to_owned(), online) == Some(true) && !online {
-            seen.last.insert(person.to_owned(), now);
-            went = true;
+        match seen.online.get_mut(person) {
+            Some(was) => {
+                if *was && !online {
+                    seen.last.insert(person.to_owned(), now);
+                    went = true;
+                }
+                *was = online;
+            }
+            None => {
+                seen.online.insert(person.to_owned(), online);
+            }
         }
     }
     went

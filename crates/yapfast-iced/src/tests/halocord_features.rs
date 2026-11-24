@@ -1339,6 +1339,29 @@ fn last_online_says_when_a_dm_went_offline() {
     assert_eq!(said(&app).as_deref(), Some("Online just now"));
     presence(&mut app, Presence::Idle);
     assert_eq!(said(&app), None, "back");
+    // "Kept across restarts" switched on later: the file is read then, for
+    // a DM this run hasn't seen.
+    let other = app.client.state().rooms[1].id.clone();
+    let five_minutes_ago = yapfast_core::clock::now_ms() - 5 * 60_000;
+    std::fs::write(
+        app.client.root().join("halocord-last-online.json"),
+        format!("{{\"{other}\":{five_minutes_ago}}}"),
+    )
+    .expect("a kept time");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: true,
+        },
+    );
+    super::change(&mut app, |_| {});
+    assert_eq!(
+        crate::halocord::last_online(app.ctx(), &other).as_deref(),
+        Some("Online 5m ago")
+    );
     changed(
         &mut app.layout,
         &mut app.client,
