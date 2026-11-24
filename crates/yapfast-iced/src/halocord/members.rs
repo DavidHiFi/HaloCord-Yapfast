@@ -10,7 +10,8 @@ use crate::{app::Message, ctx::Ctx, pictures::Icon, style::hex};
 
 /// Clickable roles in the member list: the role a heading names ("Mods — 3"),
 /// by its id in the open server. Online, Offline and other groups aren't
-/// roles.
+/// roles, and neither is a name two of the server's roles share: the
+/// heading can't say which, so it opens no card.
 pub fn heading_role(cx: Ctx<'_>, heading: &str) -> Option<String> {
     let name = heading
         .rsplit_once(" — ")
@@ -20,11 +21,13 @@ pub fn heading_role(cx: Ctx<'_>, heading: &str) -> Option<String> {
         return None;
     }
     let place = cx.state.selected.as_deref()?;
-    cx.app
+    let mut named = cx
+        .app
         .server_roles(place)
         .into_iter()
-        .find(|role| role.name == name)
-        .map(|role| role.id)
+        .filter(|role| role.name == name);
+    let role = named.next()?;
+    named.next().is_none().then_some(role.id)
 }
 
 /// Hook: a member list heading, which opens its role's card when clicked

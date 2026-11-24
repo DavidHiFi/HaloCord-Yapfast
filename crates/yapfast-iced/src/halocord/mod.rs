@@ -39,7 +39,7 @@ pub use members::time_left;
 pub use members::{
     add_member_count, exact_day, full_picture, platform_marks, timeout_clock, timeout_note,
 };
-pub use members::{heading_role, role_heading, role_press, zoom_size, zoomable};
+pub use members::{role_heading, role_press, zoom_size, zoomable};
 pub use menus::{attachment_menu, chosen, copied_text, message_rows, person_rows};
 pub use servers::{home_mentions, no_request_badge};
 pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
@@ -51,6 +51,8 @@ pub use buttons::Dock;
 pub(crate) use buttons::{close_dm_actions, read_all_actions};
 #[cfg(test)]
 pub use chat::{Fill, counter_words};
+#[cfg(test)]
+pub use members::heading_role;
 #[cfg(test)]
 pub use members::member_totals;
 #[cfg(test)]
