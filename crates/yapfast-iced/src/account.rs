@@ -30,8 +30,8 @@ pub const INSET: f32 = 8.0;
 const AVATAR: f32 = 40.0;
 /// The compact card's height, avatar and buttons (the User area plugin).
 const COMPACT_HEIGHT: f32 = 44.0;
-const COMPACT_AVATAR: f32 = 30.0;
-const COMPACT_BUTTON: f32 = 28.0;
+pub(crate) const COMPACT_AVATAR: f32 = 30.0;
+pub(crate) const COMPACT_BUTTON: f32 = 28.0;
 
 /// The card's height, compact or not, without the plugin buttons' row.
 pub fn height(compact: bool) -> f32 {
@@ -210,6 +210,8 @@ pub enum Event {
     Reconnect,
     /// The Game activity button: share the game played, or stop.
     ShowGame,
+    /// The tray of buttons the card has no room for: shown over it, or gone.
+    More(bool),
     /// One of the card's plugin buttons: a plugin switched.
     Plugin(crate::halocord::Change),
 }
@@ -219,6 +221,10 @@ pub fn update(app: &mut App, event: Event) -> iced::Task<Message> {
         Event::Point(pointed) => {
             app.account_pointed = pointed;
             return app.ask();
+        }
+        Event::More(open) => {
+            app.account_more = open;
+            return iced::Task::none();
         }
         // In a call they toggle once its voice is through; out of one
         // they say how the next starts.
@@ -268,6 +274,12 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         .decoration(state.account_decoration.as_deref());
     let dock = ctx.layout.halocord.dock();
     let compact = dock.compact;
+    let extras = plugin_buttons(ctx);
+    let offline = !state.preview && !state.online;
+    let fit = crate::halocord::card_fit(ctx, compact, extras.len(), offline);
+    // Too narrow for the full size: the buttons beside the name take the
+    // compact one.
+    let small = fit.small;
     let avatar = if compact { COMPACT_AVATAR } else { AVATAR };
     let face = ctx.face(
         Face::new(account.avatar.as_deref(), &account.name, avatar)
@@ -283,11 +295,16 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     let face = ring_and_dot(ctx, account, face, avatar);
     let faking = ctx.layout.halocord.faking();
     let second: Element<'a, Message> = if pointed && !account.username.is_empty() {
-        text(account.username.as_str())
-            .size(13)
-            .color(theme.muted)
-            .wrapping(text::Wrapping::None)
-            .into()
+        text(crate::halocord::ellipsized(
+            &account.username,
+            13.0,
+            crate::fonts::REGULAR,
+            fit.name_room,
+        ))
+        .size(13)
+        .color(theme.muted)
+        .wrapping(text::Wrapping::None)
+        .into()
     } else if let Some(faking) = faking.filter(|_| account.in_call) {
         // Fake mute or fake deafen is on in a call: say so under the name.
         text(faking)
@@ -302,15 +319,21 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     let open = account
         .linked
         .then_some(Message::Status(crate::status::Event::Toggle));
-    let name = text(account.name.as_str())
-        .size(if compact { 14 } else { 15 })
-        .font(BOLD)
-        .color(if compact && faking.is_some() && account.in_call {
-            theme.accent
-        } else {
-            theme.text
-        })
-        .wrapping(text::Wrapping::None);
+    let name_size = if compact { 14.0 } else { 15.0 };
+    let name = text(crate::halocord::ellipsized(
+        &account.name,
+        name_size,
+        BOLD,
+        fit.name_room,
+    ))
+    .size(name_size)
+    .font(BOLD)
+    .color(if compact && faking.is_some() && account.in_call {
+        theme.accent
+    } else {
+        theme.text
+    })
+    .wrapping(text::Wrapping::None);
     let names = mouse_area(
         container(if compact {
             column![name].width(Length::Fill)
@@ -382,9 +405,9 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     };
     // Each device's toggle with the caret of its menu, at the toggle's
     // middle; the menu opens above it.
-    let side = if compact { COMPACT_BUTTON } else { 32.0 };
+    let side = if small { COMPACT_BUTTON } else { 32.0 };
     // The card's glyphs, a little smaller when compact.
-    let glyph = |size: u32| if compact { size - 3 } else { size };
+    let glyph = |size: u32| if small { size - 3 } else { size };
     let carets = !dock.arrows_hidden;
     let caret = |label, popup| {
         ctx.spot(
@@ -394,7 +417,7 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
                     label,
                     Message::Call(crate::call::Event::Open(popup)),
                 )
-                .size(if compact { 16.0 } else { 20.0 }, 16),
+                .size(if small { 16.0 } else { 20.0 }, 16),
         )
     };
     let alert = |on: bool| if on { theme.danger } else { theme.text };
@@ -470,17 +493,24 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     .align_y(Alignment::Center);
     // The plugin buttons (the User area's, and the top bar's when Yapfast
     // draws none) go in a row of their own above the name, so the name keeps
-    // its room.
-    let extras = plugin_buttons(ctx);
+    // its room. Those with no room on it go in the tray its last button,
+    // "More buttons", opens over the card.
     let plugins: Option<Element<'a, Message>> = (!extras.is_empty()).then(|| {
         let mut line = row![].spacing(4).align_y(Alignment::Center);
-        for (icon, label, ink, message) in extras {
-            line = line.push(crate::controls::dock_button(
-                ctx.look.glyph(icon, 20, ink),
-                label,
-                false,
-                theme,
-                message,
+        for (icon, label, ink, message) in extras.into_iter().take(fit.inline) {
+            line = line.push(plugin_button(ctx, icon, label, ink, message));
+        }
+        if fit.more {
+            line = line.push(plugin_button(
+                ctx,
+                Icon::Ellipsis,
+                "More buttons",
+                if ctx.account_more {
+                    theme.accent
+                } else {
+                    theme.text
+                },
+                Some(Message::Account(Event::More(!ctx.account_more))),
             ));
         }
         container(line)
@@ -493,9 +523,8 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             .width(Length::Fill)
             .into()
     });
-    // Offline, Reconnect before Settings.
-    let state = ctx.state;
-    let controls = if !state.preview && !state.online {
+    // Offline, Reconnect before Settings, which is always on the card.
+    let controls = if offline {
         controls.push(tinted_button(
             ctx,
             Icon::Refresh,
@@ -530,6 +559,16 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     } else {
         (50.0, 8.0, 14.0)
     };
+    // With no room at all for the name (the sidebar at its least), it
+    // gives its padding to the buttons; the avatar still opens the popover.
+    let names: Element<'a, Message> = if fit.name_room >= 1.0 {
+        container(names)
+            .padding([if compact { 2 } else { 6 }, 0])
+            .height(Length::Fill)
+            .into()
+    } else {
+        Space::new().width(Length::Fill).into()
+    };
     let card = row![
         container(face)
             .width(face_width)
@@ -538,9 +577,7 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
                 ..Padding::ZERO
             })
             .align_y(Alignment::Center),
-        container(names)
-            .padding([if compact { 2 } else { 6 }, 0])
-            .height(Length::Fill),
+        names,
         controls,
     ]
     .spacing(if compact { 3 } else { 5 })
@@ -646,11 +683,29 @@ fn tinted_button<'a>(
     ctx.look.face_button(face, side, label, message).into()
 }
 
+/// One of the plugin buttons, on the row above the name or in the tray: a
+/// dock button sharing the row's width, its glyph in `ink`.
+pub(crate) fn plugin_button<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    icon: Icon,
+    label: &'static str,
+    ink: iced::Color,
+    message: Option<Message>,
+) -> Element<'a, Message> {
+    crate::controls::dock_button(
+        ctx.look.glyph(icon, 20, ink),
+        label,
+        false,
+        ctx.look.theme,
+        message,
+    )
+}
+
 /// The plugin buttons the card carries, in order: icon, tip, ink and what a
 /// press sends (none while it can't act). The User area's switches, the
 /// call stats and game buttons, then the top bar's plugin buttons when
 /// Yapfast draws no bar of its own.
-fn plugin_buttons(
+pub(crate) fn plugin_buttons(
     ctx: crate::ctx::Ctx<'_>,
 ) -> Vec<(Icon, &'static str, iced::Color, Option<Message>)> {
     let theme = ctx.look.theme;
