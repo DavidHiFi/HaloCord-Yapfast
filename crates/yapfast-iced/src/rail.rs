@@ -861,11 +861,16 @@ impl<'a> View<'a> {
                 .halocord
                 .is(crate::halocord::id::PLAIN_FOLDER)
         {
-            return self
-                .cx
-                .look
-                .glyph(Icon::Folder, 24, tint)
-                .boxed(FOLDER)
+            // The glyph sits on the folder's tinted ground, as the preview
+            // face below does, so a plain folder isn't a bare outline.
+            let ground = Color {
+                a: if pointed { 0.55 } else { 0.4 },
+                ..tint
+            };
+            return container(self.cx.look.glyph(Icon::Folder, 24, tint).boxed(FOLDER))
+                .width(FOLDER)
+                .height(FOLDER)
+                .style(move |_| rounded(ground, FOLDER_RADIUS))
                 .into();
         }
         const SMALL: f32 = 19.0;
