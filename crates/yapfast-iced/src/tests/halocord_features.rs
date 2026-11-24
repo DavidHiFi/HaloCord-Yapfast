@@ -1165,3 +1165,175 @@ fn song_link_buttons_ask_once_pressed_and_keep_the_answer() {
         Change::Switch { plugin, on: false },
     );
 }
+
+/// Clickable roles in the member list: a heading that names one of the
+/// server's roles ("Mods — 3") finds it, Online and Offline don't, and its
+/// card takes the role's name and colour from the server.
+#[test]
+fn clickable_roles_open_a_role_card_from_a_member_list_heading() {
+    use std::{collections::HashMap, sync::Arc};
+
+    use crate::halocord::heading_role;
+    use crate::info_cards::Event as Card;
+    let (mut app, _folder) = super::server::discord_server(0, |server, _| {
+        server.role_names = Arc::new(HashMap::from([
+            ("10".to_owned(), "@everyone".to_owned()),
+            ("20".to_owned(), "Mods".to_owned()),
+        ]));
+        server.role_colors = Arc::new(HashMap::from([("20".to_owned(), (1, 0x89B4FA))]));
+    });
+    app.client.app.state.selected = Some("discord:10:11".into());
+    let _ = app.sync();
+    assert_eq!(heading_role(app.ctx(), "Mods — 3").as_deref(), Some("20"));
+    assert_eq!(
+        heading_role(app.ctx(), "Mods").as_deref(),
+        Some("20"),
+        "no count"
+    );
+    assert_eq!(heading_role(app.ctx(), "Online — 40"), None);
+    assert_eq!(heading_role(app.ctx(), "Offline — 2"), None);
+    assert_eq!(
+        heading_role(app.ctx(), "Raiders — 1"),
+        None,
+        "not a role here"
+    );
+    turn_on(&mut app, id::CLICKABLE_ROLES);
+    let _ = app.update(Message::Info(Card::ProfileRole("20".into())));
+    let shown = app.client.state().role.clone().expect("the role's card");
+    assert_eq!(
+        (shown.name.as_str(), shown.color),
+        ("Mods", Some(0x89B4FA)),
+        "named and coloured by the server"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::CLICKABLE_ROLES).expect("the plugin"),
+            on: false,
+        },
+    );
+}
+
+/// View icons' View decoration: no row in someone's menu while Yapfast
+/// knows no decoration for them (the preview knows none), and the page a
+/// decoration opens is its picture at 512 pixels, moving.
+#[test]
+fn view_decoration_opens_the_decoration_moving() {
+    use crate::halocord::{decoration_page, person_rows};
+    let (mut app, _folder) = preview();
+    turn_on(&mut app, id::VIEW_ICONS);
+    assert!(
+        !person_rows(&app, "4")
+            .iter()
+            .any(|row| row.label == "View decoration"),
+        "none known"
+    );
+    assert_eq!(
+        decoration_page(
+            "https://cdn.discordapp.com/avatar-decoration-presets/a_1.png?size=96&passthrough=false"
+        ),
+        "https://cdn.discordapp.com/avatar-decoration-presets/a_1.png?size=512&passthrough=true"
+    );
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::VIEW_ICONS).expect("the plugin"),
+            on: false,
+        },
+    );
+}
+
+/// Show connections: someone's profile card shows their connections only
+/// while it's on; the full profile shows them either way, as now.
+#[test]
+fn show_connections_puts_them_on_the_profile_card() {
+    use yapfast_core::chat::ProfileConnection;
+    let (mut app, _folder) = preview();
+    let riley = app
+        .client
+        .state()
+        .members
+        .iter()
+        .flatten()
+        .flat_map(|members| members.iter())
+        .find(|member| member.name == "Riley")
+        .map(|member| member.id.clone())
+        .expect("Riley in the preview");
+    let _ = app.open_card(riley, iced::Point::new(500.0, 200.0));
+    let view = app
+        .client
+        .app
+        .state
+        .profile
+        .as_mut()
+        .map(std::sync::Arc::make_mut)
+        .expect("the card open");
+    view.profile.connections = vec![ProfileConnection {
+        kind: "github".into(),
+        name: "halo-test-account".into(),
+        verified: true,
+        url: Some("https://github.com/halo-test-account".into()),
+        since: None,
+    }];
+    let _ = app.sync();
+    assert!(
+        !super::shows(&app, "halo-test-account"),
+        "off: not on the card"
+    );
+    turn_on(&mut app, id::SHOW_CONNECTIONS);
+    assert!(super::shows(&app, "halo-test-account"), "on: on the card");
+    assert!(super::shows(&app, "Connections"));
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(id::SHOW_CONNECTIONS).expect("the plugin"),
+            on: false,
+        },
+    );
+}
+
+/// Last online: with it on, a DM whose person Yapfast saw go offline says
+/// "Online just now" under the name, from the window's own list making;
+/// back online, or with it off, nothing.
+#[test]
+fn last_online_says_when_a_dm_went_offline() {
+    use yapfast_core::chat::Presence;
+    let (mut app, _folder) = preview();
+    let _alone = super::plugin_alone();
+    let dm = app.client.state().rooms[0].id.clone();
+    let presence = |app: &mut App, presence| {
+        super::change(app, |state| {
+            let room = std::sync::Arc::make_mut(&mut state.rooms[0]);
+            room.direct = true;
+            room.presence = Some(presence);
+        });
+    };
+    let said = |app: &App| crate::halocord::last_online(app.ctx(), &dm);
+    turn_on(&mut app, id::LAST_ONLINE);
+    let plugin = place(id::LAST_ONLINE).expect("the plugin");
+    // Not kept across restarts in this test: nothing in its folder.
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 0,
+            on: false,
+        },
+    );
+    presence(&mut app, Presence::Online);
+    assert_eq!(said(&app), None, "online");
+    presence(&mut app, Presence::Offline);
+    assert_eq!(said(&app).as_deref(), Some("Online just now"));
+    presence(&mut app, Presence::Idle);
+    assert_eq!(said(&app), None, "back");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch { plugin, on: false },
+    );
+    assert_eq!(said(&app), None, "off");
+}

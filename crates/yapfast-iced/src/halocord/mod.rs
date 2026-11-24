@@ -36,6 +36,7 @@ mod clicks;
 pub mod deck;
 mod fake_dialog;
 mod kept;
+mod last_online;
 mod members;
 mod menus;
 mod messages;
@@ -56,17 +57,15 @@ pub use clicks::{Clicks, click_keys, click_row};
 pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
+pub use last_online::{dm_line as last_online, note_presences};
 #[cfg(test)]
 pub use members::time_left;
 pub use members::{
     Place, add_member_count, dm_marks, exact_day, full_picture, name_marks, platform_marks,
     timeout_clock, timeout_note, tip_member_count,
 };
-pub use members::{message_timeout, role_press, server_tip, zoom_size, zoomable};
-pub use menus::{
-    attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, search_result,
-    sticker_tile,
-};
+pub use members::{connections_on_card, heading_role, message_timeout, role_heading, role_press, server_tip, zoom_size, zoomable};
+pub use menus::{attachment_menu, chosen, copied_text, decoration_page, mention_button, message_rows, person_rows, search_result, sticker_tile};
 #[cfg(test)]
 pub use menus::{song_links, song_page};
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
@@ -154,6 +153,8 @@ pub mod id {
     pub const SHOW_SONG_NAME: &str = "show-song-name";
     pub const SONG_LINK: &str = "song-link";
     pub const FAVORITE_ANYTHING: &str = "favorite-anything";
+    pub const SHOW_CONNECTIONS: &str = "show-connections";
+    pub const LAST_ONLINE: &str = "last-online";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -218,6 +219,8 @@ pub static PLUGINS: &[Plugin] = &[
     members::SHOW_SONG_NAME,
     menus::SONG_LINK,
     chat::FAVORITE_ANYTHING,
+    members::SHOW_CONNECTIONS,
+    last_online::LAST_ONLINE,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

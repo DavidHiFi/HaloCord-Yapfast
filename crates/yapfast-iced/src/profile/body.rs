@@ -211,7 +211,10 @@ pub(super) fn profile_body<'a>(
         }
         body = body.push(roles.push(role_chips(ctx, shown, &inks)));
     }
-    if mode.large() && !profile.connections.is_empty() {
+    // HaloCord's Show connections (docs/halocord.md): on the card too.
+    if (mode.large() || crate::halocord::connections_on_card(ctx))
+        && !profile.connections.is_empty()
+    {
         body = body.push(connections(ctx, shown, &inks));
     }
     if mode.large() && look.note_editable {

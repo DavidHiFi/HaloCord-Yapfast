@@ -610,6 +610,8 @@ impl<'a> View<'a> {
                 .font(MEDIUM)
                 .color(hex(HEADING)),
         );
+        // HaloCord's Clickable roles (docs/halocord.md): a role's heading.
+        let line = crate::halocord::role_heading(self.cx, heading, line.into());
         container(line)
             .padding(Padding {
                 top: 20.0,
