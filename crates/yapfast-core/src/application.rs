@@ -4783,7 +4783,8 @@ impl Application {
             },
             Event::ServersArranged(result) => {
                 if let Err(error) = result {
-                    self.state.notice = Some(format!("Couldn't move it on the server list: {error}"));
+                    self.state.notice =
+                        Some(format!("Couldn't move it on the server list: {error}"));
                 }
             }
             Event::ShowGameSet(result) => {

@@ -649,7 +649,8 @@ impl OpenChannel {
             {
                 self.insert_latest(message.clone());
             } else if let Some(latest) = &mut self.latest {
-                self.dirty |= change(&mut latest.messages, &self.guild, &self.channel, event).is_some();
+                self.dirty |=
+                    change(&mut latest.messages, &self.guild, &self.channel, event).is_some();
             }
             if let Some(latest) = &mut self.latest {
                 latest.keep_newest(KEPT_MESSAGES);

@@ -306,7 +306,9 @@ pub struct ScreenPlace {
 pub fn screen_places() -> Vec<ScreenPlace> {
     static KNOWN: Mutex<Option<(Vec<ScreenPlace>, Vec<ScreenPlace>)>> = Mutex::new(None);
     let desktop = desktop_screens();
-    let mut known = KNOWN.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut known = KNOWN
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     if let Some((was, joined)) = known.as_ref()
         && *was == desktop
     {
@@ -1940,7 +1942,10 @@ mod tests {
         let desktop = [place(0, 0), place(2, 1920), place(3, -1920)];
         let joined = join_screens(&desktop, &[0, 1, 2]);
         assert_eq!(joined.iter().map(|p| p.id).collect::<Vec<_>>(), [0, 1, 2]);
-        assert_eq!(joined.iter().map(|p| p.x).collect::<Vec<_>>(), [0, 1920, -1920]);
+        assert_eq!(
+            joined.iter().map(|p| p.x).collect::<Vec<_>>(),
+            [0, 1920, -1920]
+        );
         assert!(join_screens(&desktop, &[]).is_empty());
     }
 

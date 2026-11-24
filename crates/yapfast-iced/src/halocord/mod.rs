@@ -32,8 +32,8 @@ mod areas;
 pub mod backup;
 mod buttons;
 mod chat;
-pub mod deck;
 mod clicks;
+pub mod deck;
 mod fake_dialog;
 mod kept;
 mod members;
@@ -70,9 +70,7 @@ pub use menus::{
 #[cfg(test)]
 pub use menus::{song_links, song_page};
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
-pub use servers::{
-    KeptChannel, home_face, home_mentions, keep_channel, no_request_badge,
-};
+pub use servers::{KeptChannel, home_face, home_mentions, keep_channel, no_request_badge};
 pub use song_buttons::buttons as song_buttons;
 #[cfg(test)]
 pub use song_buttons::known as song_buttons_known;

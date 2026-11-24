@@ -406,8 +406,10 @@ mod tests {
         let set = Settings {
             ignore_people: Settings::ids("40, 41"),
             ignore_channels: Settings::ids("50"),
-            ignore_servers: Settings::ids("60
-61"),
+            ignore_servers: Settings::ids(
+                "60
+61",
+            ),
             ..on()
         };
         assert!(!log.delete(&set, "me", "41", false, "1"));
@@ -418,9 +420,14 @@ mod tests {
         assert!(!set.skips_place("1", "9"));
         // A DM has no server, so an empty server id never matches.
         assert!(!set.skips_place("", "9"));
-        assert_eq!(Settings::ids(" 1,2 
+        assert_eq!(
+            Settings::ids(
+                " 1,2 
 
-3 "), ["1", "2", "3"]);
+3 "
+            ),
+            ["1", "2", "3"]
+        );
     }
 
     #[test]

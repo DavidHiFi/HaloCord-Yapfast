@@ -100,7 +100,9 @@ struct Shown {
 static SHOWN: Mutex<Option<Shown>> = Mutex::new(None);
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// The server while the plugin is on; it keeps what the keys draw current.
@@ -245,13 +247,10 @@ fn display(app: &mut App, screen: u64) -> Result<Task<Message>, &'static str> {
 fn listen() -> impl Stream<Item = Asked> + Send + 'static {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
     let server = Server::start(sender);
-    stream::unfold(
-        (receiver, server),
-        |(mut receiver, server)| async move {
-            let asked = receiver.recv().await?;
-            Some((asked, (receiver, server)))
-        },
-    )
+    stream::unfold((receiver, server), |(mut receiver, server)| async move {
+        let asked = receiver.recv().await?;
+        Some((asked, (receiver, server)))
+    })
 }
 
 fn address() -> SocketAddr {
@@ -363,10 +362,7 @@ fn allowed(head: &Head) -> Result<(), (u16, &'static str)> {
         return Err((405, "only GET"));
     }
     let local = [format!("127.0.0.1:{PORT}"), format!("localhost:{PORT}")];
-    if head.origin
-        || !head.deck
-        || !head.host.as_ref().is_some_and(|host| local.contains(host))
-    {
+    if head.origin || !head.deck || !head.host.as_ref().is_some_and(|host| local.contains(host)) {
         return Err((403, "not the deck"));
     }
     Ok(())
@@ -432,7 +428,10 @@ fn route(path: &str, asks: &tokio::sync::mpsc::UnboundedSender<Asked>) -> (u16, 
         "fake-deafen" => Press::FakeDeafen,
         "voice-mode" => Press::VoiceMode,
         "leave" => Press::Leave,
-        _ => match key.strip_prefix("screen-").and_then(|slot| slot.parse::<usize>().ok()) {
+        _ => match key
+            .strip_prefix("screen-")
+            .and_then(|slot| slot.parse::<usize>().ok())
+        {
             Some(slot @ 1..=4) => match slots(&stream_worker::screen_places())[slot - 1] {
                 Some(screen) => Press::Display(screen),
                 None => return (200, error("No screen there")),
@@ -648,7 +647,10 @@ mod tests {
         ];
         assert_eq!(slots(&places), [Some(7), Some(5), Some(6), None]);
         assert_eq!(slots(&[]), [None; 4]);
-        assert_eq!(slots(&[screen(9, 0, 0, false)]), [None, Some(9), None, None]);
+        assert_eq!(
+            slots(&[screen(9, 0, 0, false)]),
+            [None, Some(9), None, None]
+        );
     }
 
     #[test]
@@ -660,9 +662,11 @@ mod tests {
         assert!(allowed(&head(page)).is_err());
         let bare = "GET /press/mute HTTP/1.1\r\nHost: localhost:47830\r\n\r\n";
         assert!(allowed(&head(bare)).is_err());
-        let renamed = "GET /state HTTP/1.1\r\nHost: deck.example:47830\r\nX-HaloCord-Deck: 1\r\n\r\n";
+        let renamed =
+            "GET /state HTTP/1.1\r\nHost: deck.example:47830\r\nX-HaloCord-Deck: 1\r\n\r\n";
         assert!(allowed(&head(renamed)).is_err());
-        let posted = "POST /press/mute HTTP/1.1\r\nHost: localhost:47830\r\nX-HaloCord-Deck: 1\r\n\r\n";
+        let posted =
+            "POST /press/mute HTTP/1.1\r\nHost: localhost:47830\r\nX-HaloCord-Deck: 1\r\n\r\n";
         assert_eq!(allowed(&head(posted)), Err((405, "only GET")));
     }
 

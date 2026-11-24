@@ -928,7 +928,6 @@ fn show_hidden_things_shows_timeouts_on_messages_and_paused_invites() {
     );
     let plugin = place(id::SHOW_HIDDEN).expect("the plugin");
     for setting in [0, 1] {
-
         changed(
             &mut app.layout,
             &mut app.client,
@@ -967,7 +966,6 @@ fn show_song_name_names_the_song_in_the_member_list() {
                 if member.name == "Riley" {
                     member.activities = music.clone();
                     member.activity = line.clone();
-
                 }
             }
         }

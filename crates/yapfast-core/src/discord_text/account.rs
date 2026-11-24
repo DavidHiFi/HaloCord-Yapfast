@@ -500,8 +500,7 @@ pub(super) fn command(
         match discord {
             Ok(discord) => {
                 let events = events.clone();
-                let change =
-                    discord.set_server_list(&crate::discord::server_list_entries(&groups));
+                let change = discord.set_server_list(&crate::discord::server_list_entries(&groups));
                 tokio::spawn(async move {
                     let result = change.await.map_err(|error| {
                         tracing::warn!(

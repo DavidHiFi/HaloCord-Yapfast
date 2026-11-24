@@ -297,9 +297,8 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                     "Show people in the call",
                 )
             };
-            app.win.menu = Some(
-                crate::menus::Menu::new(at, vec![row]).width(crate::menus::FIELD_WIDTH),
-            );
+            app.win.menu =
+                Some(crate::menus::Menu::new(at, vec![row]).width(crate::menus::FIELD_WIDTH));
             return iced::widget::operation::focus(crate::app::NOBODY);
         }
         Event::Second => {

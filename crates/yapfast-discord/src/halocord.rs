@@ -126,7 +126,6 @@ pub(crate) fn song_name(activity: &crate::activity::Activity) -> Option<&str> {
         .then_some(activity.details.as_deref())
         .flatten()
         .filter(|song| !song.is_empty())
-
 }
 
 #[cfg(test)]

@@ -1853,7 +1853,11 @@ mod tests {
             .iter()
             .map(|entry| entry.id.parse().expect("a number"))
             .collect();
-        assert!(fresh.iter().all(|&id| id != 0 && id != 7 && id <= 0xffff_ffff));
+        assert!(
+            fresh
+                .iter()
+                .all(|&id| id != 0 && id != 7 && id <= 0xffff_ffff)
+        );
         assert_ne!(fresh[0], fresh[1], "each new folder has its own");
         assert_eq!(entries[3].servers, ["60", "70"]);
     }

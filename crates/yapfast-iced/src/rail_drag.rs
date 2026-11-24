@@ -85,9 +85,16 @@ enum Place {
     Top,
     /// A server outside any folder, the list's entry so numbered.
     Lone(usize),
-    Folder { group: usize, open: bool },
+    Folder {
+        group: usize,
+        open: bool,
+    },
     /// An open folder's server, its place in it.
-    Nested { group: usize, at: usize, last: bool },
+    Nested {
+        group: usize,
+        at: usize,
+        last: bool,
+    },
     /// The add-a-server tile: after the last entry.
     End,
 }
@@ -146,9 +153,9 @@ pub fn spot(items: &[RailItem], drag: &RailDrag, y: f32) -> Option<(Spot, Marker
         rows.iter()
             .rev()
             .find(|(place, ..)| match place {
-                Place::Lone(at) | Place::Folder { group: at, .. } | Place::Nested { group: at, .. } => {
-                    *at == group
-                }
+                Place::Lone(at)
+                | Place::Folder { group: at, .. }
+                | Place::Nested { group: at, .. } => *at == group,
                 _ => false,
             })
             .map_or(0.0, |(_, top, height)| top + height - GAP / 2.0)
@@ -243,7 +250,12 @@ pub fn groups<S: std::borrow::Borrow<ChatServer>>(servers: &[S]) -> Vec<ServerGr
 
 /// The list with the server or folder `id` moved to `spot`; none when it
 /// would stay as it is.
-pub fn moved(groups: &[ServerGroup], id: &str, folder: bool, spot: Spot) -> Option<Vec<ServerGroup>> {
+pub fn moved(
+    groups: &[ServerGroup],
+    id: &str,
+    folder: bool,
+    spot: Spot,
+) -> Option<Vec<ServerGroup>> {
     let mut next = groups.to_vec();
     // Where it was is left empty, so the spot's numbers still hold, and
     // cleared once it's in its new place.
@@ -437,8 +449,7 @@ pub fn subscription(app: &App) -> Option<Subscription<Message>> {
         }) => Some(Message::Rail(Event::Cancel)),
         _ => None,
     });
-    if drag.at.y < drag.list_top + EDGE
-        || drag.at.y > drag.list_top + app.rail.scroll.height - EDGE
+    if drag.at.y < drag.list_top + EDGE || drag.at.y > drag.list_top + app.rail.scroll.height - EDGE
     {
         let scroll = iced::time::every(EVERY).map(|_| Message::Rail(Event::Creep));
         return Some(Subscription::batch([follow, scroll]));
@@ -488,7 +499,10 @@ mod tests {
     fn dropping_where_it_was_changes_nothing() {
         assert_eq!(moved(&list(), "discord:1", false, Spot::Between(0)), None);
         assert_eq!(moved(&list(), "discord:1", false, Spot::Between(1)), None);
-        assert_eq!(moved(&list(), "discord:2", false, Spot::InFolder(1, 0)), None);
+        assert_eq!(
+            moved(&list(), "discord:2", false, Spot::InFolder(1, 0)),
+            None
+        );
         assert_eq!(
             moved(&list(), "discord-folder:9", true, Spot::Between(2)),
             None
@@ -529,8 +543,14 @@ mod tests {
     #[test]
     fn a_folder_moves_whole_and_only_between_entries() {
         let next = moved(&list(), "discord-folder:9", true, Spot::Between(0)).unwrap();
-        assert_eq!(next[0], folder("discord-folder:9", &["discord:2", "discord:3"]));
-        assert_eq!(moved(&list(), "discord-folder:9", true, Spot::Join(0)), None);
+        assert_eq!(
+            next[0],
+            folder("discord-folder:9", &["discord:2", "discord:3"])
+        );
+        assert_eq!(
+            moved(&list(), "discord-folder:9", true, Spot::Join(0)),
+            None
+        );
     }
 
     #[test]
@@ -583,7 +603,9 @@ mod tests {
         assert_eq!(spot(&items, &dragged, 500.0).unwrap().0, Spot::Between(2));
         // A folder dragged goes only between.
         assert_eq!(
-            spot(&items, &drag("discord-folder:9", true), 20.0).unwrap().0,
+            spot(&items, &drag("discord-folder:9", true), 20.0)
+                .unwrap()
+                .0,
             Spot::Between(0)
         );
     }
@@ -606,9 +628,18 @@ mod tests {
         ];
         let dragged = drag("discord:1", false);
         // The folder's row is 0 to 52, its servers' 52 to 100 and 100 to 152.
-        assert_eq!(spot(&items, &dragged, 30.0).unwrap().0, Spot::InFolder(0, 0));
-        assert_eq!(spot(&items, &dragged, 90.0).unwrap().0, Spot::InFolder(0, 1));
-        assert_eq!(spot(&items, &dragged, 130.0).unwrap().0, Spot::InFolder(0, 2));
+        assert_eq!(
+            spot(&items, &dragged, 30.0).unwrap().0,
+            Spot::InFolder(0, 0)
+        );
+        assert_eq!(
+            spot(&items, &dragged, 90.0).unwrap().0,
+            Spot::InFolder(0, 1)
+        );
+        assert_eq!(
+            spot(&items, &dragged, 130.0).unwrap().0,
+            Spot::InFolder(0, 2)
+        );
         assert_eq!(spot(&items, &dragged, 150.0).unwrap().0, Spot::Between(1));
     }
 

@@ -408,7 +408,11 @@ fn call_faces<'a>(
     for person in &voice.participants {
         let speaking = crate::call::stage::speaking(person);
         let opacity = if person.connected { 1.0 } else { 0.5 };
-        let ring = if speaking { theme.live } else { Color::TRANSPARENT };
+        let ring = if speaking {
+            theme.live
+        } else {
+            Color::TRANSPARENT
+        };
         let face = container(ctx.avatar(
             person.avatar.as_deref(),
             &person.user,
@@ -440,9 +444,8 @@ fn call_faces<'a>(
         } else {
             person.user.clone()
         };
-        faces = faces.push(
-            tooltip(face, controls::tip(theme, name), tooltip::Position::Top).gap(4),
-        );
+        faces =
+            faces.push(tooltip(face, controls::tip(theme, name), tooltip::Position::Top).gap(4));
     }
     Some(
         container(faces.wrap().vertical_spacing(FACE_GAP))
@@ -499,15 +502,9 @@ fn watchers<'a>(
     };
     let mut layers = stack![Space::new().width(wide).height(26)];
     for (index, person) in people.iter().take(shown).enumerate() {
-        let face = container(ctx.avatar(
-            person.avatar.as_deref(),
-            &person.user,
-            22.0,
-            11.0,
-            1.0,
-        ))
-        .padding(2)
-        .style(move |_| rounded(ring, 13));
+        let face = container(ctx.avatar(person.avatar.as_deref(), &person.user, 22.0, 11.0, 1.0))
+            .padding(2)
+            .style(move |_| rounded(ring, 13));
         layers = layers.push(pin(face).x(index as f32 * 16.0));
     }
     let mut line = row![
@@ -610,7 +607,11 @@ mod tests {
             video: None,
             avatar: None,
         };
-        let people = [person("me", true), person("ann", false), person("bob", false)];
+        let people = [
+            person("me", true),
+            person("ann", false),
+            person("bob", false),
+        ];
         let viewers = ["ann".to_owned(), "far".to_owned()];
         let (watching, count) = super::watching(&people, &viewers);
         // Bob doesn't watch; the one from outside the call still counts.

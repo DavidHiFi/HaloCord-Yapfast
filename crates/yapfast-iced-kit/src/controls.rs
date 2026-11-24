@@ -1520,7 +1520,10 @@ mod choice_tests {
     #[test]
     fn short_numbers_fit_one_row_and_long_labels_wrap() {
         crate::testing::install_fonts();
-        assert_eq!(choice_lines(&["64", "128", "256", "384", "510"], 360.0).len(), 1);
+        assert_eq!(
+            choice_lines(&["64", "128", "256", "384", "510"], 360.0).len(),
+            1
+        );
         let long = [
             "30 minutes",
             "1 hour",

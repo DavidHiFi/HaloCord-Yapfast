@@ -672,7 +672,11 @@ impl<'a> View<'a> {
             }
             Some(crate::rail_drag::Marker::Ring(tile)) => {
                 let live = theme.live;
-                let radius = if tile.width > TILE { FOLDER_RADIUS } else { RADIUS };
+                let radius = if tile.width > TILE {
+                    FOLDER_RADIUS
+                } else {
+                    RADIUS
+                };
                 rows.place(
                     key("rail-drop-ring"),
                     iced::Rectangle {

@@ -2670,8 +2670,14 @@ mod tests {
 
         // A drag on the rail shows at once, before Discord agrees.
         let moved = settings::write_server_list(&[
-            settings::Folder { servers: vec!["30".into()], ..Default::default() },
-            settings::Folder { servers: vec!["20".into()], ..Default::default() },
+            settings::Folder {
+                servers: vec!["30".into()],
+                ..Default::default()
+            },
+            settings::Folder {
+                servers: vec!["20".into()],
+                ..Default::default()
+            },
             games.clone(),
         ]);
         tracker.arrange_servers(Some(&moved));
@@ -2682,8 +2688,14 @@ mod tests {
         // A second drag before the answer still falls back to Discord's.
         let again = settings::write_server_list(&[
             games.clone(),
-            settings::Folder { servers: vec!["30".into()], ..Default::default() },
-            settings::Folder { servers: vec!["20".into()], ..Default::default() },
+            settings::Folder {
+                servers: vec!["30".into()],
+                ..Default::default()
+            },
+            settings::Folder {
+                servers: vec!["20".into()],
+                ..Default::default()
+            },
         ]);
         tracker.arrange_servers(Some(&again));
         assert_eq!(

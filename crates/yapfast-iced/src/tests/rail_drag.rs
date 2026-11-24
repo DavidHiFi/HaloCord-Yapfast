@@ -79,18 +79,17 @@ fn tile(ui: &mut Simulator<'_, Message>, app: &App, id: &str) -> Point {
         .enumerate()
         .map(|(index, item)| item.height(index))
         .sum();
-    Point::new(rail::WIDTH / 2.0, list.y + top - app.rail.scroll.offset + TILE / 2.0)
+    Point::new(
+        rail::WIDTH / 2.0,
+        list.y + top - app.rail.scroll.offset + TILE / 2.0,
+    )
 }
 
 /// Presses on the tile `id` and moves the pointer `by` px down, letting go
 /// if `release`.
 fn press(app: &mut App, id: &str, by: f32, release: bool) {
     let at = {
-        let ui = &mut Simulator::with_size(
-            iced::Settings::default(),
-            app.shell.frame,
-            app.view(),
-        );
+        let ui = &mut Simulator::with_size(iced::Settings::default(), app.shell.frame, app.view());
         tile(ui, app, id)
     };
     interact(app, |ui| {
@@ -100,7 +99,9 @@ fn press(app: &mut App, id: &str, by: f32, release: bool) {
         ))]);
         let to = Point::new(at.x, at.y + by);
         ui.point_at(to);
-        ui.simulate([iced::Event::Mouse(mouse::Event::CursorMoved { position: to })]);
+        ui.simulate([iced::Event::Mouse(mouse::Event::CursorMoved {
+            position: to,
+        })]);
         if release {
             ui.simulate([iced::Event::Mouse(mouse::Event::ButtonReleased(
                 mouse::Button::Left,
@@ -148,11 +149,7 @@ fn a_server_dragged_above_the_first_moves_there_and_discord_is_told() {
 
     // Carried to Alpha's top third and let go: first, alone.
     let above = {
-        let ui = &mut Simulator::with_size(
-            iced::Settings::default(),
-            app.shell.frame,
-            app.view(),
-        );
+        let ui = &mut Simulator::with_size(iced::Settings::default(), app.shell.frame, app.view());
         tile(ui, &app, "discord:10")
     };
     let to = Point::new(above.x, above.y - TILE / 2.0 + 2.0);
@@ -161,7 +158,11 @@ fn a_server_dragged_above_the_first_moves_there_and_discord_is_told() {
     assert!(app.rail.dragging.is_none());
     assert_eq!(
         arranged(&mut app),
-        [vec![lone("discord:30"), lone("discord:10"), lone("discord:20")]]
+        [vec![
+            lone("discord:30"),
+            lone("discord:10"),
+            lone("discord:20")
+        ]]
     );
 }
 
