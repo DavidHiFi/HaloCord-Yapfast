@@ -65,8 +65,10 @@ pub use members::{
 pub use members::{message_timeout, role_press, server_tip, zoom_size, zoomable};
 pub use menus::{
     attachment_menu, chosen, copied_text, mention_button, message_rows, person_rows, search_result,
-    song_links, song_page, sticker_tile,
+    sticker_tile,
 };
+#[cfg(test)]
+pub use menus::{song_links, song_page};
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
 pub use servers::{
     KeptChannel, home_face, home_mentions, keep_channel, no_request_badge,
@@ -74,7 +76,7 @@ pub use servers::{
 pub use song_buttons::buttons as song_buttons;
 #[cfg(test)]
 pub use song_buttons::known as song_buttons_known;
-pub use voice::{in_voice_mark, unmute, unmute_mark, voice_count};
+pub use voice::{in_voice_mark, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
 #[cfg(test)]

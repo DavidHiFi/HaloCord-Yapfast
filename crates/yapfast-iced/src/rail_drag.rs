@@ -225,9 +225,9 @@ pub fn spot(items: &[RailItem], drag: &RailDrag, y: f32) -> Option<(Spot, Marker
 
 /// The server list's entries from the core's servers, as the rail groups
 /// them: a run of servers in the same folder, or one outside any.
-pub fn groups(servers: &[ChatServer]) -> Vec<ServerGroup> {
+pub fn groups<S: std::borrow::Borrow<ChatServer>>(servers: &[S]) -> Vec<ServerGroup> {
     let mut groups: Vec<ServerGroup> = Vec::new();
-    for server in servers {
+    for server in servers.iter().map(std::borrow::Borrow::borrow) {
         match groups.last_mut() {
             Some(last) if server.folder.is_some() && last.folder == server.folder => {
                 last.servers.push(server.id.clone());
