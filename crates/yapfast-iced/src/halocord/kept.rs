@@ -226,7 +226,7 @@ impl Kept {
     }
 
     /// Tells the core what every plugin does, as the window opens.
-    pub fn apply(&mut self) {
+    pub fn apply(&self) {
         for plugin in PLUGINS {
             self.tell(plugin);
         }

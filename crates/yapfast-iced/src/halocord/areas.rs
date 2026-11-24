@@ -72,6 +72,7 @@ pub fn area(id: &str) -> Area {
         | id::UNIVERSAL_MENTION
         | id::NOTIFICATION_TITLE
         | id::FAVORITE_ANYTHING
+        | id::SHOW_BADGES
         | "fake-dms"
         | "message-logger" => Area::Chat,
         id::COPY_MENTION
@@ -91,7 +92,8 @@ pub fn area(id: &str) -> Area {
         | id::CLOSE_DMS
         | id::JUMP_TO_START
         | id::HIDE_CHAT_BUTTONS
-        | id::BETTER_UPLOAD_BUTTON => Area::Buttons,
+        | id::BETTER_UPLOAD_BUTTON
+        | id::USER_TOOLS => Area::Buttons,
         id::STAFF_TAG
         | id::MEMBER_COUNT
         | id::PLATFORMS
@@ -100,7 +102,10 @@ pub fn area(id: &str) -> Area {
         | id::VIEW_ICONS
         | id::CLICKABLE_ROLES
         | id::SHOW_HIDDEN
-        | id::SHOW_SONG_NAME => Area::Members,
+        | id::SHOW_SONG_NAME
+        | id::SHOW_CONNECTIONS
+        | id::LAST_ONLINE
+        | id::USER_COLORS => Area::Members,
         id::PLAIN_FOLDER
         | id::INVITE_DEFAULTS
         | id::NO_PENDING_COUNT

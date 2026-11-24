@@ -409,16 +409,21 @@ mod tests {
                 "Ignore your own messages",
                 "Keep deleted messages",
                 "Keep edit history",
-                "Collapse deleted messages"
+                "Collapse deleted messages",
+                "IGNORE PEOPLE",
+                "IGNORE CHANNELS",
+                "IGNORE SERVERS"
             ]
         );
         assert!(find("fake dm").contains(&"Fake DMs"));
         assert!(find("local mark").contains(&"Fake DMs"));
         assert!(find("edit history").contains(&"Message logger"));
         assert!(find("collapse").contains(&"Message logger"));
-        // Both are added last, so the page's order before them is untouched.
-        let last: Vec<_> = PLUGINS.iter().rev().take(2).map(|p| p.id).collect();
-        assert_eq!(last, [MESSAGE_LOGGER, FAKE_DMS]);
+        // Both keep their places, the logger right after Fake DMs, with the
+        // later builds' plugins after them.
+        let ids: Vec<_> = PLUGINS.iter().map(|p| p.id).collect();
+        let at = ids.iter().position(|id| *id == MESSAGE_LOGGER).unwrap();
+        assert_eq!(ids[at - 1], FAKE_DMS);
     }
 
     /// Files HaloCord owns outright; `docs/halocord.md` lists them by area.

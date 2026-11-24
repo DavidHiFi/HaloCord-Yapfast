@@ -314,6 +314,8 @@ Window (`yapfast-iced`):
   Before User Settings, `halocord::popover_rows`' rows (Better user tools), each sending its
   `Press` as the top bar's buttons do.
 - `sync.rs`: `sync` starts with `halocord::stop_mic_test_in_call` (Better user tools).
+- `browser.rs`: opens the pages HaloCord's plugins ask for (a sticker at full size, a
+  song's page, a profile's decorations).
 - `rail.rs`: `home_tile` asks `halocord::home_face` first (Home typing's dots while someone
   types in a DM), else draws the logo; `typing.rs`: `dots`, the typing line's dots on their
   own, `pub(crate)` for it.
