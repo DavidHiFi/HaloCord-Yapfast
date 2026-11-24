@@ -3,8 +3,6 @@
 //! (`api.song.link/v1-alpha.1/links`). Asked only when someone presses for
 //! it, once per press; HaloCord's window keeps the answers.
 
-use std::fmt::Write as _;
-
 use serde_json::Value;
 
 /// One service's link for a song, from song.link.
@@ -15,7 +13,7 @@ pub struct SongPlatform {
     /// Its page.
     pub url: String,
     /// What its desktop app opens, such as `spotify:track:...`, when there
-    /// is one.
+    /// is one and its scheme is a music app's ([`MUSIC_APPS`]).
     pub native: Option<String>,
 }
 
@@ -51,18 +49,55 @@ pub async fn song_platforms(link: &str, country: &str) -> Result<Vec<SongPlatfor
 /// The API's address asking for `link`, which goes in encoded.
 fn api_address(link: &str, country: &str) -> String {
     let mut address = String::from("https://api.song.link/v1-alpha.1/links?url=");
-    for byte in link.bytes() {
-        if byte.is_ascii_alphanumeric() || b"-._~".contains(&byte) {
-            address.push(char::from(byte));
-        } else {
-            let _ = write!(address, "%{byte:02X}");
-        }
-    }
+    percent_encode(link, &mut address);
     let country = country.trim();
     if country.len() == 2 && country.bytes().all(|byte| byte.is_ascii_alphabetic()) {
-        let _ = write!(address, "&userCountry={}", country.to_uppercase());
+        address.push_str("&userCountry=");
+        address.push_str(&country.to_uppercase());
     }
     address
+}
+
+/// `text` percent-encoded onto `into`: all but letters, digits and `-._~`,
+/// so a link put in another address keeps its own `?` and `&`.
+pub fn percent_encode(text: &str, into: &mut String) {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-._~".contains(&byte) {
+            into.push(char::from(byte));
+        } else {
+            into.push('%');
+            into.push(char::from(HEX[usize::from(byte >> 4)]));
+            into.push(char::from(HEX[usize::from(byte & 0x0f)]));
+        }
+    }
+}
+
+/// The schemes of the music apps song.link names a desktop address for.
+/// Any other scheme isn't opened: the system would open whatever handles
+/// it.
+pub const MUSIC_APPS: &[&str] = &[
+    "spotify",
+    "music",
+    "itms",
+    "itmss",
+    "tidal",
+    "deezer",
+    "soundcloud",
+    "napster",
+    "pandorav4",
+    "anghami",
+    "boomplay",
+    "audiomack",
+    "yandexmusic",
+    "amazonmusic",
+];
+
+/// Whether `address` opens one of [`MUSIC_APPS`].
+fn music_app(address: &str) -> bool {
+    address
+        .split_once(':')
+        .is_some_and(|(scheme, _)| MUSIC_APPS.contains(&scheme.to_ascii_lowercase().as_str()))
 }
 
 /// The services of song.link's answer, in its order; only pages on HTTPS.
@@ -78,7 +113,10 @@ pub fn song_platforms_in(answer: &Value) -> Vec<SongPlatform> {
             Some(SongPlatform {
                 key: key.clone(),
                 url: url.to_owned(),
-                native: link["nativeAppUriDesktop"].as_str().map(str::to_owned),
+                native: link["nativeAppUriDesktop"]
+                    .as_str()
+                    .filter(|address| music_app(address))
+                    .map(str::to_owned),
             })
         })
         .collect()
@@ -94,12 +132,28 @@ mod tests {
     fn reads_each_services_link_and_asks_with_the_link_encoded() {
         let found = song_platforms_in(&json!({"linksByPlatform": {
             "spotify": {"url": "https://open.spotify.com/track/1", "nativeAppUriDesktop": "spotify:track:1"},
-            "deezer": {"url": "https://www.deezer.com/track/2"},
+            "deezer": {"url": "https://www.deezer.com/track/2", "nativeAppUriDesktop": "deezer://www.deezer.com/track/2"},
+            "tidal": {"url": "https://tidal.com/track/3", "nativeAppUriDesktop": "ms-settings:privacy"},
+            "pandora": {"url": "https://www.pandora.com/x", "nativeAppUriDesktop": "file:///etc/passwd"},
             "odd": {"url": "javascript:x"},
         }}));
-        assert_eq!(found.len(), 2, "not a page on HTTPS: left out");
-        let spotify = found.iter().find(|found| found.key == "spotify").unwrap();
-        assert_eq!(spotify.native.as_deref(), Some("spotify:track:1"));
+        assert_eq!(found.len(), 4, "not a page on HTTPS: left out");
+        let native = |key: &str| {
+            found
+                .iter()
+                .find(|found| found.key == key)
+                .unwrap()
+                .native
+                .as_deref()
+        };
+        assert_eq!(native("spotify"), Some("spotify:track:1"));
+        assert_eq!(native("deezer"), Some("deezer://www.deezer.com/track/2"));
+        assert_eq!(
+            native("tidal"),
+            None,
+            "not a music app's scheme: its page instead"
+        );
+        assert_eq!(native("pandora"), None);
         assert_eq!(
             api_address("https://music.youtube.com/watch?v=a&list=b", ""),
             "https://api.song.link/v1-alpha.1/links?url=https%3A%2F%2Fmusic.youtube.com%2Fwatch%3Fv%3Da%26list%3Db"
