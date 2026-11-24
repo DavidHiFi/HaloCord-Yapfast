@@ -399,6 +399,53 @@ fn join_view(app: &App) -> Element<'_, Message> {
         "Join voice"
     };
     let can_join = app.client.state().can_join_voice(&id);
+    // Everyone in the channel, as tiles in the main area: Discord's shows
+    // them here too, not only in the channel list.
+    let present = state
+        .selected_room()
+        .map(|room| room.people.as_slice())
+        .unwrap_or(&[]);
+    if !present.is_empty() {
+        let mut row = row![].spacing(18).align_y(Alignment::Center);
+        for person in present {
+            let opacity = if person.elsewhere { 0.5 } else { 1.0 };
+            let face = container(app.ctx().avatar(
+                person.avatar.as_deref(),
+                &person.name,
+                44.0,
+                22.0,
+                opacity,
+            ))
+            .center(48)
+            .style(move |_| rounded(raised, 24));
+            let marks = |icon: Icon, red: bool| {
+                container(app.look().glyph(icon, 13, if red { theme.danger } else { theme.secondary }))
+                    .center(20)
+                    .style(move |_| rounded(raised, 10))
+            };
+            let mut column = column![face].spacing(4).align_x(Alignment::Center);
+            if person.muted || person.server_muted {
+                column = column.push(marks(Icon::MicOff, person.server_muted));
+            } else if person.deafened || person.server_deafened {
+                column = column.push(marks(Icon::HeadphoneOff, person.server_deafened));
+            } else if person.streaming {
+                column = column.push(marks(Icon::ScreenShare, false));
+            } else if person.video {
+                column = column.push(marks(Icon::Video, false));
+            }
+            column = column.push(
+                text(person.name.as_str())
+                    .size(12)
+                    .color(theme.secondary)
+                    .wrapping(text::Wrapping::None),
+            );
+            row = row.push(column);
+        }
+        panel = panel.push(container(row).padding(Padding {
+            top: 12.0,
+            ..Padding::ZERO
+        }));
+    }
     let join: Element<'_, Message> = controls::action(
         theme,
         label,
@@ -462,7 +509,11 @@ fn stage_tile(
     let voice = &app.client.state().voice;
     let size = bounds.size();
     let pointed = app.call.pointed == Some(place);
-    let corners = (!full).then(|| (tile::RADIUS as u32, rgb(theme.stage)));
+    // The corner patches take the tile's own black ground, not the stage's
+    // colour: the video sits on that ground inside the tile, so a stage
+    // coloured patch showed as dark squares at the corners of every
+    // screen share and camera.
+    let corners = (!full).then(|| (tile::RADIUS as u32, rgb(Color::BLACK)));
     let watch_user = voice
         .watching
         .as_ref()
