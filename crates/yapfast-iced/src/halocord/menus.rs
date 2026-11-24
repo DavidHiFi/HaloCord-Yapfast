@@ -237,22 +237,28 @@ fn song(link: &str) -> bool {
 /// letters. Spotify's `si` (who shared it) is left off, and the link goes
 /// into song.link's address encoded, so its own `?` and `&` stay its own.
 pub fn song_page(link: &str, country: &str) -> String {
-    use std::fmt::Write as _;
-    let link = without_share_id(link);
     let mut page = String::from("https://song.link/");
-    for byte in link.bytes() {
-        if byte.is_ascii_alphanumeric() || b"-._~".contains(&byte) {
-            page.push(char::from(byte));
-        } else {
-            let _ = write!(page, "%{byte:02X}");
-        }
-    }
+    percent_encode(&without_share_id(link), &mut page);
     let country = country.trim().to_uppercase();
     if country.len() == 2 && country.bytes().all(|byte| byte.is_ascii_alphabetic()) {
         page.push_str("?userCountry=");
         page.push_str(&country);
     }
     page
+}
+
+/// `text` percent-encoded onto `into`: all but letters, digits and `-._~`.
+fn percent_encode(text: &str, into: &mut String) {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    for byte in text.bytes() {
+        if byte.is_ascii_alphanumeric() || b"-._~".contains(&byte) {
+            into.push(char::from(byte));
+        } else {
+            into.push('%');
+            into.push(char::from(HEX[usize::from(byte >> 4)]));
+            into.push(char::from(HEX[usize::from(byte & 0x0f)]));
+        }
+    }
 }
 
 /// `link` without Spotify's `si`, which names who shared it.
