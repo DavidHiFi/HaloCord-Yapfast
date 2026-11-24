@@ -202,18 +202,18 @@ fn show_connections_puts_them_on_the_profile_card() {
         .expect("the card open");
     view.profile.connections = vec![ProfileConnection {
         kind: "github".into(),
-        name: "halo-test-account".into(),
+        name: "sample-account".into(),
         verified: true,
-        url: Some("https://github.com/halo-test-account".into()),
+        url: Some("https://github.com/sample-account".into()),
         since: None,
     }];
     let _ = app.sync();
     assert!(
-        !super::shows(&app, "halo-test-account"),
+        !super::shows(&app, "sample-account"),
         "off: not on the card"
     );
     turn_on(&mut app, id::SHOW_CONNECTIONS);
-    assert!(super::shows(&app, "halo-test-account"), "on: on the card");
+    assert!(super::shows(&app, "sample-account"), "on: on the card");
     assert!(super::shows(&app, "Connections"));
     changed(
         &mut app.layout,
