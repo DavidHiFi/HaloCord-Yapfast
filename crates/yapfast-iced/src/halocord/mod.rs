@@ -32,6 +32,7 @@ mod areas;
 pub mod backup;
 mod buttons;
 mod chat;
+mod chat_badges;
 mod clicks;
 pub mod deck;
 mod fake_dialog;
@@ -58,6 +59,7 @@ pub use chat::{
     chat_buttons, count_color, count_words, double_click, inserts_gif, tag, upload_button,
     uploads_first,
 };
+pub use chat_badges::{badge_pictures, chat_badges, note_badges};
 pub use clicks::{Clicks, click_keys, click_row};
 pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
 use kept::off;
@@ -173,6 +175,7 @@ pub mod id {
     pub const LAST_ONLINE: &str = "last-online";
     pub const USER_COLORS: &str = "custom-user-colors";
     pub const USER_TOOLS: &str = "better-user-tools";
+    pub const SHOW_BADGES: &str = "show-badges-in-chat";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -241,6 +244,7 @@ pub static PLUGINS: &[Plugin] = &[
     last_online::LAST_ONLINE,
     user_colors::CUSTOM_USER_COLORS,
     user_tools::BETTER_USER_TOOLS,
+    chat_badges::SHOW_BADGES,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

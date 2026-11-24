@@ -303,6 +303,9 @@ Window (`yapfast-iced`):
   `show_role` names and colours a role from the open profile, or else from the server's own
   roles (`server_roles`) for a role clicked where nothing else names it, as a member list
   heading (Clickable roles).
+- `message/mod.rs`: after the plugins' tags by an author's name, `halocord::chat_badges` (Show
+  badges in chat); `sync.rs`: `sync` notes the open profiles' badges with `halocord::note_badges`,
+  and asks for `halocord::badge_pictures` with a message's other pictures.
 - `message/mod.rs` (`author_line`), `members.rs` (a member's row) and `sidebar/dms.rs` (a DM's
   row): a name takes `halocord::name_color` / `dm_name_color` in place of its colour and style
   when one is set (Custom user colours); `sync.rs`' `make_lists` starts with
