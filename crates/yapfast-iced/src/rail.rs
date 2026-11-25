@@ -1077,7 +1077,7 @@ impl<'a> View<'a> {
             })
             .into()
         } else {
-            tile.into()
+            tile
         };
         let tile = tooltip(tile, tip, tooltip::Position::Right)
             .gap(8)
