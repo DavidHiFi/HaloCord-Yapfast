@@ -475,22 +475,3 @@ iced live in [`vendor/`](vendor), with the rest of the code.
 
 <sub>Yapfast isn't affiliated with or endorsed by Discord Inc. Discord is a
 trademark of Discord Inc.</sub>
-
-## HaloCord-Yapfast contributors
-
-This fork adds HaloCord's plugins and look on top of [Yapfast](https://github.com/yapfast/yapfast). Yapfast itself is the work of [its contributors](https://github.com/yapfast/yapfast/graphs/contributors).
-
-- **Author:** Myself, [DavidHiFi](https://github.com/DavidHiFi)
-
-<!-- contributors:start -->
-- **Contributors:** [SickoHours](https://github.com/SickoHours)
-- **AI coding agents:** [Claude Code](https://github.com/anthropics/claude-code)
-
-<p>
-  <a href="https://github.com/DavidHiFi"><img src="https://github.com/DavidHiFi.png?size=96" width="48" height="48" alt="DavidHiFi" title="DavidHiFi"></a>
-  <a href="https://github.com/SickoHours"><img src="https://github.com/SickoHours.png?size=96" width="48" height="48" alt="SickoHours" title="SickoHours"></a>
-  <a href="https://github.com/anthropics/claude-code"><img src="https://github.com/claude.png?size=96" width="48" height="48" alt="Claude Code" title="Claude Code"></a>
-</p>
-
-<sub>GitHub's contributor list also shows openhands-agent. Our machines had the wrong git name set from late October to November 26, 2026, so some commits by the agents above carry that name. OpenHands did not work on this project.</sub>
-<!-- contributors:end -->
