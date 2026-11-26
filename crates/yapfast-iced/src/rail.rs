@@ -1309,12 +1309,12 @@ impl<'a> View<'a> {
             .side
             .iter()
             .enumerate()
-            .map(|(index, item)| item.height(index + 1))
+            .map(|(index, item)| item.height(index + 1, self.tiles()))
             .sum();
         let mut rows = Rows::new(total);
         let mut top = 0.0;
         for (index, item) in self.s.side.iter().enumerate() {
-            let height = item.height(index + 1);
+            let height = item.height(index + 1, self.tiles());
             rows.push(
                 key(&format!("side-{}", item.id)),
                 top - ABOVE,
@@ -1346,7 +1346,6 @@ impl<'a> View<'a> {
                 items.push(top)
             })
     }
-
 
     /// A theme's text rail: the same navigation and menus as the tile rail,
     /// with only checked labels and marks replacing its visible words.

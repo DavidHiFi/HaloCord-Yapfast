@@ -363,8 +363,9 @@ impl App {
             // Just closed, and drawn going: one still opening turns round
             // from where it is.
             let opened = moving.start.get();
-            moving.start =
-                Cell::new(opened.and_then(|opened| motion::closed_from(popup_motion, opened, Instant::now())));
+            moving.start = Cell::new(
+                opened.and_then(|opened| motion::closed_from(popup_motion, opened, Instant::now())),
+            );
             moving.closing = true;
             true
         });

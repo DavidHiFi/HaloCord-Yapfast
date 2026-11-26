@@ -211,8 +211,8 @@ pub fn parse_release(json: &[u8], channel: Channel) -> Result<Release, String> {
         #[serde(default)]
         size: u64,
     }
-    let listed: Listed = serde_json::from_slice(json)
-        .map_err(|_| "GitHub's answer wasn't a release.".to_owned())?;
+    let listed: Listed =
+        serde_json::from_slice(json).map_err(|_| "GitHub's answer wasn't a release.".to_owned())?;
     if listed.draft {
         return Err("The release isn't published yet.".into());
     }
@@ -406,7 +406,10 @@ mod tests {
     #[test]
     fn a_zip_names_its_build() {
         assert_eq!(Build::from_zip(STABLE_ZIP), Some(stable(18)));
-        assert_eq!(Build::from_zip(NIGHTLY_ZIP), Some(nightly(18, 20261126, 57)));
+        assert_eq!(
+            Build::from_zip(NIGHTLY_ZIP),
+            Some(nightly(18, 20261126, 57))
+        );
         for odd in [
             "HaloCord-Installer.exe",
             "HaloCord-Yapfast-0.5.0-x-windows-x64.zip",
@@ -451,9 +454,12 @@ mod tests {
         assert_eq!(release.page, format!("{PAGES}tag/{tag}"));
         assert_eq!(release.zip.name, STABLE_ZIP);
         assert_eq!(release.sums.expect("sums").name, SUMS);
-        assert_eq!(release.notes, "What changed\n\n• Updates have a channel\n• Fixes");
-        let nightly = parse_release(&listing(NIGHTLY_TAG, NIGHTLY_ZIP), Channel::Nightly)
-            .expect("nightly");
+        assert_eq!(
+            release.notes,
+            "What changed\n\n• Updates have a channel\n• Fixes"
+        );
+        let nightly =
+            parse_release(&listing(NIGHTLY_TAG, NIGHTLY_ZIP), Channel::Nightly).expect("nightly");
         assert_eq!(nightly.name, "HaloCord nightly 26 Nov 2026, build 57");
     }
 
@@ -462,9 +468,10 @@ mod tests {
         assert!(parse_release(&listing(NIGHTLY_TAG, NIGHTLY_ZIP), Channel::Stable).is_err());
         assert!(parse_release(&listing("v1-halocord.18", STABLE_ZIP), Channel::Nightly).is_err());
         let elsewhere = listing("v1-halocord.18", STABLE_ZIP);
-        let elsewhere = String::from_utf8(elsewhere)
-            .expect("text")
-            .replace("DavidHiFi/HaloCord-Yapfast/releases/download", "someone/else");
+        let elsewhere = String::from_utf8(elsewhere).expect("text").replace(
+            "DavidHiFi/HaloCord-Yapfast/releases/download",
+            "someone/else",
+        );
         assert!(parse_release(elsewhere.as_bytes(), Channel::Stable).is_err());
         assert!(parse_release(b"{\"message\":\"Not Found\"}", Channel::Nightly).is_err());
     }
@@ -474,12 +481,18 @@ mod tests {
         let release =
             parse_release(&listing(NIGHTLY_TAG, NIGHTLY_ZIP), Channel::Nightly).expect("nightly");
         let name = release.name.clone();
-        assert_eq!(decide(&release, Some(stable(18)), true, None), Outcome::Available);
+        assert_eq!(
+            decide(&release, Some(stable(18)), true, None),
+            Outcome::Available
+        );
         assert_eq!(
             decide(&release, Some(nightly(18, 20261126, 57)), true, None),
             Outcome::UpToDate
         );
-        assert_eq!(decide(&release, Some(stable(19)), true, None), Outcome::UpToDate);
+        assert_eq!(
+            decide(&release, Some(stable(19)), true, None),
+            Outcome::UpToDate
+        );
         assert_eq!(decide(&release, None, true, None), Outcome::Available);
         assert_eq!(
             decide(&release, Some(stable(18)), true, Some(&name)),
@@ -509,16 +522,23 @@ mod tests {
 
     /// Runs a look whose fake answer is ready at once, and says what
     /// address it asked for.
-    fn look_with(channel: Channel, status: u16, body: Vec<u8>) -> (String, Result<Release, String>) {
+    fn look_with(
+        channel: Channel,
+        status: u16,
+        body: Vec<u8>,
+    ) -> (String, Result<Release, String>) {
         let asked = std::cell::RefCell::new(String::new());
-        let look = look_up(channel, |url| {
-            *asked.borrow_mut() = url;
-            std::future::ready(Ok((status, body)))
-        });
-        let mut look = std::pin::pin!(look);
-        let mut context = std::task::Context::from_waker(std::task::Waker::noop());
-        let std::task::Poll::Ready(found) = look.as_mut().poll(&mut context) else {
-            panic!("a ready answer finishes the look");
+        let found = {
+            let look = look_up(channel, |url| {
+                *asked.borrow_mut() = url;
+                std::future::ready(Ok((status, body)))
+            });
+            let mut look = std::pin::pin!(look);
+            let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+            let std::task::Poll::Ready(found) = look.as_mut().poll(&mut context) else {
+                panic!("a ready answer finishes the look");
+            };
+            found
         };
         (asked.into_inner(), found)
     }
@@ -540,7 +560,10 @@ mod tests {
     fn a_look_says_why_it_found_nothing() {
         let missing = b"{\"message\":\"Not Found\"}".to_vec();
         assert_eq!(
-            look_with(Channel::Nightly, 404, missing.clone()).1.err().as_deref(),
+            look_with(Channel::Nightly, 404, missing.clone())
+                .1
+                .err()
+                .as_deref(),
             Some("There's no nightly build yet.")
         );
         assert_eq!(
@@ -548,11 +571,17 @@ mod tests {
             Some("There's no HaloCord release yet.")
         );
         assert_eq!(
-            look_with(Channel::Stable, 500, Vec::new()).1.err().as_deref(),
+            look_with(Channel::Stable, 500, Vec::new())
+                .1
+                .err()
+                .as_deref(),
             Some("GitHub answered 500.")
         );
         assert_eq!(
-            look_with(Channel::Stable, 200, b"<html>".to_vec()).1.err().as_deref(),
+            look_with(Channel::Stable, 200, b"<html>".to_vec())
+                .1
+                .err()
+                .as_deref(),
             Some("GitHub's answer wasn't a release.")
         );
     }

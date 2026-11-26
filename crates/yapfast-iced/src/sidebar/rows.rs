@@ -275,6 +275,9 @@ fn voice_people(state: &AppState, room: &ChatRoom, voice_room: Option<&str>) -> 
                 streaming: live.streaming,
                 video: live.video.is_some(),
                 elsewhere: false,
+                speaking_blocked: live.speaking_blocked,
+                style: None,
+                tag: None,
             });
         }
     }

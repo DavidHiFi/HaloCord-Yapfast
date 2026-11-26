@@ -798,8 +798,11 @@ pub fn lookup<'a>(id: &str, custom: &'a [Custom]) -> Option<(&'a str, Theme, Par
 /// The theme a layout chose, its id and its own parts: Yap when it chose
 /// none, or one this version doesn't have or the person deleted.
 pub fn chosen<'a>(id: Option<&str>, custom: &'a [Custom]) -> (&'a str, Theme, Parts) {
-    id.and_then(|id| lookup(id, custom))
-        .unwrap_or((BUILT_IN[0].id, BUILT_IN[0].theme, Parts::default()))
+    id.and_then(|id| lookup(id, custom)).unwrap_or((
+        BUILT_IN[0].id,
+        BUILT_IN[0].theme,
+        Parts::default(),
+    ))
 }
 
 /// A colour's name as `layout.json` has it.

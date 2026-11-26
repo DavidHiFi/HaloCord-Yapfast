@@ -123,8 +123,7 @@ pub fn install_offer(release: &hc::Release) -> (bool, String) {
     if release.sums.is_none() {
         return (
             false,
-            "This release has no sums to check it with, so it can't be installed from here."
-                .into(),
+            "This release has no sums to check it with, so it can't be installed from here.".into(),
         );
     }
     let megabytes = release.zip.size.div_ceil(1_000_000);
@@ -325,10 +324,11 @@ fn swap(program: &Path, new: &Path, release: &hc::Release) -> Result<(), String>
         .and_then(|_| version(program));
     if let Err(error) = placed {
         let _ = std::fs::remove_file(program);
-        std::fs::rename(&aside, program).or_else(|_| {
-            std::fs::copy(&backup, program).map(|_| ())
-        })
-        .map_err(|rollback| format!("{error}; and the old version couldn't be put back: {rollback}"))?;
+        std::fs::rename(&aside, program)
+            .or_else(|_| std::fs::copy(&backup, program).map(|_| ()))
+            .map_err(|rollback| {
+                format!("{error}; and the old version couldn't be put back: {rollback}")
+            })?;
         return Err(error);
     }
     write_state(program, release);

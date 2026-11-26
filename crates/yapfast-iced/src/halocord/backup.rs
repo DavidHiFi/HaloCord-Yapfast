@@ -168,6 +168,9 @@ mod tests {
             name: "Plum".into(),
             base: base.id,
             theme: base.theme,
+            parts: Default::default(),
+            creator: None,
+            folder: None,
         }];
         Backup::of(&halocord, &mochacord, &themes, Some("custom:1"))
     }

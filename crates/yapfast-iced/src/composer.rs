@@ -1213,7 +1213,10 @@ fn composer_box<'a>(ctx: crate::ctx::Ctx<'a>, look: &Look) -> Element<'a, Messag
     if let Some(prompt) = prompt {
         line = line.push(prompt);
     }
-    let line = line.push(field).push(counter).push(emoji)
+    let line = line
+        .push(field)
+        .push(counter)
+        .push(emoji)
         .spacing(6)
         .align_y(Alignment::End)
         .padding(Padding::ZERO.left(INSET).right(8));

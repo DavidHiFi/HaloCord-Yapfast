@@ -264,7 +264,11 @@ impl Progress {
 
 /// Reads a small file of the release's, the sums or their signature, whole;
 /// one over `limit` bytes isn't the release's.
-pub(super) async fn fetch_small(client: &reqwest::Client, url: &str, limit: u64) -> Result<String, String> {
+pub(super) async fn fetch_small(
+    client: &reqwest::Client,
+    url: &str,
+    limit: u64,
+) -> Result<String, String> {
     const TOO_LARGE: &str = "The release's sums are too large to be right.";
     let mut response = client
         .get(url)

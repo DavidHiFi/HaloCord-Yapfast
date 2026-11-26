@@ -78,7 +78,15 @@ const FLASH: Duration = Duration::from_secs(1);
 /// Three dots in a row, rising in turn while `plays`, in `ink`: HaloCord's
 /// Home typing draws them on the DM home.
 pub(crate) fn dots<'a>(ink: Color, plays: bool) -> Element<'a, Message> {
-    Dots { ink, plays }.into()
+    Dots {
+        ink,
+        plays,
+        dot: DOT,
+        gap: GAP,
+        height: STRIP,
+        pill: None,
+    }
+    .into()
 }
 
 /// The strip over the composer: on its left who else is typing, or

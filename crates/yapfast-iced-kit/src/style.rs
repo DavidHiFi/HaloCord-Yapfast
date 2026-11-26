@@ -373,7 +373,6 @@ mod tests {
         set_rice(&bonfire);
     }
 
-
     #[test]
     fn a_themes_scrollbar_paint_inks_the_bar() {
         let scroller = Color::from_rgb8(0x12, 0x34, 0x56);

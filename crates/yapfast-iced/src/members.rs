@@ -2022,7 +2022,7 @@ impl<'a> View<'a> {
         // the theme's `labels` light dresses Settings' section labels.
         let light = header_shadow;
         line = line.push(
-            crate::elide::elide(heading)
+            crate::elide::elide(heading.clone())
                 .size(size)
                 .font(header_font)
                 .color(ink)
@@ -2030,7 +2030,7 @@ impl<'a> View<'a> {
                 .shrink(),
         );
         // HaloCord's Clickable roles (docs/halocord.md): a role's heading.
-        let line = crate::halocord::role_heading(self.cx, heading, line.into());
+        let line = crate::halocord::role_heading(self.cx, &heading, line.into());
         let border = theme.surface_border("label", 0.0, 0.0, Color::TRANSPARENT);
         let shadow = theme.surface_shadow("label", iced::Shadow::default());
         let surface = yapfast_core::themes::package::art::ArtSurface::Label;

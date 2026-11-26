@@ -1865,7 +1865,10 @@ fn the_updates_page_keeps_its_choices() {
     assert_eq!(layout["update_channel"], "nightly");
     assert_eq!(layout["check_for_updates"], false);
     assert_eq!(layout["auto_install_updates"], false);
-    assert!(shows(&app, "Automatic checks are off. Check now looks once."));
+    assert!(shows(
+        &app,
+        "Automatic checks are off. Check now looks once."
+    ));
 }
 
 /// Every key the core tags has its tag in Settings' pages.
@@ -2713,6 +2716,10 @@ fn copy_status_link_and_profile_colors_rows() {
         url: Some("https://twitch.tv/someone".into()),
         link: None,
         emoji: None,
+        created: None,
+        display: None,
+        console: None,
+        buttons: None,
     };
     change(&mut app, |state| {
         state.profile = Some(std::sync::Arc::new(ProfileView {
@@ -2776,6 +2783,7 @@ fn find_reply_row_shows_on_a_replied_message() {
         item: Some(first.item.clone()),
         color: None,
         tag: None,
+        emoji: Vec::new(),
     });
     change(&mut app, |state| {
         let mut list = (*state.messages).clone();

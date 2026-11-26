@@ -644,6 +644,7 @@ mod tests {
             server_deafened: false,
             speaking: false,
             connected: true,
+            speaking_blocked: false,
             problem: None,
             streaming: local,
             video: None,

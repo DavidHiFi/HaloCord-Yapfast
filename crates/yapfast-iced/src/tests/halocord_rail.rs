@@ -23,6 +23,7 @@ fn friend(id: &str, presence: Presence) -> Friend {
         activity: None,
         activities: Default::default(),
         since: None,
+        style: None,
     }
 }
 

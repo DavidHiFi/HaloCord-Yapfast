@@ -2096,7 +2096,10 @@ fn a_follow_up_messages_clock_with_seconds_stays_clear_of_its_text() {
         }
         count
     };
-    assert!(inked(clock.x - 24.0, clock.x + clock.width) > 0, "the clock shows");
+    assert!(
+        inked(clock.x - 24.0, clock.x + clock.width) > 0,
+        "the clock shows"
+    );
     // Between the avatar's edge and the text: nothing.
     assert_eq!(
         inked(clock.x + clock.width + 2.0, body.x - 2.0),

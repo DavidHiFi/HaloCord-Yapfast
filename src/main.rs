@@ -35,7 +35,10 @@ pub const APP_ID: &str = "io.github.yapfast.Yapfast";
 #[cfg(feature = "desktop")]
 mod tray;
 #[cfg(feature = "desktop")]
-#[allow(dead_code, reason = "HaloCord updates from its own releases (update/halocord.rs)")]
+#[allow(
+    dead_code,
+    reason = "HaloCord updates from its own releases (update/halocord.rs)"
+)]
 mod update;
 #[cfg(all(windows, feature = "desktop"))]
 mod window_place;

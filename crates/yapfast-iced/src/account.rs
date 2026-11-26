@@ -544,7 +544,9 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         } else {
             None
         };
-        gel.unwrap_or_else(|| tinted_button(ctx, icon, label, alert(on), glyph(size), side, message))
+        gel.unwrap_or_else(|| {
+            tinted_button(ctx, icon, label, alert(on), glyph(size), side, message)
+        })
     };
     let controls = row![
         dimmed(

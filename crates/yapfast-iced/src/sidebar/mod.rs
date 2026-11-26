@@ -198,8 +198,7 @@ fn room(app: &App, width: f32) -> f32 {
     let package = app.themes.package_layout(&app.theme.id);
     let navigation = crate::conversation::right_rail(package, app.themes.chrome(&app.theme.id));
     let beside = app.window.width - crate::conversation::chat_right(app) - navigation;
-    let most =
-        app.window.width
+    let most = app.window.width
         - crate::rail::themed_width(package)
         - crate::rail::side_width(&app.layout, package)
         - crate::thread::CHAT_KEPT

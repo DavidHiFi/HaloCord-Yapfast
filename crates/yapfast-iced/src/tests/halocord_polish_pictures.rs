@@ -132,6 +132,10 @@ fn playing(name: &str) -> Activity {
         url: None,
         link: None,
         emoji: None,
+        created: None,
+        display: None,
+        console: None,
+        buttons: None,
     }
 }
 
@@ -146,6 +150,7 @@ fn friend(id: &str, name: &str, activity: Activity) -> Friend {
         activity: None,
         activities: Arc::from([activity]),
         since: None,
+        style: None,
     }
 }
 
@@ -259,8 +264,16 @@ fn a_clock_with_seconds_beside_a_follow_up_message() {
     };
     change(&mut app, |state| {
         state.messages = Arc::new(vec![
-            said("i0", "Preview of my Seamless app, first in Rust", 1_790_000_000),
-            said("i1", "Preview of my Seamless app, first in Rust", 1_790_000_045),
+            said(
+                "i0",
+                "Preview of my Seamless app, first in Rust",
+                1_790_000_000,
+            ),
+            said(
+                "i1",
+                "Preview of my Seamless app, first in Rust",
+                1_790_000_045,
+            ),
         ]);
     });
     app.pointed.message = Some("i1".into());

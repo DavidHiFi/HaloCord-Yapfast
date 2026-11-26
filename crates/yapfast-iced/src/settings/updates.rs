@@ -67,9 +67,7 @@ impl<'a> Page<'a> {
                 "You're running a build from source, so there's nothing to update.".to_owned()
             }
             UpdateStatus::Idle if prefs.checks_for_updates() => String::new(),
-            UpdateStatus::Idle => {
-                "Automatic checks are off. Check now looks once.".to_owned()
-            }
+            UpdateStatus::Idle => "Automatic checks are off. Check now looks once.".to_owned(),
         };
         if !status.is_empty() {
             let ink = match shown.status {

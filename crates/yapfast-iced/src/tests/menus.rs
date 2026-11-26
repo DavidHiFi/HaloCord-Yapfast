@@ -1020,6 +1020,7 @@ fn find_replys_switches_widen_it_to_the_author() {
             item: Some(to.into()),
             color: None,
             tag: None,
+            emoji: Vec::new(),
         }),
         ..said(item, ("Al", "8"))
     };

@@ -103,7 +103,7 @@ impl HaloState {
                 // Opened again as it closes, it grows on from there.
                 let start = match self.leaving.take() {
                     Some(_) => match self.moved.get() {
-                        Some(closing) => Some(motion::reopened(closing, now)),
+                        Some(closing) => Some(motion::reopened(Default::default(), closing, now)),
                         None => now.checked_sub(motion::open_time()),
                     },
                     None => None,
@@ -118,8 +118,9 @@ impl HaloState {
                 }
                 // Closed as it opens, it turns round from there.
                 let opened = self.moved.get();
-                self.moved
-                    .set(opened.and_then(|opened| motion::closed_from(opened, now)));
+                self.moved.set(
+                    opened.and_then(|opened| motion::closed_from(Default::default(), opened, now)),
+                );
                 self.leaving = Some(was);
             }
             (Some(_), Some(_)) => {
@@ -655,9 +656,14 @@ impl<'a> Page<'a> {
         .into()]));
         let framed = look.framed(body, DIALOG, close);
         Some(if closing {
-            motion::leave(framed, &halo.moved, halo_message(HaloEvent::DialogGone))
+            motion::leave(
+                framed,
+                &halo.moved,
+                halo_message(HaloEvent::DialogGone),
+                Default::default(),
+            )
         } else {
-            motion::motion(framed, &halo.moved)
+            motion::motion(framed, &halo.moved, Default::default())
         })
     }
 

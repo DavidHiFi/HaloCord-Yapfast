@@ -667,9 +667,7 @@ impl yapfast_iced::Updates for Shell {
 
     fn install_later(&self, choices: &UpdateChoices) {
         let mut updating = self.lock_updates();
-        if updating.installing.is_some()
-            || updating.prepared.is_some()
-            || updating.placed.is_some()
+        if updating.installing.is_some() || updating.prepared.is_some() || updating.placed.is_some()
         {
             return;
         }

@@ -52,10 +52,10 @@ use crate::{
     theme::Theme,
 };
 
-use appearance::Editor;
-pub use appearance::Event as ThemeEvent;
 #[cfg(test)]
 pub(crate) use appearance::COLOUR_CODE as THEME_COLOUR_CODE;
+use appearance::Editor;
+pub use appearance::Event as ThemeEvent;
 pub(crate) use font::FontEvent;
 
 /// What a theme editor's change sends.
