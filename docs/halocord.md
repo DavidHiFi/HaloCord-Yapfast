@@ -422,6 +422,10 @@ Window (`yapfast-iced`):
   `start_send` runs each file's name and bytes through `halocord::auto_zipper::zipped`
   before naming it (Auto zipper).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
+- `call/dock.rs`: MochaCord's user dock panel (full width, one edge, a hover state).
+- `tests/user_dock.rs`: the MochaCord user dock fills the foot, and Compact tightens it.
+- Core `discord_voice/tests.rs`: a fake deafen shows on this account's own tile and
+  leaves the real mute and deafen alone.
 - `tests/calls.rs`, `tests/media.rs`, `tests/menus.rs`, `tests/navigation.rs`,
   `tests/writing.rs`: tests of the Volume booster, the copy rows, the buttons beside
   Settings and Show timeout duration, in Yapfast's own test files.
