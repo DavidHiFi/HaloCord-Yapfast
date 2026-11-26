@@ -87,7 +87,9 @@ recording. Each change is kept at once in
   folding, boost gems in the member list, sharing that this account types
   (off, the core's typing commands go nowhere), mentioning those replied
   to and tracking taken out of links.
-- Notifications, Sounds (the set, which plays a sound when chosen, the
+- Notifications (desktop notifications, what they say, whom a reply
+  answers in its title, off by default and greyed while notifications are
+  off, and the taskbar's flash), Sounds (the set, which plays a sound when chosen, the
   volume, and each sound's own with its play button) and Advanced.
   Advanced holds Start when you sign in, Open Discord
   links in Yapfast (outside the preview), Close to tray, saying where
@@ -125,8 +127,13 @@ recording. Each change is kept at once in
   The running window and tray update as soon as a choice is made. On Linux,
   the window icon applies where the desktop uses X11 window icons. Desktops
   that use the application's desktop entry show the launcher icon there.
-  Then the system title bar's switch, where Yapfast can draw its own, and
-  the profile switches, which the core is told of.
+  The theme's Draw text glow switch turns off the soft edge a theme puts
+  round text, which is drawing rather than data: the shadow, the outline
+  and the ink stay. Then the system title bar's switch, where Yapfast can
+  draw its own, and the profile switches, which the core is told of. The
+  last, "Show connections on profile cards" (off by default), is the
+  window's alone: the floating card lists the connections the profile
+  already carries.
 - Discord: linking, as the sign-in screen's panel, while none is linked;
   then Unlink in a build with Matrix, hidden channels, reads marked on
   Discord, idle while away, blocked people's messages hidden, and those

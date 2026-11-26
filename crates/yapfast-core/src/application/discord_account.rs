@@ -122,6 +122,7 @@ impl Application {
                 effect: self.state.cosmetics.effects,
                 // The DM's panel draws no frame, so nothing of one is fetched.
                 frame: false,
+                badges: self.state.cosmetics.badges,
             }))]
         } else {
             vec![]
@@ -889,6 +890,14 @@ impl Application {
         self.state.discord_activities = Default::default();
         self.state.join_sounds.clear();
         self.state.sound_catalog = None;
+        // Its typers' ends would come from the session that's gone, so
+        // they go now, as Discord's TypingStore empties when it connects.
+        self.state
+            .typing_dms
+            .retain(|room| Network::of(room) != Network::Discord);
+        self.state
+            .typing
+            .retain(|room, _| Network::of(room) != Network::Discord);
         self.show_lists()
     }
 }

@@ -635,6 +635,8 @@ pub struct AppState {
     /// Whether a new reply notifies the person it replies to, until it's
     /// switched for that reply.
     pub reply_ping: bool,
+    /// A reply's notification says whom it answers in its title.
+    pub reply_titles: bool,
     /// Tracking parameters come out of the links in sent messages.
     pub strip_tracking: bool,
     /// Nameplates aren't fetched or shown, in member lists or on the
@@ -707,6 +709,13 @@ pub struct AppState {
     pub tag_server: Option<(String, chat::TagServerAnswer)>,
     /// Who else is typing, by room.
     pub typing: HashMap<String, Vec<String>>,
+    /// The DMs and group DMs someone else is typing in, whose rows in the
+    /// DM list show typing dots in place of the status dot, as Discord's.
+    /// Kept as each typing change comes, so a row looks itself up once. A
+    /// Discord DM's stays as other rooms open, since Discord says who types
+    /// in every channel; a Matrix one's goes, as Matrix says it only for
+    /// the open room.
+    pub typing_dms: std::collections::BTreeSet<String>,
     /// When this account may send again in a room whose slowmode it waits
     /// out, in Unix milliseconds: its slowmode after a message of its own
     /// went, as Discord's client guesses it.
@@ -2602,6 +2611,8 @@ pub enum Action {
     ToggleReplyPing {
         aside: bool,
     },
+    /// Whether a reply's notification says whom it answers in its title.
+    ReplyTitles(bool),
     /// Take tracking parameters out of links in sent messages.
     StripTracking(bool),
     /// Turns nameplates off, or on again.
@@ -2924,7 +2935,7 @@ fn pictures_on_screen<'a>(
             state
                 .account_profile
                 .iter()
-                .filter_map(|profile| profile.banner.as_deref()),
+                .filter_map(move |profile| cosmetics.background(profile.banner.as_deref())),
         )
         .chain(
             state
@@ -3094,18 +3105,15 @@ fn pictures_on_screen<'a>(
                 .chain(inviters)
                 .chain(moderators)
         }))
-        .chain(state.profile_editor.iter().flat_map(|editor| {
+        .chain(state.profile_editor.iter().flat_map(move |editor| {
             // The profile's pictures and its fallback's, which show where
             // the profile's are reset.
-            editor.profile.iter().flat_map(|profile| {
-                [
-                    &profile.avatar,
-                    &profile.banner,
-                    &profile.fallback.avatar,
-                    &profile.fallback.banner,
-                ]
-                .into_iter()
-                .filter_map(Option::as_deref)
+            editor.profile.iter().flat_map(move |profile| {
+                [&profile.avatar, &profile.fallback.avatar]
+                    .into_iter()
+                    .chain(cosmetics.background(Some(&profile.banner)))
+                    .chain(cosmetics.background(Some(&profile.fallback.banner)))
+                    .filter_map(Option::as_deref)
             })
         }))
         .chain(
@@ -3121,8 +3129,9 @@ fn pictures_on_screen<'a>(
                             .iter()
                             .find(|effect| effect.sku == sku)
                     });
-                    [&profile.avatar, &profile.banner]
+                    [&profile.avatar]
                         .into_iter()
+                        .chain(cosmetics.background(Some(&profile.banner)))
                         .chain(
                             profile
                                 .servers
@@ -3150,10 +3159,17 @@ fn pictures_on_screen<'a>(
                                     .map(|layer| layer.src.as_str()),
                             )
                         }))
-                        .chain(profile.badges.iter().flat_map(|badge| {
-                            std::iter::once(badge.icon.as_str())
-                                .chain(badge.level.iter().map(|level| level.picture.as_str()))
-                        }))
+                        .chain(
+                            cosmetics
+                                .badges(&profile.badges)
+                                .into_iter()
+                                .flatten()
+                                .flat_map(|badge| {
+                                    std::iter::once(badge.icon.as_str()).chain(
+                                        badge.level.iter().map(|level| level.picture.as_str()),
+                                    )
+                                }),
+                        )
                 }),
         )
         .chain(
@@ -4508,6 +4524,10 @@ impl Application {
                 }
                 vec![]
             }
+            Action::ReplyTitles(on) => {
+                self.state.reply_titles = on;
+                vec![]
+            }
             Action::StripTracking(strip) => {
                 self.state.strip_tracking = strip;
                 vec![]
@@ -4621,7 +4641,8 @@ impl Application {
     }
 
     /// A notification titled with who wrote where: the person alone in a DM, else with
-    /// the group, the Matrix room, or the Discord channel and its server.
+    /// the group, the Matrix room, or the Discord channel and its server. A reply says
+    /// whom it answers too, when that's asked for.
     fn alert(&self, notification: chat::Notification) -> chat::Alert {
         let chat::Notification {
             room,
@@ -4629,7 +4650,13 @@ impl Application {
             body,
             avatar,
             mention,
+            replied,
         } = notification;
+        let author = match replied.filter(|_| self.state.reply_titles) {
+            Some(chat::Replied::You) => format!("{author} replied to you"),
+            Some(chat::Replied::Person(person)) => format!("{author} replied to {person}"),
+            None => author,
+        };
         let place = self.state.rooms.iter().find(|known| known.id == room);
         let server = self
             .state
@@ -4743,6 +4770,26 @@ impl Application {
             Event::Notify(_) if self.state.do_not_disturb() => {}
             Event::Notify(notification) => return vec![Effect::Notify(self.alert(notification))],
             Event::Typing { room, names } => {
+                // A Discord DM's id names it; a Matrix room says it's one,
+                // and counts only while it's open: Matrix says who types
+                // only there, so a late word for a room closed since would
+                // never be taken back.
+                let direct = match discord::parse_room(&room) {
+                    Some((guild, _)) => guild == discord::DM_GUILD,
+                    None => {
+                        self.state.selected.as_deref() == Some(room.as_str())
+                            && self
+                                .state
+                                .rooms
+                                .iter()
+                                .any(|known| known.id == room && known.direct)
+                    }
+                };
+                if !direct || names.is_empty() {
+                    self.state.typing_dms.remove(&room);
+                } else if !self.state.typing_dms.contains(&room) {
+                    self.state.typing_dms.insert(room.clone());
+                }
                 if names.is_empty() {
                     self.state.typing.remove(&room);
                 } else {

@@ -37,6 +37,19 @@ fn stored(folder: &tempfile::TempDir) -> serde_json::Value {
     .expect("JSON")
 }
 
+/// The text glow switch stops a theme's soft edge, and is kept.
+#[test]
+fn the_text_glow_switch_stops_the_soft_edge_and_is_kept() {
+    let (mut app, folder) = preview();
+    open(&mut app, Section::Appearance);
+    assert!(shows(&app, "Draw text glow"), "the switch");
+    interact(&mut app, |ui| {
+        ui.click("Draw text glow").expect("the switch");
+    });
+    assert_eq!(app.layout.prefs.text_glow, Some(false), "off at once");
+    assert_eq!(stored(&folder)["text_glow"], false, "and kept");
+}
+
 /// Settings open moving, once: their motion starts as they open, stays
 /// through what's done in them, and turns to closing as they close, the
 /// Settings closed kept, taking nothing, until they've been drawn going.
@@ -241,6 +254,23 @@ fn themes_is_its_own_settings_section_while_appearance_keeps_shortcuts() {
     assert!(shows(&app, "Marketplace"), "the page's tabs");
     assert!(shows(&app, "PERFORMANCE"));
     assert!(shows(&app, "No themes yet"), "what to do with none");
+}
+
+/// Showing connections on profile cards is off until it's turned on in
+/// Appearance's PROFILES, and stays on after a restart.
+#[test]
+fn showing_connections_on_cards_is_kept() {
+    let (mut app, folder) = preview();
+    assert!(!app.layout.prefs.card_connections, "off by default");
+    open(&mut app, Section::Appearance);
+    interact(&mut app, |ui| {
+        ui.click("Show connections on profile cards")
+            .expect("the switch");
+    });
+    assert!(app.layout.prefs.card_connections);
+    assert_eq!(stored(&folder)["card_connections"], true);
+    let again = start(&folder, true);
+    assert!(again.layout.prefs.card_connections);
 }
 
 #[test]
@@ -1504,6 +1534,26 @@ fn a_device_chosen_in_voice_settings_is_the_one_used() {
         app.win.settings.get().is_some_and(|s| s.open.is_none()),
         "closed"
     );
+}
+
+/// Saying whom a reply answers in its notification is off until it's
+/// turned on, in Notifications; then the core says it at once, and again
+/// after a restart.
+#[test]
+fn say_whom_a_reply_answers_is_kept_and_reaches_the_core() {
+    let (mut app, folder) = preview();
+    assert!(!app.layout.prefs.reply_titles);
+    assert!(!app.client.state().reply_titles, "off by default");
+    open(&mut app, Section::Notifications);
+    interact(&mut app, |ui| {
+        ui.click("Say whom a reply answers").expect("the switch");
+    });
+    assert!(app.layout.prefs.reply_titles);
+    assert!(app.client.state().reply_titles, "the core hears at once");
+    let again = start(&folder, true);
+    assert!(again.layout.prefs.reply_titles);
+    assert!(again.client.state().reply_titles, "and as the window opens");
+    assert_eq!(stored(&folder)["reply_titles"], true);
 }
 
 #[test]

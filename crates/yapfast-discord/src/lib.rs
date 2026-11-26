@@ -39,6 +39,7 @@ pub mod notifications;
 pub mod oauth;
 pub mod opus;
 pub mod own_activity;
+pub mod pool;
 pub mod profile;
 pub mod profile_effect;
 pub mod ready;

@@ -562,6 +562,11 @@ pub struct ChatServer {
     pub banner: Option<String>,
     /// Verified or partnered, which its name carries a tick for.
     pub verified: bool,
+    /// When its paused invites resume, in Unix seconds ([`u64::MAX`] for
+    /// no end), for an account that may Manage Server, which its rail
+    /// tooltip tells while they're paused, as Discord's does. None for
+    /// anyone else, or invites that aren't paused.
+    pub invites_paused_until: Option<u64>,
     /// Its scheduled events that haven't ended, soonest first, which its
     /// channel list counts in an "N Events" row.
     pub events: Vec<ServerEvent>,
@@ -2124,6 +2129,11 @@ pub struct ChatMessage {
     /// The author joined the server in the last week, which Discord marks
     /// by their name as a new member.
     pub new_member: bool,
+    /// When the author's Discord timeout ends, in Unix milliseconds, for an
+    /// account that may time them out: Moderate Members and a higher role,
+    /// as Discord's client asks before it marks their name with a clock.
+    /// None for anyone else; it may have ended since.
+    pub author_timed_out_until: Option<u64>,
     pub body: String,
     /// The body is Markdown source whose sender also sent formatting.
     pub formatted: bool,
@@ -3437,12 +3447,15 @@ pub enum DiscordCommand {
     /// the effect it names as [`Event::ProfileEffect`] when `effect` asks
     /// for it; without, the shop isn't asked what the effect is made of.
     /// Its frame comes with it, or as [`Event::ProfileFrame`] the first time,
-    /// when `frame` asks for it.
+    /// when `frame` asks for it. The levels of its badges come as
+    /// [`Event::BadgeLevels`] when `badges` asks for them; without, they
+    /// aren't asked for.
     Profile {
         room: String,
         user: String,
         effect: bool,
         frame: bool,
+        badges: bool,
     },
     /// Download server icons and avatars by address. Each that arrives comes
     /// back as [`Event::Picture`]; one that fails doesn't.
@@ -5538,6 +5551,17 @@ pub struct Notification {
     pub avatar: Option<String>,
     /// It mentions this account, rather than notifying as any message there does.
     pub mention: bool,
+    /// Whom it replies to, when it's a reply whose original is known.
+    pub replied: Option<Replied>,
+}
+
+/// Whom a reply answers, for its notification's title.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Replied {
+    /// The account the message came to.
+    You,
+    /// Someone else, by their name where the message is.
+    Person(String),
 }
 
 /// A notification ready to show: its conversation, a title naming who wrote where, the
