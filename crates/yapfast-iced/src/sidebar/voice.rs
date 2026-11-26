@@ -26,21 +26,26 @@ impl<'a> super::View<'a> {
     pub(super) fn voice_channel_card(self, people: &'a [VoicePerson]) -> Element<'a, Message> {
         let theme = self.cx.look.theme;
         let summary = yapfast_core::voice_roster::Roster::of(people).summary();
-        let mut card = column![elide(summary).size(12).font(BOLD).color(theme.secondary)]
-            .spacing(4)
-            .padding(Padding {
-                top: 10.0,
-                ..Padding::new(12.0)
-            })
-            .width(VOICE_CARD_WIDTH);
+        let mut card = column![
+            elide(summary)
+                .size(theme.type_size("small", 12.0))
+                .font(theme.font("small", BOLD))
+                .color(theme.secondary)
+        ]
+        .spacing(4)
+        .padding(Padding {
+            top: 10.0,
+            ..Padding::new(12.0)
+        })
+        .width(VOICE_CARD_WIDTH);
         for person in people.iter().take(VOICE_CARD_PEOPLE) {
             let opacity = if person.elsewhere { 0.5 } else { 1.0 };
             let mut line = row![
                 self.cx
                     .avatar(person.avatar.as_deref(), &person.name, 20.0, 10.0, opacity),
                 elide(person.name.as_str())
-                    .size(14)
-                    .font(MEDIUM)
+                    .size(theme.type_size("names", 14.0))
+                    .font(theme.font("names", MEDIUM))
                     .color(faded(theme.text, opacity)),
             ]
             .spacing(8)
@@ -51,16 +56,36 @@ impl<'a> super::View<'a> {
                     line = line.push(self.cx.look.glyph(Icon::Video, 16, theme.muted));
                 }
                 if person.streaming {
-                    line = line.push(controls::live_pill(theme, None));
+                    let activity_themed = self
+                        .cx
+                        .themes
+                        .content(&theme.id, self.cx.layout.theme_content.contains(&theme.id))
+                        .is_some_and(|c| {
+                            c.activity == yapfast_core::themes::content::Follow::Theme
+                        });
+                    line = line.push(controls::live_pill_in(theme, activity_themed, None));
                 }
             }
             card = card.push(line);
         }
         let more = people.len().saturating_sub(VOICE_CARD_PEOPLE);
         if more > 0 {
-            card = card.push(text(format!("and {more} more")).size(12).color(theme.muted));
+            card = card.push(
+                text(format!("and {more} more"))
+                    .size(theme.type_size("small", 12.0))
+                    .font(theme.font("small", crate::fonts::REGULAR))
+                    .color(theme.muted),
+            );
         }
-        container(card).style(controls::tip_style(theme)).into()
+        let tip = controls::tip_wrap(theme, container(card).style(controls::tip_style(theme)));
+        controls::themed_outline(
+            tip,
+            theme,
+            "tooltip",
+            theme.line,
+            1.0,
+            theme.surface_radius("tooltip", 6.0),
+        )
     }
 
     /// Someone in a voice channel, under its row: their avatar and name, and
@@ -116,24 +141,41 @@ impl<'a> super::View<'a> {
             } else {
                 avatar
             };
-        // The name takes the room, its marks at the row's end.
-        let mut face = row![
-            avatar,
-            column![
-                elide(person.name.as_str())
-                    .size(15)
-                    .font(if speaking { BOLD } else { MEDIUM })
-                    .color(faded(ink, opacity))
-            ]
-            .width(Length::Fill),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center);
+        // The name takes the room, its marks at the row's end: in its
+        // display name style's font alone, in the row's own colour, as
+        // names in a server show, then the server tag's chip.
+        let mut name = row![person_name(self.cx, person, speaking, faded(ink, opacity))]
+            .spacing(4)
+            .align_y(Alignment::Center);
+        if let Some(tag) = self.cx.state.cosmetics.tag(person.tag.as_ref()) {
+            name = name.push(self.cx.tag_chip(
+                &tag.text,
+                tag.badge.as_deref(),
+                crate::looks::Chip {
+                    size: 12.0,
+                    font: crate::fonts::SEMIBOLD,
+                    height: 16.0,
+                    pad: 4.0,
+                    radius: 4.0,
+                    fill: crate::style::CHIP,
+                    ink: theme.text,
+                },
+                opacity,
+            ));
+        }
+        let mut face = row![avatar, container(name).width(Length::Fill)]
+            .spacing(8)
+            .align_y(Alignment::Center);
         if !person.elsewhere {
             if person.video {
                 face = face.push(self.cx.look.glyph(Icon::Video, 16, theme.muted));
             }
             if person.streaming {
+                let activity_themed = self
+                    .cx
+                    .themes
+                    .content(&theme.id, self.cx.layout.theme_content.contains(&theme.id))
+                    .is_some_and(|c| c.activity == yapfast_core::themes::content::Follow::Theme);
                 let local = live.is_some_and(|live| live.local);
                 let watch = (!local).then(|| {
                     Message::Call(crate::call::Event::ShowPerson(
@@ -141,9 +183,18 @@ impl<'a> super::View<'a> {
                         person.id.clone(),
                     ))
                 });
-                face = face.push(controls::live_pill(theme, watch));
+                face = face.push(controls::live_pill_in(theme, activity_themed, watch));
             }
-            if person.muted || person.deafened {
+            if person.speaking_blocked {
+                face = face.push(
+                    tooltip(
+                        self.cx.look.glyph(Icon::MicOff, 16, theme.danger),
+                        controls::tip(theme, "Speaking is restricted in this channel"),
+                        tooltip::Position::Top,
+                    )
+                    .gap(4),
+                );
+            } else if person.muted || person.deafened {
                 let ink = if person.server_muted {
                     theme.danger
                 } else {
@@ -219,4 +270,32 @@ impl<'a> super::View<'a> {
         .gap(4)
         .into()
     }
+}
+
+/// A person's name in voice: in their display name style's font alone,
+/// shortened to fit, bold while they speak; the usual font with name
+/// styles off or none.
+pub(crate) fn person_name<'a>(
+    cx: crate::ctx::Ctx<'a>,
+    person: &'a VoicePerson,
+    speaking: bool,
+    ink: Color,
+) -> Element<'a, Message> {
+    let own = cx
+        .state
+        .cosmetics
+        .style(person.style.as_deref())
+        .and_then(|style| crate::looks::name_look(Some(style), &person.name, true, true))
+        .and_then(|look| look.font());
+    let weight = if speaking { 700 } else { 500 };
+    let font = match own {
+        Some(own) => crate::fonts::style_font(Some(own), weight),
+        None if speaking => BOLD,
+        None => MEDIUM,
+    };
+    elide(crate::fonts::shown_name(&person.name, own))
+        .size(15)
+        .font(font)
+        .color(ink)
+        .into()
 }

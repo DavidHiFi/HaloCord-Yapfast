@@ -24,6 +24,7 @@ mod discord;
 mod games;
 mod halocord;
 mod halocord_themes;
+pub use games::{block_game, open_detected_games_menu};
 mod messages;
 mod mochacord;
 mod notifications;
@@ -47,6 +48,8 @@ pub enum Pref {
     Animate(usize),
     LinkPreviews(bool),
     CollapseLong(bool),
+    PeekChannels(bool),
+    DmSearchSwitcher(bool),
     BoostGems(bool),
     ShareTyping(bool),
     ReplyPing(bool),
@@ -102,6 +105,10 @@ pub struct GameDraft {
     pub name: String,
     pub editing: Option<usize>,
     pub invalid: bool,
+    /// What is being written to add to the games never shown, and whether the
+    /// last try was refused.
+    pub blocked: String,
+    pub blocked_invalid: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -113,10 +120,20 @@ pub enum GameEvent {
     Remove(usize),
     Save,
     Cancel,
+    /// What the games never shown field says, adding it to them, and taking
+    /// one out (by its place).
+    Blocked(String),
+    Block,
+    Unblock(usize),
+    /// The detected games' menu opens, to choose one never shown.
+    Detected,
+    /// A listed game's switch: hidden, or allowed to show again (by its
+    /// place).
+    ToggleBlocked(usize),
 }
 
 fn pref(pref: Pref) -> Message {
-    Message::Settings(Event::Pref(pref))
+    crate::app::settings(Event::Pref(pref))
 }
 
 impl Settings {
@@ -159,6 +176,14 @@ impl Settings {
                 cx.layout.collapse_long = on;
                 cx.keep("collapse_long", on);
                 cx.request(Request::Changed(Shown::Rows));
+            }
+            Pref::PeekChannels(on) => {
+                cx.layout.peek_channels = on;
+                cx.keep("peek_channels", on);
+            }
+            Pref::DmSearchSwitcher(on) => {
+                cx.layout.dm_search_switcher = on;
+                cx.keep("dm_search_switcher", on);
             }
             Pref::BoostGems(on) => {
                 prefs.boost_gems = Some(on);
@@ -350,7 +375,7 @@ impl<'a> Page<'a> {
 }
 
 fn account_message(event: AccountEvent) -> Message {
-    Message::Settings(Event::Account(event))
+    crate::app::settings(Event::Account(event))
 }
 
 /// Messages' text at a size: 14 px small, 15 default, 18 large.

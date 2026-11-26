@@ -318,6 +318,7 @@ impl Application {
                             muted: true,
                             deafened: false,
                             server_muted: false,
+                            speaking_blocked: false,
                             server_deafened: false,
                             speaking: false,
                             connected: true,
@@ -359,6 +360,7 @@ impl Application {
             voice::Command::Microphone(id) => self.state.voice.microphone = Some(id),
             voice::Command::Speaker(id) => self.state.voice.speaker = Some(id),
             voice::Command::Camera(id) => self.state.voice.camera = Some(id),
+            voice::Command::StreamAudio(audio) => self.state.voice.share_audio(audio),
             voice::Command::Mute(muted) => {
                 if !muted {
                     self.state.voice.deafened = false;

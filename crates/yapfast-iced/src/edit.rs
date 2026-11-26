@@ -42,16 +42,15 @@ pub fn take_edit(app: &mut App) -> Task<Message> {
     let Some(edit) = app.client.state().edit() else {
         return Task::none();
     };
-    let (item, text) = (edit.item.clone(), edit.text.clone());
-    app.composer.editing = Some(item.clone());
-    app.composer.edit.reset(&text);
-    app.composer.suggest.clear(&mut app.client);
-    let reveal = app
+    let index = app
         .timeline
         .messages
         .iter()
-        .position(|message| message.item == item)
-        .map_or_else(Task::none, |index| reveal_row(app, index));
+        .position(|message| message.item == edit.item);
+    app.composer.editing = Some(edit.item.clone());
+    app.composer.edit.reset(&edit.text);
+    app.composer.suggest.clear(&mut app.client);
+    let reveal = index.map_or_else(Task::none, |index| reveal_row(app, index));
     Task::batch([app.sync(), reveal, operation::focus(EDIT)])
 }
 
@@ -126,7 +125,7 @@ pub fn inline_edit<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             ground: iced::Color::TRANSPARENT,
             text: theme.text,
             placeholder: theme.placeholder,
-            selection: theme.selection,
+            selection: theme.token_colour("selection", theme.selection),
         },
     )
     .padding(Padding {
@@ -135,6 +134,8 @@ pub fn inline_edit<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         bottom: PAD,
         left: 6.0,
     })
+    .message_height(ctx.look.window.height, crate::style::scrollbar(theme))
+    .font(theme.font("body", crate::fonts::REGULAR))
     .suggesting(crate::suggest::suggesting(ctx, Writing::Edit));
     let tint = match ctx.picker {
         Some(picker) if picker.target == Target::Edit => theme.text,
@@ -166,12 +167,21 @@ pub fn inline_edit<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         Side::Above,
     );
     // Discord's hint: 12 px in the text's colour, its two actions links.
-    let words = |words: &'static str| text(words).size(12).font(MEDIUM).color(theme.text);
+    let words = |words: &'static str| {
+        text(words)
+            .size(theme.type_size("small", 12.0))
+            .font(theme.font("small", MEDIUM))
+            .color(theme.text)
+    };
     let link = |words: &'static str, event: Event| {
-        button(text(words).size(12).font(MEDIUM))
-            .padding(0)
-            .on_press(Message::Write(event))
-            .style(ink_style(theme.link, theme.text))
+        button(
+            text(words)
+                .size(theme.type_size("small", 12.0))
+                .font(theme.font("small", MEDIUM)),
+        )
+        .padding(0)
+        .on_press(Message::Write(event))
+        .style(ink_style(theme.link, theme.text))
     };
     let hint = row![
         words("escape to"),

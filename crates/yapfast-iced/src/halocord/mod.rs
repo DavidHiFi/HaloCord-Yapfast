@@ -15,8 +15,6 @@
 //! - `members.rs`: the member list's count and platform marks, timeouts
 //!   and a profile's exact dates and full size pictures.
 //! - `presence.rs`: Custom RPC and Animated status.
-//! - `theme_files.rs`: the Themes page's Save to file and Load from file (not
-//!   a plugin).
 //! - `areas.rs`: which part of Discord each plugin works on, for the chips
 //!   on the Plugins page.
 //! - `deck.rs`: Stream Deck keys, through a small server on this computer.
@@ -44,7 +42,6 @@ mod messages;
 mod presence;
 mod servers;
 mod song_buttons;
-pub mod theme_files;
 mod user_colors;
 mod user_tools;
 mod voice;

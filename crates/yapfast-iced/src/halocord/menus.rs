@@ -620,9 +620,10 @@ pub fn search_result<'a>(
     found: iced::Element<'a, Message>,
     room: &str,
     item: &str,
+    stock: impl FnOnce(iced::Element<'a, Message>) -> iced::Element<'a, Message>,
 ) -> iced::Element<'a, Message> {
     if !cx.layout.halocord.is(id::SEARCH_MENU) {
-        return found;
+        return stock(found);
     }
     let (room, item) = (room.to_owned(), item.to_owned());
     crate::widgets::RightPress::new(found, move |_| {

@@ -32,3 +32,7 @@ Changes, marked `Yapfast port` in the source:
   can't be had it starts as before, opaque, and `glass::active()` says
   which it got. `request` was split into `request` and `request_with`
   for the two tries; the window is shared between them as an `Arc`.
+- `src/lib.rs` `start_layer`: a layer started inside another is cut to its
+  parent's bounds, as a clip inside a clip is, as in the CPU renderer
+  (its patch 28). Stock, a picture cut to its box or a themed button's own
+  layer inside a scrolled page drew over the page's header.

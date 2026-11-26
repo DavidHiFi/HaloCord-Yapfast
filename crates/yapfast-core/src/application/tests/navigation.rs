@@ -548,3 +548,46 @@ fn alt_shift_down_finds_the_next_unread_channel_as_discords_does() {
     set(&mut app, "dm", 2, 0, false);
     assert_eq!(app.state.next_unread(true), None);
 }
+
+#[test]
+fn the_quick_switcher_lists_the_mentions_not_listed_yet_before_a_search() {
+    let mut app = connected();
+    app.state.rooms.extend(
+        [
+            ChatRoom {
+                mentions: 2,
+                ..preview_room("ping", "ping", false, 3)
+            },
+            ChatRoom {
+                mentions: 5,
+                ..preview_room("loud", "loud", false, 3)
+            },
+            ChatRoom {
+                mentions: 9,
+                locked: true,
+                ..preview_room("staff", "staff", false, 3)
+            },
+        ]
+        .map(Arc::new),
+    );
+    app.dispatch(Action::Open("games".into()));
+    app.dispatch(Action::Open("general".into()));
+    let mentioned = |app: &Application| -> Vec<String> {
+        app.state
+            .switcher_mentions()
+            .iter()
+            .map(|room| room.name.clone())
+            .collect()
+    };
+    assert!(mentioned(&app).is_empty(), "closed");
+    app.dispatch(Action::ToggleSwitcher);
+    assert_eq!(mentioned(&app), ["loud", "ping"], "most mentions first");
+    // One opened lately is under Previous Channels already.
+    app.dispatch(Action::ToggleSwitcher);
+    app.state.places_used.visit("ping", 1);
+    app.dispatch(Action::ToggleSwitcher);
+    assert_eq!(mentioned(&app), ["loud"]);
+    // A search lists none.
+    app.dispatch(Action::SearchSwitcher("l".into()));
+    assert!(mentioned(&app).is_empty());
+}

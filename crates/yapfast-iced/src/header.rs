@@ -24,7 +24,7 @@ use crate::{
     looks::Status,
     markdown::{self, Body},
     people::StatusInk,
-    pictures::{Face, Icon},
+    pictures::{Face, GroupIcon, Icon, room_group_icon},
     piece::Piece,
     sidebar::room_icon,
     style::rounded,
@@ -50,6 +50,7 @@ pub struct Header {
     /// A thread, under its channel.
     pub thread: bool,
     pub avatar: Option<String>,
+    pub group_icon: Option<GroupIcon>,
     pub presence: Option<Presence>,
     pub icon: Option<Icon>,
     /// A thread's channel: its id, name, and whether it's a forum.
@@ -78,6 +79,9 @@ pub struct Header {
     /// Add people: to a DM (true) or a group.
     pub add_people: Option<bool>,
     pub members_available: bool,
+    /// How many members the selected room reports, for theme chrome that
+    /// writes the count beside its topic.
+    pub members_n: u64,
     pub members: String,
     pub profile_available: bool,
     pub search: Option<String>,
@@ -116,15 +120,18 @@ pub fn header(state: &AppState, was: &Header, link: u32) -> Header {
         one_to_one: room.person.is_some(),
         thread: room.parent.is_some(),
         avatar: room.avatar.clone(),
+        group_icon: room_group_icon(room),
         // As in the DM list: Discord sends the presence of friends and of
         // those sharing a server, and anyone else in a one-to-one DM shows
-        // offline.
-        presence: if room.person.is_some()
-            && room.network == yapfast_core::network::Network::Discord
-        {
-            room.presence.or(Some(Presence::Offline))
-        } else {
-            room.presence
+        // offline. Discord's header bar draws a group DM's icon with no dot,
+        // though its row in the DM list has one.
+        presence: match (
+            room.person.is_some(),
+            room.network == yapfast_core::network::Network::Discord,
+        ) {
+            (true, true) => room.presence.or(Some(Presence::Offline)),
+            (false, true) => None,
+            (_, false) => room.presence,
         },
         icon: (!room.direct).then(|| room_icon(room)),
         parent,
@@ -156,6 +163,7 @@ pub fn header(state: &AppState, was: &Header, link: u32) -> Header {
         add_people: (state.discord_online && state.dm_that(|can| can.group_dms).is_some())
             .then_some(room.person.is_some()),
         members_available: state.lists_members(),
+        members_n: room.members,
         members: match room.members {
             _ if room.forum => String::new(),
             0 => "Members".to_owned(),
@@ -199,10 +207,17 @@ fn one_line(topic: &Topic, link: u32) -> Body {
     body
 }
 
+/// The narrowest window that shows the member list beside the timeline.
+pub const MEMBERS_MIN_WINDOW: f32 = 1000.0;
+
 /// Whether the member list shows beside the timeline.
 pub fn members_shown(app: &App) -> bool {
     app.header.members_available
         && !app.roster.hidden
+        // As Discord: a window too narrow to keep the conversation a
+        // usable width hides the list (the header's button still opens
+        // it once the window is wider).
+        && app.window.width >= MEMBERS_MIN_WINDOW
         && !crate::thread::aside_shown(app)
         && !crate::search::search_shown(app)
 }
@@ -229,25 +244,33 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     let theme = ctx.look.theme;
     let mut head = row![].spacing(10).align_y(Alignment::Center);
     if header.direct {
-        head = head.push(
-            ctx.face(
-                Face::new(header.avatar.as_deref(), &header.name, AVATAR).dot(
-                    header
-                        .presence
-                        .map(|presence| (presence, rgb(theme.chat), iced::Point::new(14.0, 14.0))),
+        head =
+            head.push(
+                ctx.face(
+                    Face::new(header.avatar.as_deref(), &header.name, AVATAR)
+                        .group(header.group_icon.as_ref().map(GroupIcon::as_face))
+                        .dot(header.presence.map(|presence| {
+                            (presence, rgb(theme.chat), iced::Point::new(14.0, 14.0))
+                        })),
                 ),
-            ),
-        );
+            );
     }
     if let Some((id, name, forum)) = &header.parent {
         let icon = if *forum { Icon::ForumPost } else { Icon::Hash };
         head = head
             .push(ctx.look.glyph(icon, ROOM_ICON, theme.channel_read))
             .push(
-                button(text(name.as_str()).size(16).font(SEMIBOLD))
-                    .padding(0)
-                    .on_press(Message::Side(crate::sidebar::Event::Select(id.clone())))
-                    .style(controls::ink_style(theme.secondary, theme.text)),
+                button(crate::theme_effects::label(
+                    ctx,
+                    yapfast_core::themes::package::art::TextRole::Headings,
+                    name.clone(),
+                    theme.header_size(16.0),
+                    theme.header_font(SEMIBOLD),
+                    theme.secondary,
+                ))
+                .padding(0)
+                .on_press(Message::Side(crate::sidebar::Event::Select(id.clone())))
+                .style(controls::ink_style(theme.secondary, theme.text)),
             )
             // Discord's chevron is a small one, close to the names it
             // parts.
@@ -259,13 +282,24 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         head = head.push(ctx.look.glyph(icon, ROOM_ICON, theme.channel_read));
     }
     let fills = header.topic.is_none() && header.activity.is_empty();
-    let name = container(
-        text(header.name.as_str())
-            .size(16)
-            .font(SEMIBOLD)
-            .color(theme.channel_white)
-            .wrapping(text::Wrapping::None),
-    )
+    let header_name = ctx.themes.marked(
+        &theme.id,
+        yapfast_core::themes::chrome::Place::Header,
+        &header.name,
+    );
+    let name = container(crate::theme_effects::slot(
+        crate::theme_effects::label(
+            ctx,
+            yapfast_core::themes::package::art::TextRole::Headings,
+            theme.heading(&header_name).into_owned(),
+            theme.header_size(16.0),
+            theme.header_font(SEMIBOLD),
+            theme.surface_text("header").unwrap_or(theme.channel_white),
+        ),
+        ctx,
+        yapfast_core::themes::package::Slot::ChannelName,
+        None,
+    ))
     .clip(true);
     head = head.push(if fills {
         name.width(Length::Fill)
@@ -276,7 +310,7 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
         // A click shows it in full under the line, as Discord does;
         // its links open from there.
         let line = iced::widget::mouse_area(
-            container(topic_line(ctx, topic))
+            container(labelled_topic_line(ctx, topic))
                 .width(Length::Fill)
                 .clip(true),
         )
@@ -297,13 +331,70 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             .width(Length::Fill),
         );
     }
-    head = head.extend(header_buttons(ctx));
-    container(head)
+    if !header.direct
+        && header.members_n > 0
+        && let Some((template, role)) = ctx.themes.chrome(&theme.id).and_then(|chrome| {
+            chrome
+                .labels
+                .get(&yapfast_core::themes::chrome::Label::MemberCount)
+                .map(|template| {
+                    (
+                        template,
+                        chrome
+                            .font
+                            .map_or("small", yapfast_core::themes::package::Role::name),
+                    )
+                })
+        })
+    {
+        let count = header.members_n.to_string();
+        let words = yapfast_core::themes::chrome::fill(template, &[("n", count.as_str())]);
+        head = head.push(
+            text(words)
+                .size(theme.type_size(role, 14.0))
+                .font(theme.font(role, MEDIUM))
+                .color(theme.muted)
+                .wrapping(text::Wrapping::None),
+        );
+    }
+    // A theme may keep the bar's buttons out of sight until the pointer is
+    // on the bar; they stay a hover and a click away.
+    let shy = crate::theme_chrome::hides(ctx, yapfast_core::themes::chrome::Hide::HeaderButtons);
+    let mut shy_buttons = None;
+    if shy {
+        shy_buttons = Some(
+            container(
+                row(header_buttons(ctx))
+                    .spacing(10)
+                    .align_y(Alignment::Center),
+            )
+            .padding([0, 16])
+            .width(Length::Fill)
+            .height(HEIGHT)
+            .align_x(Alignment::End)
+            .align_y(Alignment::Center),
+        );
+    } else {
+        head = head.extend(header_buttons(ctx));
+    }
+    let border = theme.surface_border("header", 0.0, 0.0, iced::Color::TRANSPARENT);
+    let shadow = theme.surface_shadow("header", iced::Shadow::default());
+    let background = theme.header_ground();
+    let bar = container(head)
         .padding([0, 16])
         .width(Length::Fill)
         .height(HEIGHT)
         .align_y(Alignment::Center)
-        .into()
+        .style(move |_| container::Style {
+            background,
+            border,
+            shadow,
+            ..Default::default()
+        });
+    match shy_buttons {
+        Some(buttons) => crate::widgets::Hover::new(bar, buttons).into(),
+        None => bar.into(),
+    }
 }
 
 /// The topic's one line, in the muted ink.
@@ -319,7 +410,45 @@ fn topic_line<'a>(ctx: crate::ctx::Ctx<'a>, topic: &'a Body) -> Element<'a, Mess
         .unlined(yapfast_core::emoji::card::LINK)
         .size(14.0, 18.0)
         .color(ink)
+        .light(crate::theme_effects::text_light(
+            ctx,
+            yapfast_core::themes::package::art::TextRole::Body,
+        ))
         .starts(false)
+        .into()
+}
+
+/// The topic with an installed package's safe text before and after its
+/// `{topic}` placeholder. The markdown body itself stays the same selectable
+/// piece, so links and mentions keep Wired's behaviour.
+fn labelled_topic_line<'a>(ctx: crate::ctx::Ctx<'a>, topic: &'a Body) -> Element<'a, Message> {
+    let theme = ctx.look.theme;
+    let Some((before, after)) = ctx
+        .themes
+        .chrome(&theme.id)
+        .and_then(|chrome| {
+            chrome
+                .labels
+                .get(&yapfast_core::themes::chrome::Label::Topic)
+        })
+        .and_then(|template| template.split_once("{topic}"))
+    else {
+        return topic_line(ctx, topic);
+    };
+    let role = ctx
+        .themes
+        .chrome(&theme.id)
+        .and_then(|chrome| chrome.font)
+        .map_or("small", yapfast_core::themes::package::Role::name);
+    let fixed = |words: &'a str| {
+        text(words)
+            .size(theme.type_size(role, 14.0))
+            .font(theme.font(role, MEDIUM))
+            .color(theme.muted)
+            .wrapping(text::Wrapping::None)
+    };
+    row![fixed(before), topic_line(ctx, topic), fixed(after)]
+        .align_y(Alignment::Center)
         .into()
 }
 
@@ -510,7 +639,7 @@ fn header_buttons<'a>(ctx: crate::ctx::Ctx<'a>) -> Vec<Element<'a, Message>> {
             row![
                 ctx.look.glyph(Icon::Users, 18, theme.muted),
                 text(header.members.as_str())
-                    .size(14)
+                    .size(14.0)
                     .font(MEDIUM)
                     .color(theme.muted)
             ]
@@ -558,7 +687,7 @@ fn members_toggle<'a>(
     let face = row![
         ctx.look.glyph(Icon::Users, GLYPH, ink),
         text(ctx.header.members.as_str())
-            .size(14)
+            .size(14.0)
             .font(MEDIUM)
             .color(ink)
     ]

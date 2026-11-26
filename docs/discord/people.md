@@ -19,7 +19,12 @@ not for every member (`Tracker::in_private`). Someone with none shows the
 grey offline ring. These follow PRESENCE_UPDATE live. The header of an open
 one-to-one DM shows the same dot on their avatar, and their custom status or
 what they're doing in a bubble beside the name. A group DM
-shows how many are in it. A group DM lists its members by name, with their
+shows how many are in it, its custom icon if it has one, else Discord's
+group-people placeholder for two members (one of eight colours, picked by
+the channel id's timestamp modulo eight) or the first two other members'
+overlapping avatars (sorted by user id) for more than two. Its row in the DM
+list has a green online dot while any other member is online; the header
+shows none. A group DM lists its members by name, with their
 presence, and a crown on whoever made it (the channel's `owner_id`), named
 "Group Owner", as a server's member list crowns its owner. Yapfast downloads the pictures of the first
 150 DMs listed; the rest keep their initials.
@@ -246,7 +251,11 @@ threads](servers.md#a-channels-list-of-threads).
   word marked when its Porter stem is one of theirs (`search_words`), but
   not in code blocks. Results from people blocked or ignored are hidden
   behind Discord's "We've hidden 1 result from users you've blocked."
-  row, which shows them. On the first page, ten results or more of which
+  row, which shows them. A result's right-click menu is Discord's: Copy
+  Message Link (`https://discord.com/channels/{server or @me}/{channel}/{message}`,
+  from the result's channel, `AppState::found_link`), and with Developer
+  Mode on Copy Message ID and Copy Author ID; a click on the result, or
+  its Jump, already shows it. On the first page, ten results or more of which
   three in four are bots' or webhooks', with no `authorType:` yet, Discord's
   hint adds `authorType: user` and searches. Nothing found says "We
   searched far and wide. Unfortunately, no results were found."; a failed
@@ -443,7 +452,31 @@ long it is on its right. A Spotify song is titled by the
 song, then "by" the artist and "on" the album; a podcast's episode, which
 has no artist, by the episode, then "on" the show. Its title opens the song's
 page, `https://open.spotify.com/track/{sync_id}` (or `/episode/` when the
-activity's metadata says so); a stream has "Watch stream". The line under the
+activity's metadata says so); a stream has "Watch stream". Someone else's
+Rich Presence buttons, two at most, follow as small buttons, as Discord's do;
+one's own card and the account's menu show none, as Discord's don't.
+Presences, others' and one's own, carry the labels as strings in `buttons`,
+and the addresses only sometimes, in `metadata.button_urls` in the same order;
+only `https://` and `http://` addresses are kept, and a button without one
+still shows. A click finds the address as Discord's client does, in this
+order: in the presence's own `metadata`, when it came with any field; else in
+what Discord gave for that person's activity; else asked of Discord then, and
+only then, with
+`GET /users/{id}/sessions/{session_id}/activities/{application_id}/metadata`
+(`0` for an activity without an application), by the activity's
+`session_id`. Discord answers the activity's metadata, `button_urls` among
+it, or 204 with nothing. The answer is kept per person and activity
+(`application/profiles.rs`): Discord's client keeps it by person
+(`getActivityMetadata(userId)`) and forgets it on every change of that
+person's presence, so here it's kept with the activity's session and
+application, and another activity of the same person's is asked about
+afresh, while an answer that comes late for the one before opens nothing.
+Another click on the same activity asks nothing. The last 16 people's are
+kept, a bound of Yapfast's own (Discord's has none), until the account signs
+out or another is linked. Without an address for the button, a click does
+nothing, as in Discord's client; when Discord can't be asked, the notice
+says why. Found, the address asks "Leaving Yapfast" before it opens, as
+Discord's client opens them untrusted. The line under the
 name goes when it only names one of these. The activities come with the
 presence, from READY_SUPPLEMENTAL's `merged_presences`, PRESENCE_UPDATE and the
 member list, and the DM panel follows them live. Their pictures resolve as
@@ -1072,23 +1105,31 @@ this account saves its own.
 `scripts/ui-session do 'pick avatar PATH'` chooses a picture in the editor,
 as its file chooser would.
 
-## Linux Rich Presence
+## Rich Presence
 
-Games and tools on Linux tell Discord what they're doing through its local
-RPC socket, which the discord-rpc library and Discord's game SDK use. While
-the account shares its game ([game detection](#game-detection)), Yapfast
-serves that socket itself, so no bridge such as arRPC needs to run. Windows'
-named pipes and the macOS socket aren't served yet.
+Games and tools on Linux and Windows tell Discord what they're doing through
+its local RPC socket or named pipe, which the discord-rpc library and
+Discord's game SDK use. While the account shares its game
+([game detection](#game-detection)), Yapfast
+serves that IPC endpoint itself, so no bridge such as arRPC needs to run. The
+macOS socket isn't served yet.
 
-The socket is the first free `discord-ipc-0` to `discord-ipc-9` in
+On Windows, Yapfast serves the first free `\\.\pipe\discord-ipc-0` to
+`\\.\pipe\discord-ipc-9` in byte mode and rejects remote clients. It reserves
+the pipe name before accepting clients, so it never adds an instance to
+another program's pipe. Each connection has its own instance, and Windows
+releases the pipe when its last handle closes. Music players such as Liner
+can publish their current track as a Listening activity through this pipe.
+
+On Linux, the socket is the first free `discord-ipc-0` to `discord-ipc-9` in
 `XDG_RUNTIME_DIR`, or else in `TMPDIR`, `TMP`, `TEMP` or `/tmp`. A socket
 another program serves, such as Discord's own app, stays that program's, and
 a game that only tries `discord-ipc-0` talks to it instead. A socket left by
 an ended program of the same user is taken over. The socket has mode `0600`
-and takes only that user's programs. `YAPFAST_DISCORD_RPC=0` turns it off,
-and `YAPFAST_DISCORD_RPC_DIR` puts it in another directory, for Wine or a
-sandboxed game that can't see the runtime directory; Yapfast doesn't change
-sandbox permissions or set up Wine's bridge.
+and takes only that user's programs. `YAPFAST_DISCORD_RPC=0` turns RPC off
+on both platforms. On Linux, `YAPFAST_DISCORD_RPC_DIR` puts it in another
+directory, for Wine or a sandboxed game that can't see the runtime directory;
+Yapfast doesn't change sandbox permissions or set up Wine's bridge.
 
 Yapfast answers the handshake with READY, PING with PONG, and CLOSE and
 SET_ACTIVITY, where `activity: null` clears the activity; other commands get
@@ -1097,7 +1138,9 @@ an error. As Discord's desktop client does when a game connects, it asks
 first time the game names an image, `GET /oauth2/applications/{id}/assets`
 for its images' ids. Images given by https address go to
 `POST /applications/{id}/external-assets` and show through the media proxy
-as `mp:` assets; each client's last 32 addresses are kept. Timestamps in
+as `mp:` assets; each client's cache holds up to 32 addresses. When it fills,
+older images are dropped while keeping both pictures the current activity
+uses. Timestamps in
 seconds become the gateway's milliseconds, and buttons become labels with
 their addresses in the activity's `metadata`. Playing, Listening, Watching
 and Competing activities show. Yapfast copies only the fields it knows, so a
@@ -1108,6 +1151,17 @@ disconnects, the one before shows again, and once none is left, the game
 detection found. The activity lasts through reconnecting to the gateway and
 is never saved. Presence updates keep to Discord's limit, as every other
 presence change does.
+
+Disconnects and CLOSE are read while an image lookup is in flight, so closing
+an application restores the previous RPC activity without waiting for HTTP
+or the game detector's next scan. Completed clients are removed before queued
+updates are applied. If no RPC activity remains, the process detector verifies
+its fallback immediately; a closed application needs no second periodic scan
+before another running application takes its place. Local cards follow this,
+subject to the snapshot publisher's 100 ms batching; sending the update to other users still
+obeys the Gateway limit of five presence updates per 20 seconds. At most four
+commands and 64 KiB of payload wait behind an in-flight lookup per client;
+exceeding that bound closes the connection.
 
 ## Listening to Spotify
 
@@ -1191,6 +1245,34 @@ A custom game is an executable and the name to show after Playing: a file
 name matches the executable in any folder, a full path only there, and
 Windows and Wine paths ignore case. Custom games are this device's, kept in
 `layout.json`, and a change rescans at once.
+
+Settings → Game activity → Never show as a game lists the programs this
+device never shows as the game played, for a program that Discord's list or
+Steam takes for a game and isn't one (`blocked_games` in `layout.json`, handed
+over with `discord::set_blocked_games`, and like the custom games a change
+rescans at once). An entry is an executable, a file name or a full path
+matched as a custom game's is, or the name that would show after Playing,
+whatever its case. It applies to what was matched, custom games included,
+whichever list matched it. It doesn't reach Rich Presence, which a program
+sends for itself.
+
+Each entry has a switch: on, it's hidden; off, it's allowed to show as a game
+again, and stays listed to be hidden with one press. `layout.json` keeps each
+as `{"name": "...", "on": true}` (`BlockedGame`). Detection is handed only the
+names that are on (`Prefs::apply_blocked_games`), so turning one off or on
+rescans at once, as adding or removing one does, and one that's off isn't left
+out of the detected games below. Adding a name that's listed and off, from
+that menu or the field, turns it on.
+
+"Choose from detected games" there opens a menu of the games the last scan
+took the running programs for, each by the name that would show after
+Playing, once each and in alphabetical order, at most 50
+(`Detector::detected`, kept after each scan in `custom_games::set_detected`
+and read with `discord::detected_games`). Choosing one adds that name to the
+list, so nothing is typed or copied. A program the list already leaves out
+isn't taken for a game, so it isn't in the menu. The menu is empty, and the
+button off, while nothing scans: when sharing the game is off or no account
+is linked.
 
 Discord's list comes from
 `https://cdn.discordapp.com/detectables/games-v1.json`, about 4 MB, as

@@ -2,7 +2,7 @@
 //! plugins (`halocord` in `layout.json`), MochaCord's options (`mochacord`),
 //! the person's own themes and the theme chosen. Save to file writes it,
 //! Load from file reads one back, checks it and hands it to Settings to
-//! apply. The file dialogs work as `theme_files.rs`'s do.
+//! apply. The file dialogs work as the theme Import and Export do.
 
 use std::path::PathBuf;
 

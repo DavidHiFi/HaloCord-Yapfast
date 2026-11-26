@@ -19,7 +19,7 @@ use crate::{
     controls::{self, Item, Kind, Light, call_button},
     dialog::dialog,
     fonts::BOLD,
-    pictures::Icon,
+    pictures::{Face, GroupIcon, Icon, room_group_icon},
     style::{card_shadow, fill, rounded},
     widgets::{At, Hooks, Inner, Renderer, Wrap},
 };
@@ -159,8 +159,10 @@ pub fn incoming_view(app: &App) -> Option<Element<'_, Message>> {
     // A ring that pulses while it rings.
     let ring = Pulse::new(
         container(
-            app.ctx()
-                .avatar(room.avatar.as_deref(), &room.name, 72.0, 36.0, 1.0),
+            app.ctx().face(
+                Face::new(room.avatar.as_deref(), &room.name, 72.0)
+                    .group(room_group_icon(room).as_ref().map(GroupIcon::as_face)),
+            ),
         )
         .center(92),
         theme.live,
@@ -209,13 +211,15 @@ pub fn incoming_view(app: &App) -> Option<Element<'_, Message>> {
     .spacing(10)
     .padding(20);
     let (ground, edge) = (theme.raised, theme.edge);
+    let border = theme.surface_border("dialog", 12.0, 1.0, edge);
+    let shadow = theme.surface_shadow("dialog", card_shadow());
     let card = opaque(
         container(card)
             .width(INCOMING_WIDTH)
             .style(move |_| container::Style {
                 background: Some(ground.into()),
-                border: crate::style::edge(edge, 12.0),
-                shadow: card_shadow(),
+                border,
+                shadow,
                 ..Default::default()
             }),
     );

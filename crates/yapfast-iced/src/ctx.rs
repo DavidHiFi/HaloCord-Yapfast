@@ -33,6 +33,7 @@ pub struct Ctx<'a> {
     /// What `layout.json` keeps, and the themes it offers.
     pub layout: &'a Layout,
     pub themes: &'a Themes,
+    pub pace: crate::themes::Pace,
     /// The account's card, as the rail's foot shows it.
     pub account: &'a Account,
     /// Which build this is.
@@ -132,6 +133,9 @@ pub enum Request {
     Focus(Focus),
     /// A preference changed that others show: each screen hears of it.
     Changed(Pref),
+    /// A different theme was deliberately applied. Unlike a live preview or
+    /// option refresh, this also emits the package's applied cue/effect.
+    ThemeApplied,
     /// The window's title bar: the system's, or Yapfast's own.
     TitleBar(bool),
     /// A look at the releases, telling of a newer one if `true`.
@@ -160,6 +164,9 @@ pub enum Request {
         user: String,
         location: &'static str,
     },
+    /// The menu of the games detection has found, where the pointer was
+    /// pressed, to choose one never to show.
+    DetectedGamesMenu,
 }
 
 /// Where the keys go.
@@ -199,6 +206,7 @@ pub enum Pref {
     /// The theme chosen, or the one a screen previews: the window shows
     /// it again.
     Theme,
+    DesktopIcon(crate::desktop::IconTarget),
     /// Noise suppression chosen: the call's switch puts back the last one
     /// that wasn't off.
     Noise,
