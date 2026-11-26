@@ -8,14 +8,14 @@
 
 The next HaloCord: 23 plugins, from stereo 510 kbit/s calls and a 1000% volume booster to copy rows, counters and quick buttons, plus the MochaCord glass theme.
 
-<a href="https://github.com/DavidHiFi/HaloCord-Yapfast/releases/latest">
+<a href="https://github.com/DavidHiFi/yapfast/releases/latest">
 <img src="https://img.shields.io/badge/%E2%AC%87%EF%B8%8F%20DOWNLOAD%20LATEST%20RELEASE-2EA043?style=for-the-badge&labelColor=161B22" alt="Download the latest release" height="42">
 </a>
 
 <br><br>
 
-<img src="https://img.shields.io/github/v/release/DavidHiFi/HaloCord-Yapfast?style=flat-square&label=version&color=8957E5&labelColor=161B22" alt="Latest version">
-<img src="https://img.shields.io/github/downloads/DavidHiFi/HaloCord-Yapfast/total?style=flat-square&label=downloads&color=1F6FEB&labelColor=161B22" alt="Total downloads">
+<img src="https://img.shields.io/github/v/release/DavidHiFi/yapfast?style=flat-square&label=version&color=8957E5&labelColor=161B22" alt="Latest version">
+<img src="https://img.shields.io/github/downloads/DavidHiFi/yapfast/total?style=flat-square&label=downloads&color=1F6FEB&labelColor=161B22" alt="Total downloads">
 <img src="https://img.shields.io/badge/platform-Windows-DB6D28?style=flat-square&labelColor=161B22" alt="Platform: Windows">
 
 </div>
@@ -24,7 +24,7 @@ The next HaloCord: 23 plugins, from stereo 510 kbit/s calls and a 1000% volume b
 
 ## Installation
 
-1. Download the `HaloCord-Yapfast` ZIP from the [latest release](https://github.com/DavidHiFi/HaloCord-Yapfast/releases/latest) and extract the whole thing.
+1. Download the `HaloCord-Yapfast` ZIP from the [latest release](https://github.com/DavidHiFi/yapfast/releases/latest) and extract the whole thing.
 2. Close Yapfast if it's open.
 3. Double-click `yapfast.exe`. The ZIP isn't code signed, so Windows SmartScreen may warn you. Choose **More info**, then **Run anyway**.
 4. New to Yapfast? Link your account with the QR code. Already use it? You stay logged in.
@@ -144,17 +144,30 @@ Bug reports with steps to repeat them help most, and so do plugin ideas.
 
 Thanks to everyone who followed HaloCord over here.
 
-<a href="https://www.star-history.com/?repos=DavidHiFi%2FHaloCord-Yapfast&amp;type=date">
+<a href="https://www.star-history.com/?repos=DavidHiFi%2Fyapfast&amp;type=date">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=DavidHiFi/HaloCord-Yapfast&amp;type=date&amp;theme=dark&amp;legend=top-left" />
-    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=DavidHiFi/HaloCord-Yapfast&amp;type=date" />
-    <img alt="DavidHiFi/HaloCord-Yapfast GitHub star history" src="https://api.star-history.com/chart?repos=DavidHiFi/HaloCord-Yapfast&amp;type=date" />
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=DavidHiFi/yapfast&amp;type=date&amp;theme=dark&amp;legend=top-left" />
+    <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=DavidHiFi/yapfast&amp;type=date" />
+    <img alt="DavidHiFi/yapfast GitHub star history" src="https://api.star-history.com/chart?repos=DavidHiFi/yapfast&amp;type=date" />
   </picture>
 </a>
 
 ## Credits
 
 - **Author:** Myself, [DavidHiFi](https://github.com/DavidHiFi)
+
+<!-- contributors:start -->
+- **Contributors:** [SickoHours](https://github.com/SickoHours)
+- **AI coding agents:** [Claude Code](https://github.com/anthropics/claude-code)
+
+<p>
+  <a href="https://github.com/DavidHiFi"><img src="https://github.com/DavidHiFi.png?size=96" width="48" height="48" alt="DavidHiFi" title="DavidHiFi"></a>
+  <a href="https://github.com/SickoHours"><img src="https://github.com/SickoHours.png?size=96" width="48" height="48" alt="SickoHours" title="SickoHours"></a>
+  <a href="https://github.com/anthropics/claude-code"><img src="https://github.com/claude.png?size=96" width="48" height="48" alt="Claude Code" title="Claude Code"></a>
+</p>
+
+<sub>GitHub's contributor list also shows openhands-agent. Our machines had the wrong git name set from late October to November 26, 2026, so some commits by the agents above carry that name. OpenHands did not work on this project.</sub>
+<!-- contributors:end -->
 
 | Who | What |
 |---|---|
@@ -166,7 +179,7 @@ Thanks to everyone who followed HaloCord over here.
 
 Built on [Rust](https://www.rust-lang.org), with [iced](https://iced.rs) and [Opus](https://opus-codec.org).
 
-> Missing or wrong credit? [Open an issue](https://github.com/DavidHiFi/HaloCord-Yapfast/issues/new) and I'll fix it.
+> Missing or wrong credit? [Open an issue](https://github.com/DavidHiFi/yapfast/issues/new) and I'll fix it.
 
 ## Disclaimers
 
