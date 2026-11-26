@@ -219,10 +219,12 @@ pub struct Prefs {
     pub show_idle: Option<bool>,
     /// Game Activity's own games: an executable and what to show for it.
     pub game_executables: Vec<(String, String)>,
-    /// About: looking for releases, nightlies among them, the release
-    /// skipped, and the last told of in a notification.
-    pub check_for_updates: bool,
-    pub update_nightlies: bool,
+    /// About: looking for HaloCord's releases and installing them by
+    /// themselves (both on unless turned off), the channel followed, the
+    /// release skipped, and the last told of in a notification.
+    pub check_for_updates: Option<bool>,
+    pub auto_install_updates: Option<bool>,
+    pub update_channel: crate::halocord::updates::Channel,
     pub skipped_update: Option<String>,
     pub announced_update: Option<String>,
 }
@@ -239,6 +241,16 @@ pub enum Animate {
 }
 
 impl Prefs {
+    /// About's "Check for updates automatically", on unless turned off.
+    pub fn checks_for_updates(&self) -> bool {
+        self.check_for_updates.unwrap_or(true)
+    }
+
+    /// About's "Install updates automatically", on unless turned off.
+    pub fn installs_updates(&self) -> bool {
+        self.auto_install_updates.unwrap_or(true)
+    }
+
     /// The profile switches, each on unless turned off.
     pub fn cosmetics(&self) -> yapfast_core::application::Cosmetics {
         let default = yapfast_core::application::Cosmetics::default();

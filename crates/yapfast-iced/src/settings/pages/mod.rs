@@ -73,7 +73,8 @@ pub enum Pref {
     ShowIdle(bool),
     HideBlocked(bool),
     CheckUpdates(bool),
-    Nightlies(bool),
+    AutoInstall(bool),
+    UpdateChannel(crate::halocord::updates::Channel),
     StartOnSignIn(bool),
     DiscordLinks(bool),
     SystemTitleBar(bool),
@@ -284,15 +285,25 @@ impl Settings {
                 cx.dispatch(Action::HideBlocked(on));
             }
             Pref::CheckUpdates(on) => {
-                prefs.check_for_updates = on;
+                prefs.check_for_updates = Some(on);
                 cx.keep("check_for_updates", on);
                 if on {
                     cx.request(Request::LookForUpdates(true));
                 }
             }
-            Pref::Nightlies(on) => {
-                prefs.update_nightlies = on;
-                cx.keep("update_nightlies", on);
+            Pref::AutoInstall(on) => {
+                prefs.auto_install_updates = Some(on);
+                cx.keep("auto_install_updates", on);
+                if on {
+                    cx.request(Request::LookForUpdates(false));
+                }
+            }
+            Pref::UpdateChannel(channel) => {
+                if prefs.update_channel != channel {
+                    prefs.update_channel = channel;
+                    cx.keep("update_channel", channel);
+                    cx.request(Request::LookForUpdates(false));
+                }
             }
             Pref::StartOnSignIn(on) => {
                 match crate::desktop::desktop().set_autostart(on) {

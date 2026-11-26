@@ -22,6 +22,8 @@
 //! - `deck.rs`: Stream Deck keys, through a small server on this computer.
 //! - `backup.rs`: Backup & Restore's file of the plugins, the look and the
 //!   person's own themes (not a plugin).
+//! - `updates.rs`: HaloCord's own update channels, Stable and Nightly, and
+//!   which release is newer (not a plugin).
 //!
 //! Adding a plugin: its id in [`id`], one `const` in its area's file, and its
 //! place in [`PLUGINS`]. `docs/halocord.md` has the template. A plugin that
@@ -45,6 +47,7 @@ mod presence;
 mod servers;
 mod song_buttons;
 pub mod theme_files;
+pub mod updates;
 mod user_colors;
 mod user_tools;
 mod voice;

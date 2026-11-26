@@ -115,12 +115,15 @@ pub enum UpdateStatus {
     Skipped,
     Failed,
     Source,
+    /// HaloCord's update is in place, and starts the next time Yapfast does.
+    Ready,
 }
 
-/// The choices about updates the layout keeps.
+/// The choices about updates the layout keeps: HaloCord's channel, and the
+/// release skipped.
 #[derive(Clone, Debug, Default)]
 pub struct UpdateChoices {
-    pub nightlies: bool,
+    pub channel: crate::halocord::updates::Channel,
     pub skipped: Option<String>,
 }
 
@@ -148,6 +151,10 @@ pub trait Updates {
     /// Downloads the offered release and checks it; tells [`Heard::Updates`]
     /// as it goes, and once it's [`Updates::ready`].
     fn install(&self, choices: &UpdateChoices);
+    /// [`Updates::install`] without the restart: the update is put in place
+    /// for the next start, so nothing running (a call) is stopped. Tried
+    /// once for each release.
+    fn install_later(&self, _choices: &UpdateChoices) {}
     fn cancel(&self);
     /// The update is ready for Yapfast to end and finish it.
     fn ready(&self) -> bool;

@@ -75,7 +75,11 @@ impl<'a> Page<'a> {
         let status = match shown.status {
             UpdateStatus::Checking => "Checking for updates…".to_owned(),
             UpdateStatus::Current => "You're up to date.".to_owned(),
-            UpdateStatus::Available => format!("Yapfast {} is available.", shown.latest),
+            UpdateStatus::Available => format!("{} is available.", shown.latest),
+            UpdateStatus::Ready => format!(
+                "{} is installed. It starts the next time Yapfast opens.",
+                shown.latest
+            ),
             UpdateStatus::Skipped => format!(
                 "You skipped {}. We'll tell you about the next one.",
                 shown.latest
@@ -84,12 +88,14 @@ impl<'a> Page<'a> {
             UpdateStatus::Source => {
                 "You're running a build from source, so there's nothing to update.".to_owned()
             }
-            UpdateStatus::Idle if prefs.check_for_updates => String::new(),
-            UpdateStatus::Idle => "Update checks are turned off.".to_owned(),
+            UpdateStatus::Idle if prefs.checks_for_updates() => String::new(),
+            UpdateStatus::Idle => {
+                "Automatic checks are off. Check now looks once.".to_owned()
+            }
         };
         if !status.is_empty() {
             let ink = match shown.status {
-                UpdateStatus::Available => theme.accent,
+                UpdateStatus::Available | UpdateStatus::Ready => theme.accent,
                 UpdateStatus::Failed => theme.danger_text,
                 _ => theme.muted,
             };
@@ -141,7 +147,7 @@ impl<'a> Page<'a> {
         }
         let offered = matches!(
             shown.status,
-            UpdateStatus::Available | UpdateStatus::Skipped
+            UpdateStatus::Available | UpdateStatus::Skipped | UpdateStatus::Ready
         );
         if offered && !shown.notes.is_empty() {
             let sidebar = theme.sidebar;
@@ -171,6 +177,18 @@ impl<'a> Page<'a> {
             let available = shown.status == UpdateStatus::Available;
             let on_accent = crate::theme::rgb(theme.on_accent);
             let plain = crate::theme::rgb(theme.faint);
+            if shown.status == UpdateStatus::Ready {
+                buttons.push(
+                    action(
+                        theme,
+                        "Restart now",
+                        Kind::Primary,
+                        Some(update_message(Event::Install)),
+                    )
+                    .icon(self.cx.look.icon(Icon::Refresh, 18, on_accent))
+                    .into(),
+                );
+            }
             if available && shown.can_install {
                 buttons.push(
                     action(
