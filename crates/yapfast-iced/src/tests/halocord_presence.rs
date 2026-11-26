@@ -22,8 +22,8 @@ use crate::{
 fn open(app: &mut App, query: &str) {
     app.shell.frame.height = 2400.0;
     crate::window_bar::fit_window(app);
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
-    let _ = app.update(Message::Settings(Event::Search(query.into())));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Search(query.into())));
     let _ = app.sync();
 }
 
@@ -203,11 +203,11 @@ fn draw(app: &App, name: &str) {
 fn mocha(size: Size) -> (App, tempfile::TempDir) {
     let (mut app, folder) = preview();
     app.shell.frame.height = 2400.0;
-    let _ = app.update(Message::Settings(Event::Open(Section::Appearance)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Appearance)));
     let _ = app.update(crate::settings::appearance_event(
         crate::settings::ThemeEvent::Choose("mochacord".into()),
     ));
-    let _ = app.update(Message::Settings(Event::Close));
+    let _ = app.update(crate::app::settings(Event::Close));
     let _ = app.update(Message::PopupGone(Popup::Layer(Layer::Settings)));
     app.shell.frame = size;
     app.shell.own_title_bar = true;
@@ -231,8 +231,8 @@ fn picture_of_the_presence_plugins() {
         "button-1-link",
         "https://example.com/radio",
     );
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
-    let _ = app.update(Message::Settings(Event::Search("custom rpc".into())));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Search("custom rpc".into())));
     let _ = app.sync();
     assert!(shows(&app, "Custom RPC"));
     draw(&app, "custom-rpc");
@@ -245,7 +245,7 @@ fn picture_of_the_presence_plugins() {
         "lines",
         "Working | Playing | Away for lunch",
     );
-    let _ = app.update(Message::Settings(Event::Search("animated".into())));
+    let _ = app.update(crate::app::settings(Event::Search("animated".into())));
     let _ = app.sync();
     assert!(shows(&app, "Animated status"));
     draw(&app, "animated-status");

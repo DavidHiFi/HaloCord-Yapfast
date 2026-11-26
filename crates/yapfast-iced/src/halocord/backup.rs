@@ -98,7 +98,7 @@ impl Backup {
 pub const FILE_NAME: &str = "halocord-backup.json";
 
 fn message(event: HaloEvent) -> Message {
-    Message::Settings(SettingsEvent::HaloCord(event))
+    crate::app::settings(SettingsEvent::HaloCord(event))
 }
 
 /// Asks where to save `backup`, then writes it there.

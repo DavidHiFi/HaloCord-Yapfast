@@ -1073,7 +1073,7 @@ pub(super) fn build_stamp<'a>(
     )
     .padding([4, 8])
     .width(Length::Fill)
-    .on_press(Message::Settings(Event::CopyVersion))
+    .on_press(crate::app::settings(Event::CopyVersion))
     .style(|_, _| button::Style::default());
     let face = iced::widget::tooltip(
         face,

@@ -47,12 +47,12 @@ fn turn(app: &mut App, id: &str, on: bool) {
 fn mocha() -> (App, tempfile::TempDir) {
     let (mut app, folder) = preview();
     app.shell.frame.height = 2400.0;
-    let _ = app.update(Message::Settings(Event::Open(Section::Appearance)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Appearance)));
     let _ = app.update(crate::settings::appearance_event(
         crate::settings::ThemeEvent::Choose("mochacord".into()),
     ));
     // Settings close, and their going is over.
-    let _ = app.update(Message::Settings(Event::Close));
+    let _ = app.update(crate::app::settings(Event::Close));
     let _ = app.update(Message::PopupGone(Popup::Layer(Layer::Settings)));
     app.shell.frame = FRAME;
     app.shell.own_title_bar = true;
@@ -173,7 +173,7 @@ fn picture_of_plugins_page() {
     let (mut app, _folder) = mocha();
     app.shell.frame = Size::new(FRAME.width, 4400.0);
     crate::window_bar::fit_window(&mut app);
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
     let _ = app.sync();
     for plugin in crate::halocord::PLUGINS {
         assert!(shows(&app, plugin.name), "{}", plugin.name);

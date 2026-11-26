@@ -122,7 +122,7 @@ impl<'a> Page<'a> {
                     SPEEDS.iter().map(|speed| (*speed).to_owned()).collect(),
                     Some(kept.motion_speed.min(SPEEDS.len() - 1)),
                     kept.motion && self.s.open == Some(Drop::AnimationSpeed),
-                    Message::Settings(Event::Drop(Drop::AnimationSpeed)),
+                    crate::app::settings(Event::Drop(Drop::AnimationSpeed)),
                     move |index| change(Change::MotionSpeed(index)),
                 )
                 .enabled(kept.motion)

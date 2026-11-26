@@ -2061,7 +2061,7 @@ fn halocord_sends_stereo_at_510_unless_changed() {
         "settings are in the cog"
     );
     let cog = |app: &mut App, to| {
-        let _ = app.update(Message::Settings(Event::HaloCord(
+        let _ = app.update(crate::app::settings(Event::HaloCord(
             crate::settings::HaloEvent::Plugin(to),
         )));
     };
@@ -2104,7 +2104,7 @@ fn the_plugins_page_lists_every_plugin() {
     let missing: Vec<_> = PLUGINS
         .iter()
         .filter(|plugin| {
-            let _ = app.update(Message::Settings(Event::Search(plugin.name.into())));
+            let _ = app.update(crate::app::settings(Event::Search(plugin.name.into())));
             !shows(&app, plugin.name)
         })
         .map(|plugin| plugin.name)
@@ -2222,7 +2222,7 @@ fn mochacord_options_are_kept_across_a_restart() {
     let (mut app, folder) = preview();
     assert_eq!(app.layout.mochacord.glass_strength, 75);
     open(&mut app, Section::Themes);
-    let _ = app.update(Message::Settings(Event::HaloCord(
+    let _ = app.update(crate::app::settings(Event::HaloCord(
         crate::settings::HaloEvent::OpenMocha,
     )));
     assert!(shows(&app, "Glass window"));
@@ -2250,7 +2250,7 @@ fn mochacord_options_are_kept_across_a_restart() {
 fn mochacord_animation_speed_is_kept_and_escape_shuts_its_list_first() {
     let (mut app, folder) = preview();
     open(&mut app, Section::Themes);
-    let _ = app.update(Message::Settings(Event::HaloCord(
+    let _ = app.update(crate::app::settings(Event::HaloCord(
         crate::settings::HaloEvent::OpenMocha,
     )));
     assert!(shows(&app, "Open and close animation"));

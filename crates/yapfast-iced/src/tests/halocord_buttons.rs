@@ -342,7 +342,7 @@ fn the_settings_cog_is_always_on_the_card() {
     let opens_settings = |app: &crate::app::App| {
         clicked_at(app, cog_at(app))
             .iter()
-            .any(|message| matches!(message, Message::Settings(crate::settings::Event::Reopen)))
+            .any(|message| matches!(message, Message::Settings(event) if matches!(event.as_ref(), crate::settings::Event::Reopen)))
     };
     let (mut app, _folder) = preview();
     app.shell.own_title_bar = false;

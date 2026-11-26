@@ -163,11 +163,11 @@ pub enum HaloEvent {
 
 /// A HaloCord page's event as a message.
 pub fn halo_message(event: HaloEvent) -> Message {
-    Message::Settings(Event::HaloCord(event))
+    crate::app::settings(Event::HaloCord(event))
 }
 
 fn open(section: Section) -> Message {
-    Message::Settings(Event::Open(section))
+    crate::app::settings(Event::Open(section))
 }
 
 impl Settings {
