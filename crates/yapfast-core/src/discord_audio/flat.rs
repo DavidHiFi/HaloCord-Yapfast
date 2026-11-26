@@ -253,7 +253,7 @@ impl Flat {
 /// Both channels of a stereo block in one, for the microphone test.
 fn downmix(block: &[i16; STEREO]) -> [i16; BLOCK] {
     let mut mono = [0i16; BLOCK];
-    for (sample, pair) in mono.iter_mut().zip(block.chunks_exact(2)) {
+    for (sample, pair) in mono.iter_mut().zip(block.as_chunks::<2>().0) {
         *sample = ((i32::from(pair[0]) + i32::from(pair[1])) / 2) as i16;
     }
     mono
@@ -265,7 +265,7 @@ mod tests {
 
     fn wave() -> [i16; STEREO] {
         let mut block = [0i16; STEREO];
-        for (index, pair) in block.chunks_exact_mut(2).enumerate() {
+        for (index, pair) in block.as_chunks_mut::<2>().0.iter_mut().enumerate() {
             let wave = ((index as f32 * 0.05).sin() * 8000.0) as i16;
             pair[0] = wave;
             pair[1] = -wave / 2;
