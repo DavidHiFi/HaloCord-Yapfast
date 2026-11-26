@@ -860,7 +860,7 @@ fn the_user_area_options_make_the_dock() {
         setting,
         on: true,
     };
-    for setting in [0, 1, 2, 4] {
+    for setting in [0, 1, 2, 6] {
         changed(&mut app.layout, &mut app.client, flag(setting));
     }
     let dock = app.layout.halocord.dock();
@@ -1049,7 +1049,7 @@ fn the_game_button_switches_sharing_the_game() {
         &mut app.client,
         Change::Flag {
             plugin,
-            setting: 6,
+            setting: 8,
             on: true,
         },
     );
