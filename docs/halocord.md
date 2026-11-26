@@ -479,6 +479,7 @@ Window (`yapfast-iced`):
   `panel`.
 - `active_now.rs`: `card_corners` gives the head's and the last row's lit edge the
   card's round corners (`lit_style` takes per-corner radii).
+- `conversation.rs`: `navigation` adds `rail::side_width` for Server sidebar's folder column.
 - `tests/mod.rs`: `mod halocord_buttons;`, `mod halocord_button_pictures;`,
   `mod halocord_fixes;` and `mod halocord_presence;`.
 
@@ -488,6 +489,8 @@ Kit (`yapfast-iced-kit`) and vendor:
 - `widgets/pointer.rs`: `DoublePress`, a left double press that leaves the child its
   presses; `widgets/mod.rs`: `Inner::interaction`, the child's pointer look.
 - `style.rs`: `set_corner_scale`, read in `rounded`, `edge` and `round`; `controls.rs` `lit_style` takes its corners from `round`, and its radius may be per corner.
+- `dialog.rs`: draws HaloCord's riced floating card over the theme's dialog style.
+- `widgets/motion.rs`: `set_speed` scales popup open/close timings for MochaCord's motion setting.
 - `widgets/smooth.rs` and `smooth/bar.rs`: `BarGradient` and `set_bar_look`, drawn in
   `Smooth::draw`.
 - `renderer.rs`: `want_glass`, `glass_wanted`, `glass_active`.
@@ -548,6 +551,7 @@ Core (`yapfast-core`):
 
 Discord (`yapfast-discord`):
 
+- `gateway.rs`: `voice_state` takes `self_stream` so Fake stream holds up Go Live without a live stream behind it.
 - `lib.rs`: `pub mod halocord;`.
 - `member_list.rs`: `presence` and the member list's rows call `halocord::note` with the
   presence (one line each).
