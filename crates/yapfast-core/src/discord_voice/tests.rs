@@ -248,7 +248,10 @@ fn the_own_tile_shows_a_fake_deafen_and_the_others_their_own_flags() {
     snapshot
         .voice
         .insert("10".into(), vec![member("1"), deaf, member("7")]);
-    let state = State::default();
+    let state = State {
+        muted: false,
+        ..State::default()
+    };
 
     crate::halocord::set_fake_voice(false, true);
     let tiles = tiles_of(&snapshot, &state);
