@@ -82,6 +82,10 @@ pub(super) const fn off(key: &'static str, heading: &'static str, note: &'static
 #[serde(default)]
 pub struct Kept {
     pub plugins: BTreeMap<String, PluginState>,
+    /// Whether Server sidebar has a folder open beside the rail, as the
+    /// rail's items were last made; not kept.
+    #[serde(skip)]
+    pub folder_side_open: bool,
 }
 
 /// A plugin switched, or a setting changed; unset is as it starts.

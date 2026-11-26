@@ -612,7 +612,12 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     )
     .padding(Padding {
         // Compact stays under the channel list, off the rail's foot.
-        left: INSET + if compact { crate::rail::WIDTH } else { 0.0 },
+        left: INSET
+            + if compact {
+                crate::rail::width(ctx.layout)
+            } else {
+                0.0
+            },
         right: INSET,
         bottom: INSET,
         top: 0.0,

@@ -214,6 +214,17 @@ fn right_click(ui: &mut Simulator<'_, Message>, text: &str) {
     ]);
 }
 
+/// Opens HaloCord's dialog for the plugin with `id`, in Settings' Plugins.
+fn open_plugin(app: &mut App, id: &str) {
+    use crate::settings::{Event, HaloEvent, Section};
+    let plugin = crate::halocord::place(id).expect("the plugin");
+    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
+    let _ = app.update(Message::Settings(Event::HaloCord(HaloEvent::Plugin(Some(
+        plugin,
+    )))));
+    let _ = app.sync();
+}
+
 /// The core's state, changed as the backend would, then taken in.
 fn change(app: &mut App, change: impl FnOnce(&mut yapfast_core::application::AppState)) {
     change(&mut app.client.app.state);
@@ -389,6 +400,7 @@ mod halocord_messages;
 mod halocord_pictures;
 mod halocord_polish_pictures;
 mod halocord_presence;
+mod halocord_rail;
 mod halocord_settings_pictures;
 mod header;
 mod link_dialogs;

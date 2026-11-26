@@ -7,7 +7,7 @@ use yapfast_core::{
     chat::Command,
 };
 
-use super::{change, preview};
+use super::{change, open_plugin, preview, shows};
 use crate::{
     app::Message,
     halocord::{Change, Press, READ_ALL, RESTART, changed, place, presses},
@@ -34,13 +34,80 @@ fn the_buttons_are_on_from_the_start_and_go_when_switched_off() {
     };
     assert_eq!(
         labels(&app),
-        ["Restart Yapfast", "Mark everything read"],
-        "both are the owner's own, on at first"
+        ["Restart Yapfast"],
+        "Read all sits at the top of the server list at first"
     );
+    let plugin = place(READ_ALL).expect("the plugin");
+    for (choice, bar) in [(1, true), (2, true), (0, false)] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Choose {
+                plugin,
+                setting: 0,
+                choice,
+            },
+        );
+        assert_eq!(
+            labels(&app).contains(&"Mark everything read"),
+            bar,
+            "the top bar has it for choice {choice}"
+        );
+    }
     switch(&mut app, RESTART, false);
-    assert_eq!(labels(&app), ["Mark everything read"]);
-    switch(&mut app, READ_ALL, false);
     assert!(labels(&app).is_empty());
+}
+
+#[test]
+fn read_all_sits_at_the_top_of_the_server_list_and_goes_when_off() {
+    let (mut app, _folder) = preview();
+    let plugin = place(READ_ALL).expect("the plugin");
+    // The small text button's words, so the window shows it as text.
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 1,
+            on: true,
+        },
+    );
+    change(&mut app, |_| {});
+    assert!(shows(&app, "Read all"), "the small button at the top");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 0,
+            choice: 1,
+        },
+    );
+    change(&mut app, |_| {});
+    assert!(!shows(&app, "Read all"), "only in the top bar now");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 0,
+            choice: 2,
+        },
+    );
+    change(&mut app, |_| {});
+    assert!(shows(&app, "Read all"), "both places");
+    switch(&mut app, READ_ALL, false);
+    change(&mut app, |_| {});
+    assert!(!shows(&app, "Read all"), "gone while off");
+}
+
+#[test]
+fn read_all_lists_its_settings() {
+    let (mut app, _folder) = preview();
+    open_plugin(&mut app, READ_ALL);
+    for row in ["Where it sits", "Small text button"] {
+        assert!(shows(&app, row), "{row} is offered");
+    }
 }
 
 #[test]

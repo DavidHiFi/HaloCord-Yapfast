@@ -43,11 +43,35 @@ pub struct Rail {
     pub scroll: crate::sync::Scroll,
     /// A server or folder being dragged to move it.
     pub dragging: Option<crate::rail_drag::RailDrag>,
+    /// HaloCord's Server sidebar (docs/halocord.md): the open folder's
+    /// tiles, in their column beside the rail.
+    pub side: Vec<RailItem>,
 }
 
 /// The rail, down the window's left edge.
 pub fn view<'a>(rail: &'a Rail, cx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
-    View { s: rail, cx }.rail_view()
+    let main = View {
+        s: rail,
+        cx,
+        side: false,
+    }
+    .rail_view();
+    if rail.side.is_empty() {
+        return main;
+    }
+    let side = View {
+        s: rail,
+        cx,
+        side: true,
+    }
+    .side_view();
+    row![main, side].into()
+}
+
+/// How far the rail reaches across, HaloCord's Server sidebar's column
+/// with it while a folder is open there.
+pub fn width(layout: &crate::layout::Layout) -> f32 {
+    WIDTH + layout.halocord.folder_side_width()
 }
 
 /// The rail's view: its rows and the view context.
@@ -55,6 +79,8 @@ pub fn view<'a>(rail: &'a Rail, cx: crate::ctx::Ctx<'a>) -> Element<'a, Message>
 struct View<'a> {
     s: &'a Rail,
     cx: crate::ctx::Ctx<'a>,
+    /// Drawing Server sidebar's column, whose tiles don't drag.
+    side: bool,
 }
 
 impl Rail {
@@ -64,6 +90,7 @@ impl Rail {
             items: Vec::new(),
             scroll: crate::sync::Scroll::new(height),
             dragging: None,
+            side: Vec::new(),
         }
     }
 }
@@ -553,19 +580,36 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             crate::app::point(&mut app.pointed.rail, id, entered);
             return Task::none();
         }
-        Event::Home => app
-            .client
-            .dispatch(Action::Navigate(Navigation::DirectMessages)),
-        Event::Server(id) => app
-            .client
-            .dispatch(Action::Navigate(Navigation::Server(id))),
+        Event::Home => {
+            // HaloCord's Server sidebar (docs/halocord.md).
+            crate::halocord::home_picked(&app.layout.halocord, &mut app.layout.open_folders);
+            app.client
+                .dispatch(Action::Navigate(Navigation::DirectMessages));
+        }
+        Event::Server(id) => {
+            crate::halocord::server_picked(
+                &app.layout.halocord,
+                app.client.state(),
+                &mut app.layout.open_folders,
+                &id,
+            );
+            app.client
+                .dispatch(Action::Navigate(Navigation::Server(id)));
+        }
         Event::Folder(id) => {
             app.lists_shown = None;
+            crate::halocord::folder_pressed(
+                &app.layout.halocord,
+                &mut app.layout.open_folders,
+                &id,
+            );
             if !app.layout.open_folders.remove(&id) {
                 app.layout.open_folders.insert(id);
             }
             crate::layout::store(app.client.root(), "open_folders", &app.layout.open_folders);
             app.rail.items = rail(app.client.state(), &app.layout.open_folders);
+            app.rail.side =
+                crate::halocord::server_sidebar(&mut app.layout.halocord, &mut app.rail.items);
             return app.ask();
         }
         Event::Dm(id) => app.client.dispatch(Action::Open(id)),
@@ -622,9 +666,15 @@ impl<'a> View<'a> {
             .height(Length::Fill)
             .style(scrollbar(theme));
         let line = container(bar(theme.outline, 32, 1)).center_x(WIDTH);
-        let items = column![self.home_tile(), line, list]
-            .spacing(GAP)
-            .width(WIDTH);
+        // HaloCord's Read all and Server list indicators (docs/halocord.md).
+        let items = crate::halocord::rail_top(self.cx)
+            .into_iter()
+            .fold(column![].spacing(GAP).width(WIDTH), |items, top| {
+                items.push(top)
+            })
+            .push(self.home_tile())
+            .push(line)
+            .push(list);
         container(items.padding(Padding {
             // Room above the home tile, so it doesn't touch the title bar.
             top: HOME_ROOM,
@@ -634,6 +684,43 @@ impl<'a> View<'a> {
         .width(WIDTH)
         .height(Length::Fill)
         .into()
+    }
+
+    /// HaloCord's Server sidebar: the open folder's tiles in a column of
+    /// the rail's width, from the home tile's height down.
+    fn side_view(self) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let total = self
+            .s
+            .side
+            .iter()
+            .enumerate()
+            .map(|(index, item)| item.height(index + 1))
+            .sum();
+        let mut rows = Rows::new(total);
+        let mut top = 0.0;
+        for (index, item) in self.s.side.iter().enumerate() {
+            let height = item.height(index + 1);
+            rows.push(
+                key(&format!("side-{}", item.id)),
+                top - ABOVE,
+                height + ABOVE,
+                self.rail_row(index + 1, item, height),
+            );
+            top += height;
+        }
+        let list = scroll_view(rows)
+            .height(Length::Fill)
+            .style(scrollbar(theme));
+        container(list)
+            .padding(Padding {
+                top: HOME_ROOM + ABOVE,
+                bottom: 12.0,
+                ..Padding::ZERO
+            })
+            .width(WIDTH)
+            .height(Length::Fill)
+            .into()
     }
 
     /// While a server or folder is dragged: the line where it would land,
@@ -961,7 +1048,7 @@ impl<'a> View<'a> {
             pointed,
             open_folder,
             menu: item.kind != Kind::Add,
-            lift: crate::rail_drag::liftable(item),
+            lift: !self.side && crate::rail_drag::liftable(item),
         };
         // A server out of reach in a Discord outage says so, besides
         // fading.
@@ -1077,7 +1164,7 @@ impl<'a> View<'a> {
             })
             .into()
         } else {
-            tile.into()
+            tile
         };
         let tile = tooltip(tile, tip, tooltip::Position::Right)
             .gap(8)

@@ -112,7 +112,9 @@ pub fn area(id: &str) -> Area {
         | id::INVITE_DEFAULTS
         | id::NO_PENDING_COUNT
         | id::HOME_TYPING
-        | id::KEEP_CHANNEL => Area::Servers,
+        | id::KEEP_CHANNEL
+        | id::SERVER_COUNTS
+        | id::SERVER_SIDEBAR => Area::Servers,
         "custom-rpc" | "animated-status" => Area::Status,
         _ => Area::Other,
     }

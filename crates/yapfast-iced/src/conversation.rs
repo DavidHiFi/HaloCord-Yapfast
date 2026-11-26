@@ -15,7 +15,7 @@ use crate::{
 /// The navigation's width beside the conversation: the rail and the
 /// sidebar, as wide as its edge was dragged.
 pub fn navigation(layout: &crate::layout::Layout) -> f32 {
-    crate::rail::WIDTH + crate::sidebar::width(layout)
+    crate::rail::width(layout) + crate::sidebar::width(layout)
 }
 
 /// The conversation column: the header, the timeline and the composer,

@@ -355,7 +355,7 @@ fn finish_moving(app: &mut App) -> Task<Message> {
         return Task::none();
     };
     let (top, bottom) = side_list_span(app);
-    let left = crate::rail::WIDTH;
+    let left = crate::rail::width(&app.layout);
     let within = (left..left + sidebar::width(&app.layout)).contains(&moving.at.x)
         && (top..bottom).contains(&moving.at.y);
     let action = moving

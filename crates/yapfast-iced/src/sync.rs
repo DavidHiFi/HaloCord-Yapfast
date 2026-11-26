@@ -152,6 +152,12 @@ impl App {
         if let Some(reading) = state.selected.as_deref().filter(|_| self.reads()) {
             rail.retain(|item| !(matches!(item.kind, crate::rail::Kind::Dm) && item.id == reading));
         }
+        // HaloCord's Server sidebar (docs/halocord.md): the open folders'
+        // tiles go to their own column.
+        let side = crate::halocord::server_sidebar(&mut self.layout.halocord, &mut rail);
+        if self.rail.side != side {
+            self.rail.side = side;
+        }
         if self.rail.items != rail {
             self.rail.items = rail;
         }

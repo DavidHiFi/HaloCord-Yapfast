@@ -21,6 +21,12 @@ whole list to carry across.
     (`card_fit`: the room the name keeps, the plugin buttons on the row above it
     and the tray for the rest in `card_tray`, the name cut by `ellipsized`, from
     SickoHours' pull request 2).
+  - `rail_top.rs`: Server list indicators (friends online and servers, at the top of
+    the server list) and `rail_top`, what plugins put above the home tile: it draws
+    Read all's button there too, while its "Where it sits" says the server list.
+  - `folder_side.rs`: Server sidebar: an open folder's tiles in their own column beside the
+    rail (`server_sidebar`), and the folders it closes (`folder_pressed`, `server_picked`,
+    `home_picked`).
   - `presence.rs`: Custom RPC and Animated status, what each tells the Discord
     service (`set_custom_rpc`, `set_animated`).
   - `fake_dialog.rs`: Fake DMs' box (who says it, the text, when, Add) and its
@@ -316,6 +322,16 @@ Window (`yapfast-iced`):
 - `sync.rs`: `sync` starts with `halocord::stop_mic_test_in_call` (Better user tools).
 - `browser.rs`: opens the pages HaloCord's plugins ask for (a sticker at full size, a
   song's page, a profile's decorations).
+- `rail.rs`: `rail_view` puts `halocord::rail_top`'s items above the home tile (Read all's
+  button and Server list indicators' counts).
+- `rail.rs`: `Rail::side`, Server sidebar's tiles, drawn by `side_view` beside the rail (its
+  tiles don't drag); `rail::width`, the rail's width with that column, which
+  `conversation::navigation`, `arrange.rs` (`finish_moving`), `sidebar/mod.rs` (`room`, the
+  header's and events' menus), `account.rs` and `halocord/buttons.rs` (the compact card) use
+  in place of `rail::WIDTH`; `update` asks `halocord::home_picked`, `server_picked` and
+  `folder_pressed`, and gives a folder's press `halocord::server_sidebar` as `sync.rs`'
+  `make_lists` does for the rail's items (`Kept::folder_side_open`, not kept, says whether
+  the column shows).
 - `rail.rs`: `home_tile` asks `halocord::home_face` first (Home typing's dots while someone
   types in a DM), else draws the logo; `typing.rs`: `dots`, the typing line's dots on their
   own, `pub(crate)` for it.

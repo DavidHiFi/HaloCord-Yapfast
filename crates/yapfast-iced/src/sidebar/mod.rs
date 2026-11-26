@@ -168,7 +168,8 @@ pub fn width(layout: &crate::layout::Layout) -> f32 {
 /// than leaves the conversation 420 px.
 fn room(app: &App, width: f32) -> f32 {
     let beside = app.window.width - crate::conversation::chat_right(app);
-    let most = app.window.width - crate::rail::WIDTH - crate::thread::CHAT_KEPT - beside;
+    let most =
+        app.window.width - crate::rail::width(&app.layout) - crate::thread::CHAT_KEPT - beside;
     width.clamp(LEAST, most.clamp(LEAST, MOST))
 }
 /// Its header, the line under it included.
@@ -336,7 +337,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 app.win.menu = None;
                 return Task::none();
             }
-            let at = Point::new(crate::rail::WIDTH + INSET, HEADER - 4.0);
+            let at = Point::new(crate::rail::width(&app.layout) + INSET, HEADER - 4.0);
             return crate::place_menus::open_place_menu(app, &server, at, true);
         }
         Event::Invite | Event::InviteTo(_) => {
@@ -360,7 +361,10 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 return Task::none();
             };
             let top = app.sidebar.top_height() - EVENTS_ROW;
-            let at = Point::new(crate::rail::WIDTH + INSET, top + EVENTS_ROW - INSET);
+            let at = Point::new(
+                crate::rail::width(&app.layout) + INSET,
+                top + EVENTS_ROW - INSET,
+            );
             return crate::place_menus::open_events_menu(app, &server, at);
         }
         Event::Menu(id, at) => {
