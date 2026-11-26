@@ -180,12 +180,15 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
             (voice.phase != Phase::Leaving).then_some(Message::Call(Event::Leave)),
         ));
     }
-    let mut dock = column![top].spacing(6).padding(Padding {
-        top: 10.0,
-        bottom: 8.0,
-        right: 8.0,
-        left: 0.0,
-    });
+    let compact = ctx.layout.halocord.dock().compact;
+    let mut dock = column![top]
+        .spacing(if compact { 3 } else { 6 })
+        .padding(Padding {
+            top: if compact { 4.0 } else { 10.0 },
+            bottom: if compact { 4.0 } else { 8.0 },
+            right: 8.0,
+            left: 0.0,
+        });
     if active
         && !ctx.layout.hide_voice_faces
         && let Some(faces) = call_faces(ctx, voice)
@@ -307,7 +310,13 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
             ..Padding::ZERO
         }));
     }
-    let panel = theme.panel;
+    // MochaCord's foot is one dock whose ground `app::view` paints under
+    // this panel and the card, so the panel adds none.
+    let panel = if crate::style::mocha(theme) {
+        iced::Color::TRANSPARENT
+    } else {
+        theme.panel
+    };
     Some(
         container(dock)
             .width(Length::Fill)

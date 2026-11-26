@@ -205,7 +205,14 @@ impl App {
                 ]
             }
             .height(Length::Fill);
-            column![navigation_body, foot.push(account)].into()
+            let foot: Element<'_, Message> = foot.push(account).into();
+            // MochaCord's foot is one full-width dock.
+            let foot = if crate::style::mocha(&self.theme) && !glass_account {
+                crate::account::dock(self.ctx(), foot, self.shell.maximized)
+            } else {
+                foot
+            };
+            column![navigation_body, foot].into()
         };
         let navigation_inner = if paned {
             crate::theme_art::pane(navigation_inner, self.ctx(), None)

@@ -422,6 +422,10 @@ Window (`yapfast-iced`):
   `start_send` runs each file's name and bytes through `halocord::auto_zipper::zipped`
   before naming it (Auto zipper).
 - `tests/settings.rs`: `halocord_sends_stereo_at_510_unless_changed`.
+- `call/dock.rs`: MochaCord's user dock panel (full width, one edge, a hover state).
+- `tests/user_dock.rs`: the MochaCord user dock fills the foot, and Compact tightens it.
+- Core `discord_voice/tests.rs`: a fake deafen shows on this account's own tile and
+  leaves the real mute and deafen alone.
 - `tests/calls.rs`, `tests/media.rs`, `tests/menus.rs`, `tests/navigation.rs`,
   `tests/writing.rs`: tests of the Volume booster, the copy rows, the buttons beside
   Settings and Show timeout duration, in Yapfast's own test files.
@@ -546,8 +550,12 @@ Core (`yapfast-core`):
   - `GateMeter` calls `flat::measure(...)` in place of `measure(...)`.
   - The loops in `CaptureRequest::run` and `measure` also end on `flat::on()`, so
     the flat path takes over within a block.
-  - `Processing::pair` sends nothing while `halocord::fake_deafened()`, as while a
-    push-to-mute key is held (the flat microphone's `talking` does the same).
+  - `Processing::pair` and the flat microphone's `talking` send nothing only while a
+    push-to-mute key is held. A fake mute or deafen changes the voice state Discord
+    is told and nothing else: the microphone keeps sending and the account hears
+    everyone.
+  - The call's tiles come from the gateway's live voice states, as the channel list
+    does, and this account's own tile shows `halocord::voice_state`, what others see.
 
 Discord (`yapfast-discord`):
 
@@ -561,7 +569,7 @@ Discord (`yapfast-discord`):
   the presence again, `halo.apply(&mut presence)` after `own_activity::merge` in
   `show_presence`, and `halocord::presence::identify` after the merge before the
   gateway connects (Custom RPC, Animated status). `Request::Join` says `self_deaf` as
-  `halocord::fake_deafened()`, so a call is joined showing Fake deafen from its first
+  the yapfast-discord copy of that flag, so a call is joined showing Fake deafen from its first
   voice state.
 - `api.rs`: `external_assets`, the call that gives an outside picture's `mp:`
   key (Custom RPC).

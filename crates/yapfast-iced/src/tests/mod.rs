@@ -482,6 +482,7 @@ mod signin;
 mod threads;
 mod timeline;
 mod tree;
+mod user_dock;
 mod widgets;
 mod writing;
 
