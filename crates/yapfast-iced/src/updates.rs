@@ -2,11 +2,11 @@
 //! chosen channel and installs one (`desktop.rs`); this asks for a look
 //! when the check is turned on, on Check now, once at start with the check
 //! on and every six hours after, shows what it found, and tells of a newer
-//! release once in a notification that opens About. With "Install updates
+//! release once in a notification that opens Updates. With "Install updates
 //! automatically" on, a newer release is put in place for the next start
 //! as soon as a look finds it, so nothing running stops; Update and restart
 //! (or Restart now) ends the window so `main` can finish it. It runs with
-//! Settings closed; About only shows it (`settings/updates.rs`).
+//! Settings closed; the Updates page only shows it (`settings/updates.rs`).
 
 use std::time::Duration;
 
@@ -60,7 +60,7 @@ pub fn look_for_updates(app: &mut App, announce: bool) {
         return;
     };
     app.announce_updates |= announce;
-    updates.look();
+    updates.look(&update_choices(app));
 }
 
 /// The look or the update went further: a release to tell of, or an
@@ -160,7 +160,7 @@ pub fn updates_installing(app: &App) -> bool {
             .is_some_and(|updates| updates.installing())
 }
 
-/// Settings on About, as the release's notification opens it.
+/// Settings on Updates, as the release's notification opens it.
 pub fn open_about(app: &mut App) -> Task<Message> {
-    app.open_settings(Section::About)
+    app.open_settings(Section::Updates)
 }

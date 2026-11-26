@@ -444,6 +444,18 @@ Window (`yapfast-iced`):
   crate fills it from `build_info::halocord_line`, which reads the `HALOCORD_BUILD`
   number that `build.rs` passes on (the updater can set it; without it the line has no
   number).
+- Updates come from HaloCord's own releases, not Yapfast's. `halocord/updates.rs` holds
+  the rules (the Stable and Nightly channels, the build numbers, which release is newer)
+  and `look_up`; the root crate's `src/update/halocord.rs` asks GitHub and puts a release
+  in place. Hooks: `settings/mod.rs` gives HaloCord's group the `Section::Updates` page
+  (`pages/updates.rs`, moved out of About, which keeps only its card and links);
+  `settings/updates.rs` heads nothing itself and its notice opens Updates;
+  `desktop.rs`'s `Updates::look` takes the choices, so a look follows the channel;
+  `updates.rs` opens Updates for the release notification; the root `src/desktop.rs`'s
+  `Updates` impl calls `update::halocord`; `build.rs` passes `HALOCORD_NIGHTLY` on as
+  `YAPFAST_BUILD_HALOCORD_NIGHTLY`; the root `Cargo.toml` adds `chrono` to `desktop`.
+  The `HaloCord Nightly` workflow builds the `nightly` pre-release, with the files
+  `scripts/halocord-package.py` names.
 - `markdown.rs`: inline code and code blocks fill with the theme's `code` role, not
   `panel`.
 - `active_now.rs`: `card_corners` gives the head's and the last row's lit edge the

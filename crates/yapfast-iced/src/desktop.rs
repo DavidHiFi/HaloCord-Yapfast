@@ -138,9 +138,9 @@ pub struct Offered {
 
 /// Looks at the releases and installs one.
 pub trait Updates {
-    /// Asks GitHub for the releases, unless a look is under way; tells
-    /// [`Heard::Updates`] when it's done.
-    fn look(&self);
+    /// Asks GitHub for the chosen channel's release, unless a look is under
+    /// way; tells [`Heard::Updates`] when it's done.
+    fn look(&self, choices: &UpdateChoices);
     fn shown(&self, choices: &UpdateChoices) -> UpdatesShown;
     /// An update is downloading or ready, which About shows the progress
     /// of: what [`Updates::shown`] says as `installing`, without working

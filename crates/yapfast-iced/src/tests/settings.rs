@@ -464,10 +464,10 @@ fn a_new_setting_is_tagged_until_its_page_is_left() {
     std::fs::write(folder.path().join("layout.json"), b"{}").expect("layout");
     let mut app = start(&folder, true);
     let _ = app.update(Message::Settings(Settings::Open(Section::Account)));
-    assert!(shows(&app, "NEW"), "About's row says so");
-    let _ = app.update(Message::Settings(Settings::Open(Section::About)));
-    assert!(shows(&app, "Check for updates") && shows(&app, "NEW"));
-    // Leaving About sees them, and the layout keeps it.
+    assert!(shows(&app, "NEW"), "Updates' row says so");
+    let _ = app.update(Message::Settings(Settings::Open(Section::Updates)));
+    assert!(shows(&app, "Check for updates automatically") && shows(&app, "NEW"));
+    // Leaving Updates sees them, and the layout keeps it.
     let _ = app.update(Message::Settings(Settings::Open(Section::Account)));
     assert!(!shows(&app, "NEW"));
     let layout: serde_json::Value = serde_json::from_slice(&{
@@ -484,8 +484,65 @@ fn a_new_setting_is_tagged_until_its_page_is_left() {
     assert_eq!(seen, ["check-updates", "update-nightlies"]);
     // A fresh install has met them all.
     let (mut fresh, _folder) = preview();
-    let _ = fresh.update(Message::Settings(Settings::Open(Section::About)));
+    let _ = fresh.update(Message::Settings(Settings::Open(Section::Updates)));
     assert!(!shows(&fresh, "NEW"));
+}
+
+/// Updates start on Stable, looking and installing by themselves, for a
+/// new install and for a layout from before the choices.
+#[test]
+fn updates_start_on_stable_with_both_switches_on() {
+    use crate::halocord::updates::Channel;
+    let prefs = crate::layout::Prefs::default();
+    assert_eq!(prefs.update_channel, Channel::Stable);
+    assert!(prefs.checks_for_updates() && prefs.installs_updates());
+    let folder = tempfile::tempdir_in(super::local()).expect("test folder");
+    std::fs::write(folder.path().join("layout.json"), b"{}").expect("layout");
+    let app = start(&folder, true);
+    let prefs = &app.layout.prefs;
+    assert_eq!(prefs.update_channel, Channel::Stable);
+    assert!(prefs.checks_for_updates() && prefs.installs_updates());
+    let choices = crate::updates::choices(&app.layout);
+    assert!(choices.channel.url().ends_with("/releases/latest"));
+}
+
+/// The Updates page shows both switches and the channels, and what's
+/// chosen there is kept and followed by the next look.
+#[test]
+fn the_updates_page_keeps_its_choices() {
+    use crate::halocord::updates::Channel;
+    let (mut app, folder) = preview();
+    open(&mut app, Section::Updates);
+    for words in [
+        "Updates",
+        "Check for updates automatically",
+        "Install updates automatically",
+        "UPDATE CHANNEL",
+        "Stable",
+        "Nightly",
+        "Check now",
+    ] {
+        assert!(shows(&app, words), "{words}");
+    }
+    interact(&mut app, |ui| {
+        let _ = ui.click("Nightly");
+    });
+    assert_eq!(app.layout.prefs.update_channel, Channel::Nightly);
+    let choices = crate::updates::choices(&app.layout);
+    assert!(choices.channel.url().ends_with("/releases/tags/nightly"));
+    interact(&mut app, |ui| {
+        let _ = ui.click("Check for updates automatically");
+    });
+    interact(&mut app, |ui| {
+        let _ = ui.click("Install updates automatically");
+    });
+    assert!(!app.layout.prefs.checks_for_updates());
+    assert!(!app.layout.prefs.installs_updates());
+    let layout = stored(&folder);
+    assert_eq!(layout["update_channel"], "nightly");
+    assert_eq!(layout["check_for_updates"], false);
+    assert_eq!(layout["auto_install_updates"], false);
+    assert!(shows(&app, "Automatic checks are off. Check now looks once."));
 }
 
 /// Every key the core tags has its tag in Settings' pages.
@@ -501,6 +558,7 @@ fn every_tagged_setting_has_its_tag() {
         include_str!("../settings/pages/messages.rs"),
         include_str!("../settings/pages/notifications.rs"),
         include_str!("../settings/pages/sounds.rs"),
+        include_str!("../settings/pages/updates.rs"),
     ]
     .concat();
     for tag in &yapfast_core::new_tags::NEW {

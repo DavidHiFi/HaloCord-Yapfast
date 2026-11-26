@@ -1,17 +1,18 @@
-//! About: the build, its updates and Yapfast's links.
+//! About: the build and Yapfast's links. Updates have their own page
+//! (`updates.rs`).
 
 use iced::{
     Element,
     widget::{column, row, text},
 };
 
-use super::{AccountEvent, Pref, account_message, pref};
+use super::{AccountEvent, account_message};
 use crate::settings::{Event, Page, build_tint};
 use crate::{
     app::Message,
     controls::{Kind, action},
     fonts::BOLD,
-    form::{self, switch},
+    form,
     pictures::Icon,
 };
 
@@ -27,7 +28,6 @@ impl<'a> Page<'a> {
         let settings = self.s;
         let theme = self.cx.look.theme;
         let build = self.cx.build;
-        let prefs = &self.cx.layout.prefs;
         let mut channel = row![
             text(build.channel.as_str())
                 .size(13)
@@ -67,31 +67,6 @@ impl<'a> Page<'a> {
             ),
         );
         let mut parts = vec![form::title(theme, "About"), card];
-        parts.extend(self.updates_part());
-        let checks = prefs.checks_for_updates();
-        parts.push(
-            switch(
-                "Check for updates automatically",
-                checks,
-                Some(pref(Pref::CheckUpdates(!checks))),
-            )
-            .description("Looks for a newer HaloCord every 6 hours, and when Yapfast starts.")
-            .fresh(self.fresh("check-updates"))
-            .view(self.cx.look),
-        );
-        let installs = prefs.installs_updates();
-        parts.push(
-            switch(
-                "Install updates automatically",
-                installs,
-                Some(pref(Pref::AutoInstall(!installs))),
-            )
-            .description(
-                "Downloads and checks a new version, then uses it the next time Yapfast opens.                  It never stops a call.",
-            )
-            .view(self.cx.look),
-        );
-        parts.push(self.channel_picker());
         parts.push(form::heading(theme, "LINKS"));
         let ink = crate::theme::rgb(theme.text);
         let link = |label, icon, page| -> Element<'a, Message> {
@@ -110,36 +85,5 @@ impl<'a> Page<'a> {
             link("Discord", Icon::Discord, DISCORD),
         ]));
         form::page(parts)
-    }
-
-    /// About's UPDATE CHANNEL: Stable or Nightly, which the next look
-    /// follows.
-    fn channel_picker(self) -> Element<'a, Message> {
-        use crate::halocord::updates::Channel;
-        let theme = self.cx.look.theme;
-        let mut heading = row![form::heading(theme, "UPDATE CHANNEL")]
-            .spacing(8)
-            .align_y(iced::Alignment::Center);
-        if self.fresh("update-nightlies") {
-            heading = heading.push(form::new_tag(theme));
-        }
-        let choices = Channel::ALL
-            .iter()
-            .map(|channel| form::Choice {
-                title: channel.label().into(),
-                description: channel.description().into(),
-                colour: None,
-                offered: true,
-            })
-            .collect();
-        let chosen = self.cx.layout.prefs.update_channel.index();
-        column![
-            heading,
-            form::options(theme, choices, Some(chosen), true, |index| {
-                pref(Pref::UpdateChannel(Channel::ALL[index]))
-            })
-        ]
-        .spacing(8)
-        .into()
     }
 }

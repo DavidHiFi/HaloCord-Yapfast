@@ -14,6 +14,7 @@ use std::cmp::Ordering;
 
 use crate::build_info::Channel;
 
+pub mod halocord;
 pub mod install;
 pub mod signature;
 

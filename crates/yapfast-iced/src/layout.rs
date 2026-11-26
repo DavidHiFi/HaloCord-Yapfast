@@ -219,7 +219,7 @@ pub struct Prefs {
     pub show_idle: Option<bool>,
     /// Game Activity's own games: an executable and what to show for it.
     pub game_executables: Vec<(String, String)>,
-    /// About: looking for HaloCord's releases and installing them by
+    /// Updates: looking for HaloCord's releases and installing them by
     /// themselves (both on unless turned off), the channel followed, the
     /// release skipped, and the last told of in a notification.
     pub check_for_updates: Option<bool>,
@@ -241,12 +241,12 @@ pub enum Animate {
 }
 
 impl Prefs {
-    /// About's "Check for updates automatically", on unless turned off.
+    /// Updates' "Check for updates automatically", on unless turned off.
     pub fn checks_for_updates(&self) -> bool {
         self.check_for_updates.unwrap_or(true)
     }
 
-    /// About's "Install updates automatically", on unless turned off.
+    /// Updates' "Install updates automatically", on unless turned off.
     pub fn installs_updates(&self) -> bool {
         self.auto_install_updates.unwrap_or(true)
     }

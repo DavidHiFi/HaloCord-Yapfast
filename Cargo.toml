@@ -59,7 +59,7 @@ discord = ["yapfast-core/discord", "yapfast-core/default"]
 # links, starting at sign-in, updates, the icon, pasted and copied pictures
 # and keybinds. Without it the program has only the commands that need no
 # window.
-desktop = ["discord", "dep:yapfast-iced", "dep:raw-window-handle", "dep:resvg", "dep:ksni", "dep:zbus", "dep:windows-sys", "dep:windows", "dep:reqwest", "dep:rustls", "dep:sha2", "dep:minisign-verify", "dep:wayland-client", "dep:wayland-backend", "dep:wayland-protocols", "dep:arboard", "dep:image", "dep:tempfile", "dep:wl-clipboard-rs", "dep:x11rb", "dep:futures-util", "dep:winit"]
+desktop = ["discord", "dep:yapfast-iced", "dep:raw-window-handle", "dep:resvg", "dep:ksni", "dep:zbus", "dep:windows-sys", "dep:windows", "dep:reqwest", "dep:rustls", "dep:sha2", "dep:minisign-verify", "dep:wayland-client", "dep:wayland-backend", "dep:wayland-protocols", "dep:arboard", "dep:image", "dep:tempfile", "dep:chrono", "dep:wl-clipboard-rs", "dep:x11rb", "dep:futures-util", "dep:winit"]
 
 [dependencies]
 anyhow.workspace = true
@@ -80,6 +80,8 @@ reqwest = { version = "0.13", default-features = false, features = ["http2", "ru
 rustls = { workspace = true, optional = true }
 # Checks a downloaded release against the SHA256SUMS.txt it was published with.
 sha2 = { version = "0.10", optional = true }
+# The time a HaloCord update went in, as the build PC's updater writes it.
+chrono = { workspace = true, optional = true }
 # Checks the minisign signature on those sums, with the keys in packaging/keys.
 minisign-verify = { version = "0.3", optional = true }
 # The window's handles, which bringing it forward, following a drag over it

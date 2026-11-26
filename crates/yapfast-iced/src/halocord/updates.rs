@@ -30,7 +30,7 @@ pub const NIGHTLY_TAG: &str = "nightly";
 /// The sums every release publishes beside its files.
 pub const SUMS: &str = "SHA256SUMS.txt";
 
-/// The release line an update follows, which About's picker chooses.
+/// The release line an update follows, which the Updates page chooses.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Channel {
@@ -133,7 +133,7 @@ impl Build {
         })
     }
 
-    /// What About and the notification call it, which also tells one build
+    /// What the Updates page and the notification call it, which also tells one build
     /// from another when one is skipped.
     pub fn name(self) -> String {
         match self.nightly {
@@ -253,6 +253,25 @@ pub fn parse_release(json: &[u8], channel: Channel) -> Result<Release, String> {
         zip,
         sums,
     })
+}
+
+/// Asks for the channel's one release through `fetch`, which gets the
+/// address and answers with GitHub's status and body. The root crate passes
+/// its web client; tests pass a fake answer.
+pub async fn look_up<F, Answer>(channel: Channel, fetch: F) -> Result<Release, String>
+where
+    F: FnOnce(String) -> Answer,
+    Answer: std::future::Future<Output = Result<(u16, Vec<u8>), String>>,
+{
+    let (status, body) = fetch(channel.url()).await?;
+    match status {
+        200..=299 => parse_release(&body, channel),
+        404 => Err(match channel {
+            Channel::Nightly => "There's no nightly build yet.".into(),
+            Channel::Stable => "There's no HaloCord release yet.".into(),
+        }),
+        status => Err(format!("GitHub answered {status}.")),
+    }
 }
 
 /// The longest notes kept, in characters; the release's page has the rest.
@@ -486,6 +505,56 @@ mod tests {
         assert_eq!(sum_for(&sums, STABLE_ZIP), Some(sum));
         assert_eq!(sum_for(&sums, "missing.zip"), None);
         assert_eq!(sum_for("short  file.zip", "file.zip"), None);
+    }
+
+    /// Runs a look whose fake answer is ready at once, and says what
+    /// address it asked for.
+    fn look_with(channel: Channel, status: u16, body: Vec<u8>) -> (String, Result<Release, String>) {
+        let asked = std::cell::RefCell::new(String::new());
+        let look = look_up(channel, |url| {
+            *asked.borrow_mut() = url;
+            std::future::ready(Ok((status, body)))
+        });
+        let mut look = std::pin::pin!(look);
+        let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+        let std::task::Poll::Ready(found) = look.as_mut().poll(&mut context) else {
+            panic!("a ready answer finishes the look");
+        };
+        (asked.into_inner(), found)
+    }
+
+    #[test]
+    fn a_look_asks_its_channel_and_reads_the_answer() {
+        let tag = "v0.5.0-nightly.20261120.19-halocord.18";
+        let (asked, found) = look_with(Channel::Stable, 200, listing(tag, STABLE_ZIP));
+        assert_eq!(asked, Channel::Stable.url());
+        assert_eq!(found.expect("stable").build, stable(18));
+        let (asked, found) = look_with(Channel::Nightly, 200, listing(NIGHTLY_TAG, NIGHTLY_ZIP));
+        assert!(asked.ends_with("/releases/tags/nightly"), "{asked}");
+        let found = found.expect("nightly");
+        assert_eq!(found.channel, Channel::Nightly);
+        assert_eq!(found.build, nightly(18, 20261126, 57));
+    }
+
+    #[test]
+    fn a_look_says_why_it_found_nothing() {
+        let missing = b"{\"message\":\"Not Found\"}".to_vec();
+        assert_eq!(
+            look_with(Channel::Nightly, 404, missing.clone()).1.err().as_deref(),
+            Some("There's no nightly build yet.")
+        );
+        assert_eq!(
+            look_with(Channel::Stable, 404, missing).1.err().as_deref(),
+            Some("There's no HaloCord release yet.")
+        );
+        assert_eq!(
+            look_with(Channel::Stable, 500, Vec::new()).1.err().as_deref(),
+            Some("GitHub answered 500.")
+        );
+        assert_eq!(
+            look_with(Channel::Stable, 200, b"<html>".to_vec()).1.err().as_deref(),
+            Some("GitHub's answer wasn't a release.")
+        );
     }
 
     #[test]

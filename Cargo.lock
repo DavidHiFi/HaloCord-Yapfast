@@ -10697,6 +10697,7 @@ version = "0.5.0-nightly.20261120.19"
 dependencies = [
  "anyhow",
  "arboard",
+ "chrono",
  "futures-util",
  "image",
  "ksni",

@@ -1,5 +1,6 @@
 //! Settings' pages of switches and choices: My account, Messages,
-//! Notifications, Sounds, Advanced, About, Discord and Game Activity; and
+//! Notifications, Sounds, Advanced, About, Updates, Discord and Game
+//! Activity; and
 //! what their preferences do when changed.
 
 use iced::Element;
@@ -28,6 +29,7 @@ mod messages;
 mod mochacord;
 mod notifications;
 mod sounds;
+mod updates;
 
 pub(super) use halocord::mocha_found;
 pub use halocord::{HaloEvent, HaloState, halo_message};

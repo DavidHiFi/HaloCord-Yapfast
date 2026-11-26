@@ -80,6 +80,8 @@ pub enum Section {
     About,
     /// HaloCord's overview: which build this is and the way to the rest.
     HaloCord,
+    /// HaloCord's own releases: what a look found, and how it looks.
+    Updates,
     /// HaloCord's plugins, as cards.
     Plugins,
     /// The themes, with MochaCord's options behind its cog.
@@ -92,7 +94,7 @@ impl Section {
     /// The page as NEW tags name it, for those with tagged settings.
     fn page(self) -> Option<NewPage> {
         match self {
-            Section::About => Some(NewPage::About),
+            Section::Updates => Some(NewPage::About),
             _ => None,
         }
     }
@@ -112,6 +114,7 @@ impl Section {
             Section::Keybinds => "Keybinds",
             Section::About => "About",
             Section::HaloCord => "HaloCord",
+            Section::Updates => "Updates",
             Section::Plugins => "Plugins",
             Section::Themes => "Themes",
             Section::Backup => "Backup & Restore",
@@ -132,6 +135,7 @@ impl Section {
             Section::Keybinds => Icon::Keyboard,
             Section::About => Icon::Help,
             Section::HaloCord => Icon::Headphones,
+            Section::Updates => Icon::Refresh,
             Section::Plugins => Icon::Star,
             Section::Themes => Icon::Palette,
             Section::Backup => Icon::Download,
@@ -167,6 +171,7 @@ const GROUPS: [(&str, &[Section]); 4] = [
         "HaloCord",
         &[
             Section::HaloCord,
+            Section::Updates,
             Section::Plugins,
             Section::Themes,
             Section::Backup,
@@ -491,6 +496,7 @@ impl<'a> Page<'a> {
             Section::Keybinds => self.keybinds_page(),
             Section::About => self.about_page(),
             Section::HaloCord => self.halocord_page(),
+            Section::Updates => self.updates_page(),
             Section::Plugins => self.plugins_page(),
             Section::Themes => self.themes_page(),
             Section::Backup => self.backup_page(),
