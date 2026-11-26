@@ -129,9 +129,22 @@ impl<'a> Page<'a> {
                     .collect();
             let mut rows = column![].spacing(TILE_GAP);
             for chunk in cards.chunks(columns) {
+                // A row is as tall as its longest name needs, so a name that
+                // wraps grows its row and the row's tiles stay level.
+                let label = chunk
+                    .iter()
+                    .map(|(id, name, custom, _)| {
+                        let current = self.cx.themes.chosen_id() == id;
+                        name_height(
+                            name,
+                            current,
+                            name_room(width, current, self.has_button(id, *custom)),
+                        )
+                    })
+                    .fold(LABEL, f32::max);
                 let mut line = row![].spacing(TILE_GAP);
                 for (id, name, custom, palette) in chunk {
-                    line = line.push(self.theme_tile(id, name, *custom, palette, width));
+                    line = line.push(self.theme_tile(id, name, *custom, palette, width, label));
                 }
                 rows = rows.push(line);
             }
@@ -141,9 +154,15 @@ impl<'a> Page<'a> {
         .into()
     }
 
-    /// A theme to choose: a small window in its colours, its name under it,
-    /// an accent ring and a tick on the one shown, and a pencil on the
-    /// person's own.
+    /// Whether the tile for `id` carries a button over its name's right end:
+    /// MochaCord's cog or the pencil on the person's own.
+    fn has_button(self, id: &str, custom: bool) -> bool {
+        custom || id == crate::mochacord::THEME
+    }
+
+    /// A theme to choose: a small window in its colours, its name under it
+    /// (on as many lines as it needs, `label` tall), an accent ring and a
+    /// tick on the one shown, and a pencil on the person's own.
     fn theme_tile(
         self,
         id: &str,
@@ -151,52 +170,43 @@ impl<'a> Page<'a> {
         custom: bool,
         palette: &palette::Theme,
         width: f32,
+        label_height: f32,
     ) -> Element<'a, Message> {
         let theme = self.cx.look.theme;
         let current = self.cx.themes.chosen_id() == id;
         let preview = preview(palette, width - 16.0);
-        let mut label = row![
-            text(name.to_owned())
-                .size(14)
-                .font(if current { BOLD } else { MEDIUM })
-                .color(if current { theme.text } else { theme.secondary })
-                .wrapping(text::Wrapping::None)
-                .width(Length::Fill)
-        ]
-        .spacing(6)
-        .align_y(Alignment::Center)
-        .height(24);
-        if current {
-            label = label.push(self.cx.look.glyph(Icon::Check, 16, theme.accent));
-        }
+        let label = tile_label(
+            theme,
+            self.cx.look.glyph(Icon::Check, 16, theme.accent).into(),
+            name,
+            current,
+            self.has_button(id, custom),
+            label_height,
+        );
         let (accent, faint, line, hover) = (theme.accent, theme.faint, theme.line, theme.hover);
-        let face = button(
-            column![preview, container(label).padding([0, 2])]
-                .spacing(6)
-                .padding(8),
-        )
-        .padding(0)
-        .width(width)
-        .height(TILE_HEIGHT)
-        .on_press(theme_message(Event::Choose(id.to_owned())))
-        .style(move |_, status| {
-            let lit = lights(status);
-            button::Style {
-                background: lit.then(|| hover.into()),
-                border: Border {
-                    color: if current {
-                        accent
-                    } else if lit {
-                        faint
-                    } else {
-                        line
+        let face = button(column![preview, label].spacing(6).padding(8))
+            .padding(0)
+            .width(width)
+            .height(TILE_HEIGHT - LABEL + label_height)
+            .on_press(theme_message(Event::Choose(id.to_owned())))
+            .style(move |_, status| {
+                let lit = lights(status);
+                button::Style {
+                    background: lit.then(|| hover.into()),
+                    border: Border {
+                        color: if current {
+                            accent
+                        } else if lit {
+                            faint
+                        } else {
+                            line
+                        },
+                        width: if current { 2.0 } else { 1.0 },
+                        radius: 10.0.into(),
                     },
-                    width: if current { 2.0 } else { 1.0 },
-                    radius: 10.0.into(),
-                },
-                ..Default::default()
-            }
-        });
+                    ..Default::default()
+                }
+            });
         if id == crate::mochacord::THEME {
             let cog = self
                 .cx
@@ -348,6 +358,99 @@ impl<'a> Page<'a> {
     }
 }
 
+/// A tile's name: wrapped inside the tile, never past its edge, with the
+/// tick after it on the one shown, and room kept at its right end for a
+/// pencil or cog laid over it. A long name ("Catppuccin Macchiato" in a
+/// wide font) ran out past the tile's border on one line.
+fn tile_label<'a>(
+    theme: &crate::theme::Theme,
+    tick: Element<'a, Message>,
+    name: &str,
+    current: bool,
+    button: bool,
+    height: f32,
+) -> Element<'a, Message> {
+    let mut label = row![
+        text(name.to_owned())
+            .size(NAME_SIZE)
+            .font(name_font(current))
+            .color(if current { theme.text } else { theme.secondary })
+            .wrapping(text::Wrapping::WordOrGlyph)
+            .width(Length::Fill)
+    ]
+    .spacing(TICK_GAP)
+    .align_y(Alignment::Center)
+    .height(height);
+    if current {
+        label = label.push(tick);
+    }
+    container(label)
+        .padding(iced::Padding {
+            left: 2.0,
+            right: if button { BUTTON + TICK_GAP } else { 2.0 },
+            ..iced::Padding::ZERO
+        })
+        .into()
+}
+
+/// The name's text size, and the one-line height its row keeps at least.
+const NAME_SIZE: f32 = 14.0;
+const LABEL: f32 = 24.0;
+/// The tick's size and gap, and a pencil or cog's width.
+const TICK: f32 = 16.0;
+const TICK_GAP: f32 = 6.0;
+const BUTTON: f32 = 24.0;
+
+fn name_font(current: bool) -> iced::Font {
+    if current { BOLD } else { MEDIUM }
+}
+
+/// How wide a tile `width` wide leaves its name: inside the tile's 8 px
+/// padding and the label's own, less the tick and a pencil or cog.
+fn name_room(width: f32, current: bool, button: bool) -> f32 {
+    let mut room = width - 16.0 - 2.0;
+    room -= if button { BUTTON + TICK_GAP } else { 2.0 };
+    if current {
+        room -= TICK + TICK_GAP;
+    }
+    room.max(1.0)
+}
+
+/// How tall `name` draws wrapped to `room`, in the font the tile uses, so
+/// a row can grow to its longest name. Measured with the fonts the window
+/// draws with (a wide one like Fira Code takes two lines where a narrow one
+/// takes one), and kept, as the tiles draw often.
+fn name_height(name: &str, current: bool, room: f32) -> f32 {
+    use iced::advanced::{
+        graphics::text::Paragraph,
+        text::{self, LineHeight, Paragraph as _, Shaping, Wrapping},
+    };
+    thread_local! {
+        static MEASURED: std::cell::RefCell<std::collections::HashMap<(String, bool, u32), f32>> =
+            std::cell::RefCell::default();
+    }
+    let key = (name.to_owned(), current, room.to_bits());
+    if let Some(height) = MEASURED.with(|kept| kept.borrow().get(&key).copied()) {
+        return height;
+    }
+    let height = Paragraph::with_text(text::Text {
+        content: name,
+        bounds: iced::Size::new(room, f32::INFINITY),
+        size: NAME_SIZE.into(),
+        line_height: LineHeight::default(),
+        font: name_font(current),
+        align_x: text::Alignment::Default,
+        align_y: iced::alignment::Vertical::Top,
+        shaping: Shaping::Advanced,
+        wrapping: Wrapping::WordOrGlyph,
+    })
+    .min_bounds()
+    .height
+    .ceil();
+    MEASURED.with(|kept| kept.borrow_mut().insert(key, height));
+    height
+}
+
 /// HaloCord: what the last theme file did, or nothing.
 fn file_note<'a>(theme: &crate::theme::Theme, note: Option<Note>) -> Element<'a, Message> {
     match note {
@@ -451,4 +554,52 @@ fn preview<'a>(palette: &palette::Theme, width: f32) -> Element<'a, Message> {
             ..Default::default()
         })
         .into()
+}
+
+#[cfg(test)]
+mod tests {
+    use iced::widget::Space;
+    use iced_test::{Simulator, selector::Candidate};
+
+    /// A long name in a narrow tile with a pencil wraps inside the tile, short
+    /// of the pencil, and its row grows to hold both lines.
+    #[test]
+    fn a_long_theme_name_wraps_inside_its_tile() {
+        let name = "Catppuccin Macchiato";
+        let room = super::name_room(150.0, false, true);
+        let height = super::name_height(name, false, room);
+        assert!(height > super::LABEL, "two lines, the row grows: {height}");
+        let built_in = &yapfast_core::theme::BUILT_IN[0];
+        let theme = crate::themes::theme(built_in.id, &built_in.theme);
+        let inside = 150.0 - 16.0;
+        let label = super::tile_label(&theme, Space::new().into(), name, false, true, height);
+        let mut ui = Simulator::with_size(
+            iced::Settings::default(),
+            iced::Size::new(inside, 200.0),
+            label,
+        );
+        let mut words = None;
+        let _ = ui.find(|candidate: Candidate<'_>| {
+            if let Candidate::Text {
+                content, bounds, ..
+            } = candidate
+                && content == name
+            {
+                words = Some(bounds);
+            }
+            None::<()>
+        });
+        let words = words.expect("the name");
+        assert!(
+            words.x + words.width <= inside - super::BUTTON,
+            "short of the pencil and inside the tile: {words:?}"
+        );
+        assert!(words.height <= height + 0.5, "inside its row: {words:?}");
+    }
+
+    #[test]
+    fn a_short_theme_name_keeps_one_line() {
+        let room = super::name_room(150.0, true, false);
+        assert!(super::name_height("Nord", true, room) <= super::LABEL);
+    }
 }
