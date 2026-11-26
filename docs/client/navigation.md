@@ -13,7 +13,12 @@ behind another, it shows. Each tile has its pill at the
 rail's edge (open, pointed at, unread), its mentions in a red badge, a
 speaker at its top right, and its name in a tooltip;
 a server out of reach in a Discord outage shows faded, its tooltip "Name
-(unavailable in a Discord outage)".
+(unavailable in a Discord outage)". While a server's invites are paused,
+its tooltip says "Invites paused for this server" under its name, only to
+an account that may Manage Server (`ChatServer::invites_paused_until`,
+which the core leaves empty for anyone else), as Discord's server tooltip
+does; the line is made under the pointer only, which checks when they
+resume.
 On the standard left rail, drag a Discord server onto another server to
 create a folder, or onto an existing folder to add it. The dragged icon
 follows the pointer. An outline
@@ -31,7 +36,8 @@ a channel muted itself, not one in a muted category), and aren't
 blocked or ignored. A muted server shows none unless this account is in
 a call there.
 Under the pointer, a server with people in voice has a card for its
-tooltip, made then and only for it: its name, then each busy voice
+tooltip, made then and only for it: its name, the paused invites' line
+when it has one, then each busy voice
 channel's name, by a screen when someone in it shares theirs, else a
 speaker, over its people's overlapping faces, the first four channels
 and six faces each, with how many more. Discord's card puts everyone in
@@ -132,6 +138,19 @@ that ask first or need more opening their dialog (see
 taller than the window scrolls, kept inside it. A
 DM's menu mutes it for a time and, for its person, offers what their own
 menu does, with Invite to server and Apps in submenus.
+
+While someone else types in a DM or group DM, its row's avatar shows
+Discord's typing badge in place of the status dot (`typing::badge`): the
+status's colour, or online's green for a group DM, as a pill two and a
+half dots wide in the dot's ring, centred on it and reaching past the
+avatar's edge, with the composer strip's three dots pulsing in white
+within. The core keeps those DMs in `AppState::typing_dms` as each typing
+change comes, so a row looks itself up once. A Discord DM's stays as other
+rooms open, and goes with the account when it's switched or signed out. A
+Matrix one's counts only while its room is open, and goes as it closes,
+since Matrix says who types only there. The dots ask for frames only
+while a row shows them, so a DM list nobody types in draws nothing; while
+moving pictures don't play they stand still.
 
 In a Discord server, channels and categories drag to move them
 (`arrange.rs`): each category and

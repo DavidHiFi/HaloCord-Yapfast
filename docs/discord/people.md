@@ -29,6 +29,20 @@ presence, and a crown on whoever made it (the channel's `owner_id`), named
 "Group Owner", as a server's member list crowns its owner. Yapfast downloads the pictures of the first
 150 DMs listed; the rest keep their initials.
 
+While someone other than this account types in a DM or group DM, its row's
+avatar shows typing dots in place of the status dot, as Discord's DM list
+does (its `PrivateChannel` row's `isTyping`, from the `TypingStore`): in a
+one-to-one DM the other person typing, in a group DM anyone but this
+account. Discord colours the pill as the person's status; a group DM's,
+which has no status of its own, is online's green. It shows in muted DMs and
+in the open one too, as Discord's does. TYPING_START comes for every
+channel, so a DM's dots show and stop whatever conversation is open: ten
+seconds after the last, or when that person's message comes. Blocked
+people never light a row here, since Yapfast drops their typing; Discord's
+row still would. Switching or signing out of the account clears every
+Discord DM's dots, as Discord's own list of typers empties when it
+connects.
+
 Friend requests, message requests and spam have their own screen. A
 "Requests" entry below Friends at the top of the DM list opens it in place of the
 conversation, with a badge counting the people waiting for an answer: an
@@ -377,7 +391,12 @@ profile once each time the open DM changes to someone else. Yapfast fetches it
 from `GET /users/{id}/profile` with the open server's id, so the server's
 nickname, avatar, banner, bio and pronouns win over the person's own, and the
 profile lists their roles in role order, when they joined Discord and the server,
-and the servers and friends the account shares with them. The full profile,
+and the servers and friends the account shares with them. It also carries the
+accounts they linked (`connected_accounts`), which the full profile lists under
+Connections. The small card leaves them to the full profile, unless Settings ›
+Appearance's "Show connections on profile cards" is on (off by default): then
+it lists them too, from the same answer, asking for nothing more. The full
+profile,
 the DM's panel and the profile editor's preview show the dates under "Member
 Since" in one row, as the client does: the Discord logo and the account's
 date, then a bullet, the server's icon (its initial without one) and the date
@@ -903,8 +922,11 @@ window draws carry no address for it, so the window asks for nothing either.
 | Show nameplates (`nameplates`) | No nameplate in member lists or on the account's card (`AppState::hide_nameplates`) | On |
 | Animate decorations and nameplates (`moving_cosmetics`) | Their `/animated` APNG is never asked for (`animated_url` gives none), so only the still is fetched and decoded | On |
 | Show name styles (`name_styles`) | Names in the UI's typeface and the theme's colour | On |
+| Draw role colour gradients (`name_colours`) | One span a name in the role's first colour, instead of a span a letter redrawn with the name | On |
 | Show server tags (`server_tags`) | No tag chip, and no badge picture | On |
+| Show badges (`badges`) | No badge picture on a profile card, and no levels request for one | On |
 | Show profile frames (`profile_frames`) | No `/collectibles-products/` request for a profile's frame (`DiscordCommand::Profile`'s `frame`), and none of its layers | On |
+| Show profile backgrounds (`profile_backgrounds`) | No banner picture asked for, shown or kept going, and the top in the card's own colour rather than the accent or the avatar's | On |
 
 Every switch starts on, so profiles look as in Discord's client. The
 switches are there for the cheaper side: an effect's layers are APNGs up
@@ -915,6 +937,12 @@ Decorations, nameplates and tags are a still each, decoded once, and name
 styles use bundled fonts. Turning a switch off takes what it covers off
 what's shown at once; turning effects on shows a profile's effect the
 next time the profile is fetched.
+
+Role colour gradients, like name styles, fetch nothing; their switch is
+over drawing: a gradient name is a text span for every letter, rebuilt
+each time the row is drawn, member list and timeline alike, where one
+colour is a single span. A client with every switch off asks Discord for
+none of these pictures and draws none of them.
 
 ## Editing one's main profile
 

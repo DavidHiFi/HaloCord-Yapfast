@@ -93,10 +93,15 @@ impl App {
                 self.theme.outline,
             );
             container(rail)
-                .width(crate::rail::resolved_width(
-                    self.themes.package_layout(&self.theme.id),
-                    self.themes.chrome(&self.theme.id),
-                ))
+                .width(
+                    crate::rail::resolved_width(
+                        self.themes.package_layout(&self.theme.id),
+                        self.themes.chrome(&self.theme.id),
+                    ) + crate::rail::side_width(
+                        &self.layout,
+                        self.themes.package_layout(&self.theme.id),
+                    ),
+                )
                 .into()
         };
         let mut rail_view = Some(rail_view);

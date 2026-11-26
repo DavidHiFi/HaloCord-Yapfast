@@ -27,7 +27,8 @@ pub fn themed_navigation(
     } else {
         crate::rail::resolved_width(package, chrome)
     };
-    rail + crate::sidebar::width(layout, theme)
+    // HaloCord's Server sidebar's column (docs/halocord.md).
+    rail + crate::rail::side_width(layout, package) + crate::sidebar::width(layout, theme)
 }
 
 /// Whether a theme puts the server rail on the window's right edge. The

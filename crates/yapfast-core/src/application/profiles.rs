@@ -228,6 +228,7 @@ impl Application {
                 user,
                 effect: self.state.cosmetics.effects,
                 frame: self.state.cosmetics.frames,
+                badges: self.state.cosmetics.badges,
             }))]
         } else {
             vec![]
@@ -286,6 +287,7 @@ impl Application {
             user,
             effect: false,
             frame: false,
+            badges: self.state.cosmetics.badges,
         }))]
     }
 

@@ -43,6 +43,9 @@ pub struct Rail {
     pub items: Vec<RailItem>,
     pub scroll: crate::sync::Scroll,
     dragging: Option<Drag>,
+    /// HaloCord's Server sidebar (docs/halocord.md): the open folder's
+    /// tiles, in their column beside the rail.
+    pub side: Vec<RailItem>,
 }
 
 struct Drag {
@@ -59,14 +62,63 @@ struct Destination<'a> {
 
 /// The rail, down the window's left edge.
 pub fn view<'a>(rail: &'a Rail, cx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
-    View { s: rail, cx }.rail_view()
+    let main = View {
+        s: rail,
+        cx,
+        side: false,
+    }
+    .rail_view();
+    if rail.side.is_empty() {
+        return main;
+    }
+    let side = View {
+        s: rail,
+        cx,
+        side: true,
+    }
+    .side_view();
+    row![main, side].into()
+}
+
+/// How far the rail reaches across, HaloCord's Server sidebar's column
+/// with it while a folder is open there.
+pub fn width(layout: &crate::layout::Layout) -> f32 {
+    WIDTH + layout.halocord.folder_side_width()
+}
+
+/// Whether HaloCord's Server sidebar can stand beside the rail: only a rail
+/// down the left edge has room for its column.
+pub fn has_side(package: Option<&yapfast_core::themes::layout::Layout>) -> bool {
+    use yapfast_core::themes::layout::RailSide;
+    !matches!(
+        package.and_then(|layout| layout.rail),
+        Some(RailSide::Hidden | RailSide::Top | RailSide::Tree | RailSide::Right)
+    )
+}
+
+/// How wide HaloCord's Server sidebar's column is beside the rail: none
+/// while no folder is open there or the rail isn't on the left.
+pub fn side_width(
+    layout: &crate::layout::Layout,
+    package: Option<&yapfast_core::themes::layout::Layout>,
+) -> f32 {
+    if has_side(package) {
+        layout.halocord.folder_side_width()
+    } else {
+        0.0
+    }
 }
 
 /// The same server picker laid across the window's top. The item faces and
 /// theme tile art stay on the same path as the vertical rail; only the
 /// scroll axis and edge marks change.
 pub fn top_view<'a>(rail: &'a Rail, cx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
-    View { s: rail, cx }.top_view()
+    View {
+        s: rail,
+        cx,
+        side: false,
+    }
+    .top_view()
 }
 
 /// The rail's view: its rows and the view context.
@@ -74,6 +126,8 @@ pub fn top_view<'a>(rail: &'a Rail, cx: crate::ctx::Ctx<'a>) -> Element<'a, Mess
 struct View<'a> {
     s: &'a Rail,
     cx: crate::ctx::Ctx<'a>,
+    /// Drawing Server sidebar's column, whose tiles don't drag.
+    side: bool,
 }
 
 impl Rail {
@@ -83,6 +137,7 @@ impl Rail {
             items: Vec::new(),
             scroll: crate::sync::Scroll::new(height),
             dragging: None,
+            side: Vec::new(),
         }
     }
 }
@@ -613,6 +668,32 @@ fn hidden_people(state: &AppState) -> HashSet<&str> {
         .collect()
 }
 
+/// What a server's tooltip says under its name while its invites are
+/// paused, as Discord's client words it.
+pub const INVITES_PAUSED: &str = "Invites paused for this server";
+
+/// Whether the server a rail tile is for has its invites paused now, as
+/// its tooltip tells one who may Manage Server: the core says when they
+/// resume only to such an account. Asked only under the pointer.
+fn invites_paused(state: &AppState, id: &str) -> bool {
+    let now = yapfast_core::clock::now_ms() / 1000;
+    state
+        .servers
+        .iter()
+        .find(|server| server.id == id)
+        .and_then(|server| server.invites_paused_until)
+        .is_some_and(|until| until > now)
+}
+
+/// The paused invites' line in a server's tooltip, in its text colour.
+fn paused_line<'a>(theme: &crate::theme::Theme) -> Element<'a, Message> {
+    text(INVITES_PAUSED)
+        .size(14)
+        .font(MEDIUM)
+        .color(theme.text)
+        .into()
+}
+
 /// A voice channel whose people count on its server's speaker and
 /// tooltip, as Discord's: one this account may see, not a Stage, not the
 /// inactive channel, not muted.
@@ -762,7 +843,11 @@ impl Rail {
 pub fn drag_face<'a>(rail: &'a Rail, cx: crate::ctx::Ctx<'a>) -> Option<Element<'a, Message>> {
     let drag = rail.dragging.as_ref()?;
     let item = rail.items.iter().find(|item| item.id == drag.server)?;
-    let view = View { s: rail, cx };
+    let view = View {
+        s: rail,
+        cx,
+        side: false,
+    };
     // Half seen through, as the drag image Discord's client shows, so the
     // line or outline under the pointer stays in sight.
     let face = match &item.kind {
@@ -831,6 +916,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             let view = View {
                 s: &app.rail,
                 cx: app.ctx(),
+                side: false,
             };
             let destination = view
                 .destination()
@@ -845,10 +931,18 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             return app.sync();
         }
         Event::Home => {
+            // HaloCord's Server sidebar (docs/halocord.md).
+            crate::halocord::home_picked(&app.layout.halocord, &mut app.layout.open_folders);
             app.client
                 .dispatch(Action::Navigate(Navigation::DirectMessages));
         }
         Event::Server(id) => {
+            crate::halocord::server_picked(
+                &app.layout.halocord,
+                app.client.state(),
+                &mut app.layout.open_folders,
+                &id,
+            );
             app.client.dispatch(Action::Navigate(if id == "@favorites" {
                 Navigation::Favorites
             } else {
@@ -866,6 +960,11 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 }
                 crate::layout::store(app.client.root(), "tree_folder", &app.layout.tree_folder);
             } else {
+                crate::halocord::folder_pressed(
+                    &app.layout.halocord,
+                    &mut app.layout.open_folders,
+                    &id,
+                );
                 if !app.layout.open_folders.remove(&id) {
                     app.layout.open_folders.insert(id);
                 }
@@ -875,6 +974,12 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
                 app.client.state(),
                 &crate::sidebar::tree::folders_shown(app),
             );
+            // HaloCord's Server sidebar (docs/halocord.md).
+            app.rail.side = if has_side(app.themes.package_layout(&app.theme.id)) {
+                crate::halocord::server_sidebar(&mut app.layout.halocord, &mut app.rail.items)
+            } else {
+                Vec::new()
+            };
             return app.ask();
         }
         Event::Dm(id) => app.client.dispatch(Action::Open(id)),
@@ -1108,20 +1213,20 @@ impl<'a> View<'a> {
                         .height(1)
                         .into(),
                 };
-                column![
-                    container(self.home_tile())
-                        .center_y(tiles.height + 2.0 * tiles.pad + self.label_height()),
-                    divider,
-                    list
-                ]
-                .spacing(0)
-                .width(rail_width)
+                self.rail_top(0.0, rail_width)
+                    .push(
+                        container(self.home_tile())
+                            .center_y(tiles.height + 2.0 * tiles.pad + self.label_height()),
+                    )
+                    .push(divider)
+                    .push(list)
             }
             None => {
                 let line = container(bar(theme.outline, 32, 1)).center_x(rail_width);
-                column![self.home_tile(), line, list]
-                    .spacing(GAP)
-                    .width(rail_width)
+                self.rail_top(GAP, rail_width)
+                    .push(self.home_tile())
+                    .push(line)
+                    .push(list)
             }
         };
         // As Slint: a theme's art at the rail's foot (a power light). The
@@ -1194,6 +1299,54 @@ impl<'a> View<'a> {
             .height(Length::Fill)
             .into()
     }
+
+    /// HaloCord's Server sidebar: the open folder's tiles in a column of
+    /// the rail's width, from the home tile's height down.
+    fn side_view(self) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        let total = self
+            .s
+            .side
+            .iter()
+            .enumerate()
+            .map(|(index, item)| item.height(index + 1))
+            .sum();
+        let mut rows = Rows::new(total);
+        let mut top = 0.0;
+        for (index, item) in self.s.side.iter().enumerate() {
+            let height = item.height(index + 1);
+            rows.push(
+                key(&format!("side-{}", item.id)),
+                top - ABOVE,
+                height + ABOVE,
+                self.rail_row(index + 1, item, height, None),
+            );
+            top += height;
+        }
+        let list = scroll_view(rows)
+            .height(Length::Fill)
+            .style(scrollbar(theme));
+        container(list)
+            .padding(Padding {
+                top: HOME_ROOM + ABOVE,
+                bottom: 12.0,
+                ..Padding::ZERO
+            })
+            .width(WIDTH)
+            .height(Length::Fill)
+            .into()
+    }
+
+    /// HaloCord's Read all and Server list indicators (docs/halocord.md),
+    /// above the home tile, in a column the rest of the rail joins.
+    fn rail_top(self, spacing: f32, width: f32) -> iced::widget::Column<'a, Message> {
+        crate::halocord::rail_top(self.cx)
+            .into_iter()
+            .fold(column![].spacing(spacing).width(width), |items, top| {
+                items.push(top)
+            })
+    }
+
 
     /// A theme's text rail: the same navigation and menus as the tile rail,
     /// with only checked labels and marks replacing its visible words.
@@ -2232,7 +2385,8 @@ impl<'a> View<'a> {
             folder: matches!(item.kind, Kind::Folder { .. }),
             open_folder,
             menu: item.kind != Kind::Add,
-            draggable: self.can_drag()
+            draggable: !self.side
+                && self.can_drag()
                 && !self.cx.state.preview
                 && self.cx.state.discord_user.is_some()
                 && (matches!(item.kind, Kind::Folder { .. })
@@ -2248,13 +2402,21 @@ impl<'a> View<'a> {
             Cow::Borrowed(item.name.as_str())
         };
         let name = crate::halocord::tip_member_count(self.cx, &item.id, name);
-        // HaloCord's Show hidden things (docs/halocord.md): invites paused.
-        let name = crate::halocord::server_tip(self.cx, &item.id, name);
-
-        // Who is in which voice channel, made only under the pointer.
+        // Who is in which voice channel, and whether its invites are
+        // paused, made only under the pointer.
+        let paused = pointed && invites_paused(self.cx.state, &item.id);
+        // HaloCord's Show hidden things (docs/halocord.md): invites paused,
+        // unless the tip already says so.
+        let name = if paused {
+            name
+        } else {
+            crate::halocord::server_tip(self.cx, &item.id, name)
+        };
         let label = name.clone();
         let tip = if pointed && !item.busy.0.is_empty() {
-            self.voice_card(name, &item.busy.0)
+            self.voice_card(name, paused, &item.busy.0)
+        } else if paused {
+            self.paused_tip(name)
         } else {
             controls::tip(self.cx.look.theme, name)
         };
@@ -2822,17 +2984,26 @@ impl<'a> View<'a> {
     }
 
     /// A server's tooltip while people are in its voice channels: its
-    /// name, then each busy channel's name over its people's faces (a
-    /// screen for a channel someone shares theirs in, else a speaker), the
-    /// first [`CARD_ROOMS`] channels and [`CARD_FACES`] faces each, and
-    /// how many more. Discord's puts everyone in one row; by channel, it
+    /// name, that its invites are paused when `paused` (Discord's puts it
+    /// between the two), then each busy channel's name over its people's
+    /// faces (a screen for a channel someone shares theirs in, else a
+    /// speaker), the first [`CARD_ROOMS`] channels and [`CARD_FACES`]
+    /// faces each, and how many more. Discord's puts everyone in one row; by channel, it
     /// says who is together.
-    fn voice_card(self, name: Cow<'a, str>, busy: &'a [Arc<ChatRoom>]) -> Element<'a, Message> {
+    fn voice_card(
+        self,
+        name: Cow<'a, str>,
+        paused: bool,
+        busy: &'a [Arc<ChatRoom>],
+    ) -> Element<'a, Message> {
         let theme = self.cx.look.theme;
         let hidden = hidden_people(self.cx.state);
         let mut card = column![text(name).size(14).font(BOLD).color(theme.text)]
             .spacing(8)
             .width(CARD_WIDTH);
+        if paused {
+            card = card.push(paused_line(theme));
+        }
         for room in busy.iter().take(CARD_ROOMS) {
             let people: Vec<&'a VoicePerson> = room
                 .people
@@ -2872,6 +3043,23 @@ impl<'a> View<'a> {
             .padding([10, 12])
             .style(controls::tip_style(theme))
             .into()
+    }
+
+    /// A server's tooltip while its invites are paused, for one who may
+    /// Manage Server: its name, and under it that they're paused, as
+    /// Discord's.
+    fn paused_tip(self, name: Cow<'a, str>) -> Element<'a, Message> {
+        let theme = self.cx.look.theme;
+        container(
+            column![
+                text(name).size(14).font(BOLD).color(theme.text),
+                paused_line(theme),
+            ]
+            .spacing(4),
+        )
+        .padding([10, 12])
+        .style(controls::tip_style(theme))
+        .into()
     }
 
     /// Overlapping faces, the first [`CARD_FACES`], and how many more, on

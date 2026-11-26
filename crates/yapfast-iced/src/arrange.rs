@@ -357,6 +357,7 @@ fn finish_moving(app: &mut App) -> Task<Message> {
     let (top, bottom) = side_list_span(app);
     let package = app.themes.package_layout(&app.theme.id);
     let left = crate::conversation::sidebar_left(package, app.themes.chrome(&app.theme.id))
+        + crate::rail::side_width(&app.layout, package)
         + app.themes.glass_gap(&app.theme.id);
     let within = (left..left + sidebar::width(&app.layout, &app.theme)).contains(&moving.at.x)
         && (top..bottom).contains(&moving.at.y);

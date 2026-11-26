@@ -676,6 +676,85 @@ fn a_dms_nameplate_fills_its_row_to_the_edges() {
 }
 
 #[test]
+fn a_dm_someone_types_in_shows_typing_dots_in_place_of_its_status_dot() {
+    use yapfast_core::chat::Presence;
+    let (mut app, _folder) = preview();
+    // Still dots, so one pixel says which is drawn.
+    app.layout.prefs.animate = crate::layout::Animate::Never;
+    let _ = app.update(Message::Rail(crate::rail::Event::Home));
+    // Sam is online; someone types in their DM or doesn't.
+    let typing = |app: &mut App, typing: bool| {
+        change(app, |state| {
+            let room = state
+                .rooms
+                .iter_mut()
+                .find(|room| room.direct && room.name == "Sam")
+                .expect("Sam's DM");
+            Arc::make_mut(room).presence = Some(Presence::Online);
+            let id = room.id.clone();
+            if typing {
+                state.typing_dms.insert(id);
+            } else {
+                state.typing_dms.remove(&id);
+            }
+        });
+    };
+    // Pixels at `x` across the avatar's middle row of the dot, 28 px down
+    // its 32 px face, which sits 12 px before the name and centred on it.
+    // The dot's middle is at 28; the badge, 31 px wide with its 3 px ring,
+    // is centred there, from 12.5 to 43.5.
+    let pixels_at = |app: &mut App, xs: &[f32]| {
+        let mut ui =
+            iced_test::Simulator::with_size(iced::Settings::default(), app.shell.frame, app.view());
+        let name = ui
+            .find("Sam")
+            .expect("Sam's row")
+            .visible_bounds()
+            .expect("in view");
+        let (left, y) = (name.x - 12.0 - 32.0, name.center_y() - 16.0 + 28.0);
+        let (width, _, pixels) = super::drawn(&mut ui);
+        xs.iter()
+            .map(|x| {
+                let at = (((y * 2.0) as usize) * width as usize + ((left + x) * 2.0) as usize) * 4;
+                [pixels[at], pixels[at + 1], pixels[at + 2]]
+            })
+            .collect::<Vec<_>>()
+    };
+    let live = app.look().theme.live;
+    let near = |drawn: u8, want: f32| (drawn as f32 / 255.0 - want).abs() < 0.08;
+    let green =
+        |pixel: [u8; 3]| near(pixel[0], live.r) && near(pixel[1], live.g) && near(pixel[2], live.b);
+    // In the pill's fill each side of the dots (its ring ends at 15.5 and
+    // 40.5, the dots run 19.25 to 36.75), the middle dot, and past it.
+    let xs = [17.0, 28.0, 39.0, 45.0];
+    typing(&mut app, false);
+    let at_rest = pixels_at(&mut app, &xs);
+    assert!(green(at_rest[1]), "the online dot: {:?}", at_rest[1]);
+    typing(&mut app, true);
+    let typing_now = pixels_at(&mut app, &xs);
+    assert!(
+        typing_now[1].iter().all(|&channel| channel > 230),
+        "the badge's white middle dot: {:?}",
+        typing_now[1]
+    );
+    // The pill's green each side of the dots, as wide as Discord's, and
+    // the row's own ground past its end, as at rest.
+    assert!(green(typing_now[0]), "the pill's left: {:?}", typing_now[0]);
+    assert!(
+        green(typing_now[2]),
+        "the pill's right: {:?}",
+        typing_now[2]
+    );
+    assert_eq!(typing_now[3], at_rest[3], "the row past the pill");
+    typing(&mut app, false);
+    assert_eq!(
+        pixels_at(&mut app, &xs),
+        at_rest,
+        "the dot again once they stop"
+    );
+}
+
+#[test]
 fn the_account_cards_carets_sit_at_the_middle_of_their_toggles() {
     use crate::call::{Event, Popup};
     let (mut app, _folder) = preview();
@@ -1143,6 +1222,58 @@ fn group_dm_icons_render_placeholder_and_overlapping_pair_with_cutout() {
         (60..=100).contains(&front[0]),
         "expected darker front avatar, got {front:?}"
     );
+}
+
+#[test]
+fn a_servers_tooltip_says_its_invites_are_paused_to_one_who_may_manage_it() {
+    use crate::rail::Event;
+    use iced::{Point, Rectangle, Size};
+    let (mut app, _folder) = preview();
+    // Below where a plain tooltip reaches: it is 32 px tall, centred on
+    // the tile, and its shadow 12 px past that. The paused line under the
+    // name makes it taller.
+    let below_name = |tile: Point| {
+        Rectangle::new(
+            Point::new(tile.x + 44.0, tile.y + 33.0),
+            Size::new(160.0, 4.0),
+        )
+    };
+    let tip_reaches_lower = |app: &mut App| {
+        let _ = app.update(Message::Rail(Event::Point("coop".into(), true)));
+        let mut drawn = false;
+        interact(app, |ui| {
+            let at = ui
+                .find("CC")
+                .expect("Co-op crew's tile")
+                .visible_bounds()
+                .expect("in view")
+                .center();
+            drawn = super::hover_draws(ui, at, below_name(at));
+        });
+        drawn
+    };
+    let pause = |app: &mut App, until: Option<u64>| {
+        change(app, |state| {
+            let coop = state
+                .servers
+                .iter_mut()
+                .find(|server| server.id == "coop")
+                .expect("Co-op crew");
+            Arc::make_mut(coop).invites_paused_until = until;
+        });
+    };
+    assert!(!tip_reaches_lower(&mut app), "its name alone");
+    // The core says when they resume only to one who may Manage Server.
+    let now = super::now_ms() / 1000;
+    pause(&mut app, Some(now + 600));
+    assert!(
+        tip_reaches_lower(&mut app),
+        "Invites paused for this server"
+    );
+    pause(&mut app, Some(u64::MAX));
+    assert!(tip_reaches_lower(&mut app), "paused with no end");
+    pause(&mut app, Some(now - 600));
+    assert!(!tip_reaches_lower(&mut app), "resumed");
 }
 
 #[test]

@@ -248,14 +248,29 @@ pub struct Prefs {
     pub decorations: Option<bool>,
     pub moving_cosmetics: Option<bool>,
     pub name_styles: Option<bool>,
+    /// Role colour gradients: a gradient or holographic role colour runs
+    /// across the name, a span a letter; off, the role's first colour.
+    pub name_colours: Option<bool>,
     pub server_tags: Option<bool>,
+    /// Profile badges and the levels their tooltips name.
+    pub badges: Option<bool>,
     pub profile_frames: Option<bool>,
+    /// Profile backgrounds: the banner picture and its colour.
+    pub profile_backgrounds: Option<bool>,
+    /// Connections on the floating profile card, as the full profile
+    /// shows them: the window's alone, and off until it's chosen.
+    pub card_connections: bool,
+    /// A theme's text glow: the soft edge it puts round text, which is
+    /// drawing rather than a profile's cosmetic.
+    pub text_glow: Option<bool>,
     pub application_icon: crate::desktop::IconChoice,
     pub tray_icon: Option<crate::desktop::IconChoice>,
     pub tray_uses_application_icon: Option<bool>,
     /// The font files Appearance's Font chose to draw the window in, in the
     /// order they were added; none keeps DM Sans.
     pub ui_font_files: Vec<String>,
+    /// Notifications' title for a reply saying whom it answers.
+    pub reply_titles: bool,
     /// Notifications: shown, saying what messages say, flashing the
     /// taskbar.
     pub notifications: Option<bool>,
@@ -347,8 +362,11 @@ impl Prefs {
             decorations: self.decorations.unwrap_or(default.decorations),
             moving: self.moving_cosmetics.unwrap_or(default.moving),
             name_styles: self.name_styles.unwrap_or(default.name_styles),
+            name_colours: self.name_colours.unwrap_or(default.name_colours),
             server_tags: self.server_tags.unwrap_or(default.server_tags),
+            badges: self.badges.unwrap_or(default.badges),
             frames: self.profile_frames.unwrap_or(default.frames),
+            background: self.profile_backgrounds.unwrap_or(default.background),
         }
     }
 
@@ -532,6 +550,7 @@ impl Layout {
             Action::ShowHiddenChannels(self.prefs.show_hidden_channels),
             Action::SyncDiscordReads(self.prefs.sync_discord_reads.unwrap_or(true)),
             Action::ReplyPing(self.prefs.reply_ping.unwrap_or(true)),
+            Action::ReplyTitles(self.prefs.reply_titles),
             Action::SetCosmetics(self.prefs.cosmetics()),
             Action::StripTracking(self.prefs.strip_tracking.unwrap_or(true)),
             Action::HideNameplates(!self.prefs.nameplates.unwrap_or(true)),
