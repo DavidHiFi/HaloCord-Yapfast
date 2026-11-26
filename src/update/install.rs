@@ -184,7 +184,7 @@ pub fn target(release: &Release) -> Result<Target, String> {
 }
 
 /// Whether a file can be made in `folder`.
-fn writable(folder: &Path) -> bool {
+pub(super) fn writable(folder: &Path) -> bool {
     tempfile::Builder::new()
         .prefix(".yapfast-write-test")
         .tempfile_in(folder)
@@ -242,7 +242,7 @@ pub struct Progress {
 }
 
 impl Progress {
-    fn stage(&self, stage: Stage) {
+    pub(super) fn stage(&self, stage: Stage) {
         self.stage.store(stage as u8, Ordering::Relaxed);
     }
 
@@ -264,7 +264,7 @@ impl Progress {
 
 /// Reads a small file of the release's, the sums or their signature, whole;
 /// one over `limit` bytes isn't the release's.
-async fn fetch_small(client: &reqwest::Client, url: &str, limit: u64) -> Result<String, String> {
+pub(super) async fn fetch_small(client: &reqwest::Client, url: &str, limit: u64) -> Result<String, String> {
     const TOO_LARGE: &str = "The release's sums are too large to be right.";
     let mut response = client
         .get(url)
@@ -294,7 +294,7 @@ async fn fetch_small(client: &reqwest::Client, url: &str, limit: u64) -> Result<
 
 /// Downloads `url` to `to` a chunk at a time, hashing as it goes; returns the
 /// SHA-256 as lower-case hex.
-async fn download(
+pub(super) async fn download(
     client: &reqwest::Client,
     url: &str,
     to: &Path,

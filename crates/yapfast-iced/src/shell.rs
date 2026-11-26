@@ -164,7 +164,7 @@ impl App {
             );
         }
         // Once at start with the check on.
-        if self.layout.prefs.check_for_updates {
+        if self.layout.prefs.checks_for_updates() {
             crate::updates::look_for_updates(self, true);
         }
         let heard = Task::run(

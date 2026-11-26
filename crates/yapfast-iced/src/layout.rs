@@ -291,10 +291,12 @@ pub struct Prefs {
     /// Programs and games never shown as the game played, while each is
     /// on: an executable or the name shown after Playing.
     pub blocked_games: Vec<BlockedGame>,
-    /// About: looking for releases, nightlies among them, the release
-    /// skipped, and the last told of in a notification.
-    pub check_for_updates: bool,
-    pub update_nightlies: bool,
+    /// Updates: looking for HaloCord's releases and installing them by
+    /// themselves (both on unless turned off), the channel followed, the
+    /// release skipped, and the last told of in a notification.
+    pub check_for_updates: Option<bool>,
+    pub auto_install_updates: Option<bool>,
+    pub update_channel: crate::halocord::updates::Channel,
     pub skipped_update: Option<String>,
     pub announced_update: Option<String>,
 }
@@ -352,6 +354,16 @@ impl Prefs {
                 self.tray_icon.as_ref().unwrap_or(&IconChoice::Default),
             )
         }
+    }
+
+    /// Updates' "Check for updates automatically", on unless turned off.
+    pub fn checks_for_updates(&self) -> bool {
+        self.check_for_updates.unwrap_or(true)
+    }
+
+    /// Updates' "Install updates automatically", on unless turned off.
+    pub fn installs_updates(&self) -> bool {
+        self.auto_install_updates.unwrap_or(true)
     }
 
     /// The profile switches, each on unless turned off.

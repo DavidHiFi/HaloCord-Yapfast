@@ -1,11 +1,12 @@
-//! Updates: the desktop's `Updates` looks at the releases and installs one
-//! (`desktop.rs`); this asks for a look when the check is turned on, on
-//! Check now, once at start with the check on and every six hours after,
-//! shows what it found, and tells of a newer release once in a
-//! notification that opens About. Nothing installs unless Update and
-//! restart is pressed; once the update is ready, the window ends so `main`
-//! can finish it. It runs with Settings closed; About only shows it
-//! (`settings/updates.rs`).
+//! Updates: the desktop's `Updates` looks at HaloCord's releases on the
+//! chosen channel and installs one (`desktop.rs`); this asks for a look
+//! when the check is turned on, on Check now, once at start with the check
+//! on and every six hours after, shows what it found, and tells of a newer
+//! release once in a notification that opens Updates. With "Install updates
+//! automatically" on, a newer release is put in place for the next start
+//! as soon as a look finds it, so nothing running stops; Update and restart
+//! (or Restart now) ends the window so `main` can finish it. It runs with
+//! Settings closed; the Updates page only shows it (`settings/updates.rs`).
 
 use std::time::Duration;
 
@@ -34,12 +35,11 @@ pub enum Event {
     View,
 }
 
-/// What the person chose of updates: nightlies or not, and the release
-/// skipped.
+/// What the person chose of updates: the channel, and the release skipped.
 pub fn choices(layout: &Layout) -> UpdateChoices {
     let prefs = &layout.prefs;
     UpdateChoices {
-        nightlies: prefs.update_nightlies,
+        channel: prefs.update_channel,
         skipped: prefs.skipped_update.clone(),
     }
 }
@@ -60,7 +60,7 @@ pub fn look_for_updates(app: &mut App, announce: bool) {
         return;
     };
     app.announce_updates |= announce;
-    updates.look();
+    updates.look(&update_choices(app));
 }
 
 /// The look or the update went further: a release to tell of, or an
@@ -75,9 +75,20 @@ pub fn updates_heard(app: &mut App) -> Task<Message> {
         return app.quit();
     }
     let choices = update_choices(app);
-    if app.announce_updates && updates.shown(&choices).status != UpdateStatus::Checking {
+    let shown = updates.shown(&choices);
+    // Installing by itself: once a look finds a release this copy can put in
+    // place, it goes in for the next start, and there's nothing to tell of.
+    let automatic = app.layout.prefs.installs_updates()
+        && shown.status == UpdateStatus::Available
+        && shown.can_install;
+    if automatic {
+        updates.install_later(&choices);
+    }
+    if app.announce_updates && shown.status != UpdateStatus::Checking {
         app.announce_updates = false;
-        announce_update(app, updates.offered(&choices));
+        if !automatic {
+            announce_update(app, updates.offered(&choices));
+        }
     }
     Task::none()
 }
@@ -101,7 +112,7 @@ fn announce_update(app: &mut App, offered: Option<desktop::Offered>) {
         notifier.show(
             yapfast_core::chat::Alert {
                 room: ABOUT.into(),
-                title: format!("Yapfast {} is available", offered.tag),
+                title: format!("{} is available", offered.tag),
                 body: "Click to see what's new.".into(),
                 picture: None,
                 call: false,
@@ -119,7 +130,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
     let choices = update_choices(app);
     match event {
         Event::Due => {
-            if app.layout.prefs.check_for_updates {
+            if app.layout.prefs.checks_for_updates() {
                 look_for_updates(app, true);
             }
         }
@@ -149,7 +160,7 @@ pub fn updates_installing(app: &App) -> bool {
             .is_some_and(|updates| updates.installing())
 }
 
-/// Settings on About, as the release's notification opens it.
+/// Settings on Updates, as the release's notification opens it.
 pub fn open_about(app: &mut App) -> Task<Message> {
-    app.open_settings(Section::About)
+    app.open_settings(Section::Updates)
 }

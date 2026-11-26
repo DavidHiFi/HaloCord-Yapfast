@@ -278,10 +278,10 @@ fn clipboard_writes(task: iced::Task<Message>) -> Vec<String> {
 fn open_plugin(app: &mut App, id: &str) {
     use crate::settings::{Event, HaloEvent, Section};
     let plugin = crate::halocord::place(id).expect("the plugin");
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
-    let _ = app.update(Message::Settings(Event::HaloCord(HaloEvent::Plugin(Some(
-        plugin,
-    )))));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::HaloCord(HaloEvent::Plugin(
+        Some(plugin),
+    ))));
     let _ = app.sync();
 }
 

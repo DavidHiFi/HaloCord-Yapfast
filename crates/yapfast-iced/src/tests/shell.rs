@@ -199,11 +199,11 @@ fn a_notification_click_opens_its_conversation_over_settings() {
 }
 
 #[test]
-fn the_release_notification_opens_about() {
+fn the_release_notification_opens_updates() {
     let (mut app, _folder) = preview();
     heard(&mut app, Heard::Opened(ABOUT.into()));
     let settings = app.win.settings.get().expect("settings");
-    assert_eq!(settings.section, Some(Section::About));
+    assert_eq!(settings.section, Some(Section::Updates));
 }
 
 #[test]

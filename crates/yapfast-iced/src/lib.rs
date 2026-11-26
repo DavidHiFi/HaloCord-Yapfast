@@ -159,6 +159,9 @@ pub use desktop::{
     Desktop, Drag, Heard, IconChoice, IconTarget, Notifier, Offered, PasteReader, PointerAt, Tell,
     Toggled, Tray, TrayChoice, UpdateChoices, UpdateStatus, Updates, UpdatesShown,
 };
+/// HaloCord's update channels and release numbers, which the root crate's
+/// updater reads.
+pub use halocord::updates as halocord_updates;
 /// The window the desktop's parts act on, by its handles.
 pub use iced::window::Window;
 pub use settings::Build;

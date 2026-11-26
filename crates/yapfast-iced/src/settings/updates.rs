@@ -1,5 +1,5 @@
-//! What About shows of the updates the root looks for (`crate::updates`):
-//! the notice under Settings' sections and About's UPDATES.
+//! What the Updates page shows of HaloCord's releases (`crate::updates`):
+//! the notice under Settings' sections and the Updates page.
 
 use crate::widgets::scroll_view;
 
@@ -24,7 +24,7 @@ const NOTES_MOST: f32 = 220.0;
 
 impl<'a> Page<'a> {
     /// Under Settings' sections while a newer release is out: a click goes
-    /// to About.
+    /// to Updates.
     pub(super) fn update_notice(self) -> Option<Element<'a, Message>> {
         let shown = crate::updates::shown(self.cx.layout)?;
         if shown.status != UpdateStatus::Available {
@@ -46,7 +46,7 @@ impl<'a> Page<'a> {
         .padding([0, 12])
         .width(Length::Fill)
         .height(28)
-        .on_press(crate::app::settings(SettingsEvent::Open(Section::About)))
+        .on_press(crate::app::settings(SettingsEvent::Open(Section::Updates)))
         .style(crate::controls::lit_style(Some(rest), lit, 4.0));
         Some(
             container(iced::widget::center_y(face))
@@ -56,13 +56,14 @@ impl<'a> Page<'a> {
         )
     }
 
-    /// About's UPDATES: what the last look found, the update's progress,
+    /// The Updates page: what the last look found, the update's progress,
     /// the release's notes and its buttons.
     pub(super) fn updates_part(self) -> Vec<Element<'a, Message>> {
         let theme = self.cx.look.theme;
         let prefs = &self.cx.layout.prefs;
         let shown = crate::updates::shown(self.cx.layout).unwrap_or_default();
-        let mut parts: Vec<Element<'a, Message>> = vec![form::heading(theme, "UPDATES")];
+        // The page's own title heads these.
+        let mut parts: Vec<Element<'a, Message>> = Vec::new();
         if !shown.manager.is_empty() {
             parts.push(form::note(
                 theme,
@@ -75,7 +76,11 @@ impl<'a> Page<'a> {
         let status = match shown.status {
             UpdateStatus::Checking => "Checking for updates…".to_owned(),
             UpdateStatus::Current => "You're up to date.".to_owned(),
-            UpdateStatus::Available => format!("Yapfast {} is available.", shown.latest),
+            UpdateStatus::Available => format!("{} is available.", shown.latest),
+            UpdateStatus::Ready => format!(
+                "{} is installed. It starts the next time Yapfast opens.",
+                shown.latest
+            ),
             UpdateStatus::Skipped => format!(
                 "You skipped {}. We'll tell you about the next one.",
                 shown.latest
@@ -84,12 +89,14 @@ impl<'a> Page<'a> {
             UpdateStatus::Source => {
                 "You're running a build from source, so there's nothing to update.".to_owned()
             }
-            UpdateStatus::Idle if prefs.check_for_updates => String::new(),
-            UpdateStatus::Idle => "Update checks are turned off.".to_owned(),
+            UpdateStatus::Idle if prefs.checks_for_updates() => String::new(),
+            UpdateStatus::Idle => {
+                "Automatic checks are off. Check now looks once.".to_owned()
+            }
         };
         if !status.is_empty() {
             let ink = match shown.status {
-                UpdateStatus::Available => theme.accent,
+                UpdateStatus::Available | UpdateStatus::Ready => theme.accent,
                 UpdateStatus::Failed => theme.danger_text,
                 _ => theme.muted,
             };
@@ -141,7 +148,7 @@ impl<'a> Page<'a> {
         }
         let offered = matches!(
             shown.status,
-            UpdateStatus::Available | UpdateStatus::Skipped
+            UpdateStatus::Available | UpdateStatus::Skipped | UpdateStatus::Ready
         );
         if offered && !shown.notes.is_empty() {
             let sidebar = theme.sidebar;
@@ -171,6 +178,18 @@ impl<'a> Page<'a> {
             let available = shown.status == UpdateStatus::Available;
             let on_accent = crate::theme::rgb(theme.on_accent);
             let plain = crate::theme::rgb(theme.faint);
+            if shown.status == UpdateStatus::Ready {
+                buttons.push(
+                    action(
+                        theme,
+                        "Restart now",
+                        Kind::Primary,
+                        Some(update_message(Event::Install)),
+                    )
+                    .icon(self.cx.look.icon(Icon::Refresh, 18, on_accent))
+                    .into(),
+                );
+            }
             if available && shown.can_install {
                 buttons.push(
                     action(

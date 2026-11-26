@@ -1,17 +1,18 @@
-//! About: the build, its updates and Yapfast's links.
+//! About: the build and Yapfast's links. Updates have their own page
+//! (`updates.rs`).
 
 use iced::{
     Element,
     widget::{column, row, text},
 };
 
-use super::{AccountEvent, Pref, account_message, pref};
+use super::{AccountEvent, account_message};
 use crate::settings::{Event, Page, build_tint};
 use crate::{
     app::Message,
     controls::{Kind, action},
     fonts::BOLD,
-    form::{self, switch},
+    form,
     pictures::Icon,
 };
 
@@ -27,7 +28,6 @@ impl<'a> Page<'a> {
         let settings = self.s;
         let theme = self.cx.look.theme;
         let build = self.cx.build;
-        let prefs = &self.cx.layout.prefs;
         let mut channel = row![
             text(build.channel.as_str())
                 .size(13)
@@ -67,34 +67,6 @@ impl<'a> Page<'a> {
             ),
         );
         let mut parts = vec![form::title(theme, "About"), card];
-        parts.extend(self.updates_part());
-        parts.push(
-            switch(
-                "Check for updates",
-                prefs.check_for_updates,
-                Some(pref(Pref::CheckUpdates(!prefs.check_for_updates))),
-            )
-            .description("Checks for new versions every 6 hours.")
-            .fresh(self.fresh("check-updates"))
-            .view(self.cx.look),
-        );
-        parts.push(
-            switch(
-                "Include nightly builds",
-                prefs.update_nightlies,
-                prefs
-                    .check_for_updates
-                    .then(|| pref(Pref::Nightlies(!prefs.update_nightlies))),
-            )
-            .description("Get the newest features before release. Expect some bugs.")
-            .fresh(self.fresh("update-nightlies"))
-            .view(self.cx.look),
-        );
-        parts.push(
-            switch("Install updates automatically", false, None)
-                .description("Not available yet.")
-                .view(self.cx.look),
-        );
         parts.push(form::heading(theme, "LINKS"));
         let ink = crate::theme::rgb(theme.text);
         let link = |label, icon, page| -> Element<'a, Message> {
