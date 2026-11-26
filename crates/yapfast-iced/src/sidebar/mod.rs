@@ -199,7 +199,11 @@ fn room(app: &App, width: f32) -> f32 {
     let navigation = crate::conversation::right_rail(package, app.themes.chrome(&app.theme.id));
     let beside = app.window.width - crate::conversation::chat_right(app) - navigation;
     let most =
-        app.window.width - crate::rail::themed_width(package) - crate::thread::CHAT_KEPT - beside;
+        app.window.width
+        - crate::rail::themed_width(package)
+        - crate::rail::side_width(&app.layout, package)
+        - crate::thread::CHAT_KEPT
+        - beside;
     width.clamp(LEAST, most.clamp(LEAST, MOST))
 }
 /// Its header, the line under it included.
@@ -412,6 +416,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             }
             let package = app.themes.package_layout(&app.theme.id);
             let left = crate::conversation::sidebar_left(package, app.themes.chrome(&app.theme.id))
+                + crate::rail::side_width(&app.layout, package)
                 + app.themes.glass_gap(&app.theme.id);
             let at = Point::new(left + INSET, HEADER - 4.0);
             return crate::place_menus::open_place_menu(app, &server, at, true);
@@ -439,6 +444,7 @@ pub fn update(app: &mut App, event: Event) -> Task<Message> {
             let top = app.sidebar.top_height() - EVENTS_ROW;
             let package = app.themes.package_layout(&app.theme.id);
             let left = crate::conversation::sidebar_left(package, app.themes.chrome(&app.theme.id))
+                + crate::rail::side_width(&app.layout, package)
                 + app.themes.glass_gap(&app.theme.id);
             let at = Point::new(left + INSET, top + EVENTS_ROW - INSET);
             return crate::place_menus::open_events_menu(app, &server, at);

@@ -969,7 +969,7 @@ pub fn window_bar(app: &App) -> Option<Element<'_, Message>> {
     let mut ground = mouse_area(
         row![
             container(Space::new())
-                .width(Length::Fixed(crate::conversation::navigation(&app.layout)))
+                .width(Length::Fixed(crate::conversation::navigation_ctx(app.ctx())))
                 .height(HEIGHT)
                 .style(move |_| crate::style::fill(rail)),
             Space::new().width(Length::Fill).height(HEIGHT),

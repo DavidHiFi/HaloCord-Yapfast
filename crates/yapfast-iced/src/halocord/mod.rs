@@ -34,12 +34,14 @@ mod chat_badges;
 mod clicks;
 pub mod deck;
 mod fake_dialog;
+mod folder_side;
 mod kept;
 mod last_online;
 mod members;
 mod menus;
 mod messages;
 mod presence;
+mod rail_top;
 mod servers;
 mod song_buttons;
 mod user_colors;
@@ -59,6 +61,7 @@ pub use chat::{
 pub use chat_badges::{badge_pictures, chat_badges, note_badges};
 pub use clicks::{Clicks, click_keys, click_row};
 pub use fake_dialog::{FakeDialog, FakeEvent, view as fake_view};
+pub use folder_side::{folder_pressed, home_picked, server_picked, server_sidebar};
 use kept::off;
 pub use kept::{Change, Kept, Kind, Plugin, Setting, changed};
 pub use last_online::{dm_line as last_online, note_presences};
@@ -78,13 +81,14 @@ pub use menus::{
 #[cfg(test)]
 pub use menus::{decoration_page, song_links, song_page};
 pub use messages::{collapsed_row, fake_button, is_fake_row, kept_deleted, message_ink, notes};
+pub use rail_top::rail_top;
 pub use servers::{KeptChannel, home_face, home_mentions, keep_channel, no_request_badge};
 pub use song_buttons::buttons as song_buttons;
 #[cfg(test)]
 pub use song_buttons::known as song_buttons_known;
 pub use user_colors::{dm_name_color, load_user_colors, name_color};
 pub use user_tools::{popover_rows, stop_mic_test_in_call};
-pub use voice::{in_voice_mark, unmute_mark, voice_count};
+pub use voice::{follow_majority, in_voice_mark, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
 #[cfg(test)]
@@ -175,6 +179,9 @@ pub mod id {
     pub const USER_COLORS: &str = "custom-user-colors";
     pub const USER_TOOLS: &str = "better-user-tools";
     pub const SHOW_BADGES: &str = "show-badges-in-chat";
+    pub const SERVER_COUNTS: &str = "server-list-indicators";
+    pub const SERVER_SIDEBAR: &str = "server-sidebar";
+    pub const FOLLOW_MAJORITY: &str = "follow-majority";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -246,6 +253,9 @@ pub static PLUGINS: &[Plugin] = &[
     user_colors::CUSTOM_USER_COLORS,
     user_tools::BETTER_USER_TOOLS,
     chat_badges::SHOW_BADGES,
+    rail_top::SERVER_COUNTS,
+    folder_side::SERVER_SIDEBAR,
+    voice::FOLLOW_MAJORITY,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what

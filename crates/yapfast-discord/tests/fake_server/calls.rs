@@ -71,7 +71,7 @@ async fn cameras_in_call(
     let frames = call.video_frames().expect("the call's camera frames");
     assert!(call.video_frames().is_none(), "one taker");
 
-    discord.set_self(guild, channel, false, false, true, false);;
+    discord.set_self(guild, channel, false, false, true, false);
     snapshot_where(discord, filming(&me, true)).await;
     let camera = call.film(320, 180, 10);
     let recorded = recording(Codec::H264);
@@ -124,7 +124,7 @@ async fn cameras_in_call(
     );
     assert!(sent["senderReports"].as_u64() >= Some(1), "{sent}");
     drop(camera);
-    discord.set_self(guild, channel, false, false, false, false);;
+    discord.set_self(guild, channel, false, false, false, false);
     until("Alice's camera stopped", || {
         mine(&call_video(server))["stops"] == 1
     })

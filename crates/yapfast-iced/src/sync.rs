@@ -148,7 +148,18 @@ impl App {
         // HaloCord's Last online (docs/halocord.md): who of the DMs went
         // offline.
         crate::halocord::note_presences(&self.layout.halocord, self.client.root(), state);
-        let rail = rail(state, &crate::sidebar::tree::folders_shown(self));
+        let mut rail = rail(state, &crate::sidebar::tree::folders_shown(self));
+        // HaloCord's Server sidebar (docs/halocord.md): the open folders'
+        // tiles go to their own column beside a rail on the left.
+        let side = if crate::rail::has_side(self.themes.package_layout(&self.theme.id)) {
+            crate::halocord::server_sidebar(&mut self.layout.halocord, &mut rail)
+        } else {
+            self.layout.halocord.folder_side_open = false;
+            Vec::new()
+        };
+        if self.rail.side != side {
+            self.rail.side = side;
+        }
         if self.rail.items != rail {
             self.rail.items = rail;
         }
@@ -249,6 +260,8 @@ impl App {
         if crate::window_bar::mentions_sync(self) && self.inbox.is_some() {
             crate::window_bar::inbox_sync(self);
         }
+        // HaloCord's Follow majority (docs/halocord.md).
+        crate::halocord::follow_majority(self);
         let state = self.client.state();
         // HaloCord's Show badges in chat (docs/halocord.md): the open
         // profiles' badges.
