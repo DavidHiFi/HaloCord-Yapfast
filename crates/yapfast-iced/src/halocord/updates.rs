@@ -283,10 +283,10 @@ pub fn notes_of(body: &str) -> String {
     let mut lines: Vec<String> = Vec::new();
     for line in body.lines() {
         let line = line.trim();
-        let line = line.trim_start_matches('#').trim_start();
+        let line = line.trim_start_matches('#').trim_start().replace("**", "");
         let line = match line.strip_prefix("- ").or_else(|| line.strip_prefix("* ")) {
             Some(item) => format!("• {}", item.trim()),
-            None => line.replace("**", ""),
+            None => line,
         };
         if line.is_empty() && lines.last().is_none_or(String::is_empty) {
             continue;

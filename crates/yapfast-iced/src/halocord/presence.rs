@@ -233,7 +233,8 @@ mod tests {
                 "button-1-link",
                 "button-2-text",
                 "button-2-link",
-                "stream-link"
+                "stream-link",
+                "platform"
             ]
         );
         assert_eq!(keys(&ANIMATED_STATUS), ["lines", "every", "emoji"]);

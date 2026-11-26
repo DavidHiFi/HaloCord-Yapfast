@@ -398,4 +398,6 @@ pub fn follow_majority(app: &mut App) {
     // Noted afresh, so it asks once while the move is under way.
     kept.voice_company = None;
     app.client.dispatch(Action::RequestJoinVoice(to));
+    // Following is the switch itself, so it skips the "switch call?" prompt.
+    app.client.dispatch(Action::ConfirmVoiceSwitch);
 }

@@ -151,6 +151,12 @@ impl App {
         // offline.
         crate::halocord::note_presences(&self.layout.halocord, self.client.root(), state);
         let mut rail = rail(state, &crate::sidebar::tree::folders_shown(self));
+        // HaloCord (yapfast#286): the DM being read, at its newest message
+        // with the window in front, is marked read as a message comes, so
+        // it isn't put on the rail for that moment.
+        if let Some(reading) = state.selected.as_deref().filter(|_| self.reads()) {
+            rail.retain(|item| !(matches!(item.kind, crate::rail::Kind::Dm) && item.id == reading));
+        }
         // HaloCord's Server sidebar (docs/halocord.md): the open folders'
         // tiles go to their own column beside a rail on the left.
         let side = if crate::rail::has_side(self.themes.package_layout(&self.theme.id)) {

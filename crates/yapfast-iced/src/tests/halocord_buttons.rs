@@ -434,9 +434,10 @@ fn the_settings_cog_is_always_on_the_card() {
             },
         );
     };
-    // Fake mute, fake deafen, stats, stereo and game: with the top bar's
-    // two, seven plugin buttons.
-    for setting in [2, 3, 4, 5, 6] {
+    // Fake mute, fake deafen, fake camera, stats, stereo and game: with
+    // the top bar's Restart (Read all sits on the server list), seven
+    // plugin buttons.
+    for setting in [2, 3, 4, 6, 7, 8] {
         flag(&mut app, setting, true);
     }
     let _ = app.sync();
