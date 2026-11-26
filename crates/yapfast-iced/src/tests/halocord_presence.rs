@@ -69,7 +69,7 @@ fn the_presence_plugins_are_listed_with_their_settings() {
             .map(|setting| setting.key)
             .collect()
     };
-    assert_eq!(keys(CUSTOM_RPC).len(), 15);
+    assert_eq!(keys(CUSTOM_RPC).len(), 16);
     for key in [
         "application",
         "type",
@@ -86,6 +86,7 @@ fn the_presence_plugins_are_listed_with_their_settings() {
         "button-2-text",
         "button-2-link",
         "stream-link",
+        "platform",
     ] {
         assert!(keys(CUSTOM_RPC).contains(&key), "{key}");
     }
@@ -146,10 +147,18 @@ fn the_plugins_tell_the_service_what_they_hold_while_on() {
             choice: 2,
         }
     });
+    set(&mut app, CUSTOM_RPC, "platform", |plugin, setting| {
+        Change::Choose {
+            plugin,
+            setting,
+            choice: 1,
+        }
+    });
     let rpc = presence::config().rpc.expect("on");
     assert_eq!(rpc.name, "Halo");
     assert_eq!(rpc.kind, 1, "Streaming is Discord's 1");
     assert_eq!(rpc.started, Started::TurnedOn);
+    assert_eq!(rpc.platform, 1, "PlayStation");
     assert_eq!(
         rpc.buttons[1],
         ("Join".into(), "https://example.com/j".into())

@@ -101,7 +101,7 @@ whole list to carry across.
   Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
 - `crates/yapfast-discord/src/halocord/presence.rs`: Custom RPC's activity (type
-  numbers, timer, pictures, buttons), Animated status's lines, the outside
+  numbers, timer, pictures, buttons, the console platform), Animated status's lines, the outside
   pictures' keys, and `Watch`, which a session keeps to put both in the
   presence it sends and to say when to send again (one timer, idle while both
   are off).

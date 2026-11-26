@@ -39,6 +39,11 @@ pub const LISTENING: u32 = 2;
 pub const WATCHING: u32 = 3;
 pub const COMPETING: u32 = 5;
 
+/// The platforms, as the settings keep them.
+pub const COMPUTER: u32 = 0;
+pub const PLAYSTATION: u32 = 1;
+pub const XBOX: u32 = 2;
+
 /// What Started puts in the activity's timer.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Started {
@@ -76,6 +81,10 @@ pub struct Rpc {
     /// Each button's label and link.
     pub buttons: [(String, String); 2],
     pub stream_link: String,
+    /// Where the game shows it is played: [`COMPUTER`], [`PLAYSTATION`] or
+    /// [`XBOX`]. A console puts its badge beside the game, as a real
+    /// console game's activity does.
+    pub platform: u32,
 }
 
 /// What the Animated Status plugin's settings hold.
@@ -257,6 +266,11 @@ impl Rpc {
         let mut activity = json!({"type": kind, "name": name});
         if streaming {
             activity["url"] = json!(self.stream_link.trim());
+        }
+        match self.platform {
+            PLAYSTATION => activity["platform"] = json!("ps5"),
+            XBOX => activity["platform"] = json!("xbox"),
+            _ => {}
         }
         for (key, text) in [("details", &self.details), ("state", &self.state)] {
             let text = cut(text, LINE);
@@ -560,6 +574,23 @@ mod tests {
             };
             assert_eq!(make(&stream).unwrap()["type"], 1, "{link}");
         }
+    }
+
+    #[test]
+    fn a_console_platform_is_sent_and_a_computer_sends_none() {
+        for (platform, sent) in [(PLAYSTATION, json!("ps5")), (XBOX, json!("xbox"))] {
+            let activity = make(&Rpc { platform, ..rpc() }).unwrap();
+            assert_eq!(activity["platform"], sent);
+        }
+        assert!(
+            make(&Rpc {
+                platform: COMPUTER,
+                ..rpc()
+            })
+            .unwrap()
+            .get("platform")
+            .is_none()
+        );
     }
 
     #[test]
