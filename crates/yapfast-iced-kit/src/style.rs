@@ -119,6 +119,12 @@ thread_local! {
     static RICE: std::cell::Cell<Option<Rice>> = const { std::cell::Cell::new(None) };
 }
 
+/// Whether `theme` is MochaCord, the theme the rice recipe's control fills
+/// are drawn for.
+pub fn mocha(theme: &Theme) -> bool {
+    theme.id == "mochacord"
+}
+
 /// `theme`'s [`Rice`]: none on Bonfire or a theme made from it.
 pub fn rice_of(theme: &Theme) -> Option<Rice> {
     let mix = |a: f32, b: f32| (a + b) / 2.0;
