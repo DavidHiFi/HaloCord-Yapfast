@@ -195,14 +195,9 @@ pub enum Event {
     Start(bool),
     /// Switching calls confirmed, or not; its Don't show this again.
     Switch(bool),
-    Switch(bool),
-    /// The corner picture pressed, the pointer moved to here in the window
-    /// while it's held, and let go.
     SwitchTick,
     /// The corner picture pressed, its grip's or elsewhere; the pointer
     /// moved to here in the window while it's held, and let go.
-    Grab,
-    DragTo(Point),
     Grab,
     DragTo(Point),
     Drop,

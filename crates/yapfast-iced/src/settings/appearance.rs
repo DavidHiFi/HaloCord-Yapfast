@@ -21,6 +21,7 @@ use crate::{
     app::Message,
     controls::{self, Kind, action, lights, placed},
     ctx::{Cx, Pref as Shown, Request},
+    fonts::{BOLD, MEDIUM},
     form::{self, switch},
     pictures::Icon,
     themes::color,
@@ -1348,4 +1349,94 @@ fn picker_colour_rows<'a>(
     })
     .height(Length::Shrink)
     .into()
+}
+
+/// A theme's small window, 78 px tall: the rail with three servers, the
+/// sidebar's channels, two messages and the composer, in its colours.
+fn preview<'a>(palette: &palette::Theme, width: f32) -> Element<'a, Message> {
+    let c = |colour| color(colour);
+    let (rail, sidebar, chat, raised, accent, ink, muted) = (
+        c(palette.rail),
+        c(palette.sidebar),
+        c(palette.chat),
+        c(palette.raised),
+        c(palette.accent),
+        c(palette.text),
+        c(palette.muted),
+    );
+    let blob = |w: f32, h: f32, colour: Color, radius: f32| -> Element<'a, Message> {
+        container(Space::new())
+            .width(w)
+            .height(h)
+            .style(move |_| crate::style::rounded(colour, radius))
+            .into()
+    };
+    let mut layers = stack![blob(width, 78.0, chat, 6.0)];
+    layers = layers.push(blob(16.0, 78.0, rail, 0.0));
+    for index in 0..3 {
+        let (colour, radius) = if index == 0 {
+            (accent, 3.0)
+        } else {
+            (raised, 5.0)
+        };
+        layers = layers.push(placed(
+            blob(10.0, 10.0, colour, radius),
+            3.0,
+            6.0 + index as f32 * 13.0,
+        ));
+    }
+    layers = layers.push(placed(blob(38.0, 78.0, sidebar, 0.0), 16.0, 0.0));
+    for index in 0..4 {
+        let w = if index == 1 {
+            24.0
+        } else {
+            18.0 + (index % 2) as f32 * 4.0
+        };
+        let colour = if index == 1 { ink } else { muted };
+        layers = layers.push(placed(
+            blob(w, 4.0, colour, 2.0),
+            22.0,
+            8.0 + index as f32 * 11.0,
+        ));
+    }
+    let room = width - 66.0;
+    for index in 0..2 {
+        let y = 8.0 + index as f32 * 22.0;
+        let first = index == 0;
+        layers = layers
+            .push(placed(
+                blob(10.0, 10.0, if first { accent } else { muted }, 5.0),
+                60.0,
+                y,
+            ))
+            .push(placed(
+                blob(if first { 22.0 } else { 16.0 }, 4.0, ink, 2.0),
+                74.0,
+                y + 1.0,
+            ))
+            .push(placed(
+                blob(
+                    (room - 14.0).min(if first { 52.0 } else { 40.0 }),
+                    3.0,
+                    muted,
+                    1.5,
+                ),
+                74.0,
+                y + 8.0,
+            ));
+    }
+    layers = layers
+        .push(placed(blob(room, 12.0, raised, 4.0), 60.0, 78.0 - 18.0))
+        .push(placed(
+            blob(6.0, 6.0, accent, 3.0),
+            60.0 + room - 10.0,
+            78.0 - 18.0,
+        ));
+    container(layers.width(width).height(78))
+        .clip(true)
+        .style(|_| iced::widget::container::Style {
+            border: crate::style::round(6),
+            ..Default::default()
+        })
+        .into()
 }

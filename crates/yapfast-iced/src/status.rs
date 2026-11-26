@@ -399,7 +399,6 @@ impl<'a> View<'a> {
         ));
         let raised = theme.raised;
         body = body.push(group(first, raised)).push(group(second, raised));
-=======
         let bottom = self.cx.look.window.height
             - crate::account::full_height(self.cx)
             - crate::account::INSET

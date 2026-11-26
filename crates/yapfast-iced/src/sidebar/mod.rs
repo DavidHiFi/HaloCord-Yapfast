@@ -644,6 +644,24 @@ impl<'a> View<'a> {
             .into(),
             None => list,
         };
+        // A sidebar with a theme's art or glass shows it: its own ground is
+        // the surface's, under the art (as Slint's transparent sidebar).
+        let ground = if self.cx.themes.decorates(
+            &theme.id,
+            yapfast_core::themes::package::art::ArtSurface::Sidebar,
+        ) || self
+            .cx
+            .themes
+            .glass(
+                &theme.id,
+                yapfast_core::themes::package::art::ArtSurface::Sidebar,
+            )
+            .is_some()
+        {
+            Color::TRANSPARENT
+        } else {
+            crate::mochacord::glass(theme.sidebar, crate::mochacord::Dock::Sidebar)
+        };
         let header = self.side_header_view();
         let mut top = column![header];
         if let Some(boosts) = self

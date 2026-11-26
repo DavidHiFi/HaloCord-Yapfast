@@ -478,105 +478,6 @@ pub fn sidebar_in(
         {
             continue;
         }
-        let status = if room.direct && room.network == Network::Discord {
-            if room.person.is_none() {
-                Status::words(format!("{} members", room.members))
-            } else {
-                Status::of(room.activity.as_deref())
-            }
-        } else {
-            Status::default()
-        };
-        rows.push(SideRow::Room(Box::new(Room {
-            id: room.id.clone(),
-            name: room.name.clone(),
-            icon: room_icon(room),
-            selected,
-            unread,
-            badge: count_badge(
-                room.mentions
-                    + posts
-                        .get(room.id.as_str())
-                        .filter(|_| room.forum)
-                        .map_or(0, |&(_, mentions)| mentions),
-            ),
-            posts: posts
-                .get(room.id.as_str())
-                .filter(|_| room.forum)
-                .map_or_else(String::new, |&(unread, _)| count_badge(unread)),
-            muted: room.muted && !room.voice,
-            locked: room.locked || room.join_locked,
-            voice: room.voice,
-            direct: room.direct,
-            avatar: room.avatar.clone(),
-            // Discord sends the presence of friends and of those sharing a
-            // server; anyone else in a one-to-one DM shows offline.
-            presence: if room.person.is_some() && room.network == Network::Discord {
-                room.presence.or(Some(Presence::Offline))
-            } else {
-                room.presence
-            },
-            status,
-            decoration: cosmetics
-                .decoration(room.decoration.as_deref())
-                .map(Arc::from),
-            nameplate: room
-                .nameplate
-                .as_ref()
-                .filter(|_| !state.hide_nameplates && room.direct)
-                .map(|plate| {
-                    let palette = plate.colors.map(|colors| colors[usize::from(!dark)]);
-                    (plate.picture.clone(), palette)
-                }),
-            style: room
-                .direct
-                .then(|| {
-                    crate::looks::name_look(
-                        cosmetics.style(room.style.as_deref()),
-                        &room.name,
-                        false,
-                        dark,
-                    )
-                })
-                .flatten(),
-            tag: cosmetics
-                .tag(room.tag.as_ref())
-                .map(|tag| (tag.text.clone(), tag.badge.clone())),
-            official: room.official,
-            wave: (room.direct && room.empty && !room.request)
-                .then(|| room.person.clone())
-                .flatten(),
-            voice_spot: room
-                .person
-                .as_deref()
-                .filter(|_| room.network == Network::Discord)
-                .and_then(|person| spots.get(person))
-                .map(|(room, channel, server)| {
-                    (
-                        (*room).to_owned(),
-                        (*channel).to_owned(),
-                        (*server).to_owned(),
-                    )
-                }),
-            call: room.direct && !room.people.is_empty(),
-            pinned: room.direct && state.pinned.contains(&room.id),
-            thread: room.parent.is_some(),
-            thread_continues: false,
-            people: if room.voice && !room.direct {
-                voice_people(state, room, voice_room)
-            } else {
-                Vec::new()
-            },
-            started: room.voice_started.filter(|_| room.voice && !room.direct),
-            chat: !room.direct && room.voice_chat(),
-            close: (room.direct && room.network == Network::Discord).then_some(
-                if room.person.is_some() {
-                    "Close DM"
-                } else {
-                    "Leave Group"
-                },
-            ),
-        })));
         // Join consecutive visible rows only when they belong to the same tree.
         if let Some(parent) = room.parent.as_deref()
             && let Some(SideRow::Room(previous)) = rows.last_mut()
@@ -588,7 +489,6 @@ pub fn sidebar_in(
         rows.push(SideRow::Room(Box::new(room_row(
             state, room, dark, &posts, &spots,
         ))));
-    }
     }
     if !direct && query.is_empty() {
         rows.extend(

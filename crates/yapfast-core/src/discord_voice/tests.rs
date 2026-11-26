@@ -188,10 +188,13 @@ fn those_heard_but_unlisted_still_show() {
         muted: false,
         deafened: false,
         server_muted: false,
+        speaking_blocked: false,
         server_deafened: false,
         streaming: false,
         video: false,
         elsewhere: false,
+        style: None,
+        tag: None,
     }];
     // The voice server names this account (1), one listed (3) and one the
     // gateway missed (7): only the missed one is added.

@@ -2012,7 +2012,7 @@ mod tests {
         let named: Vec<String> = server
             .named_roles(&roles)
             .into_iter()
-            .map(|(name, _)| name)
+            .map(|(_, name, _)| name)
             .collect();
         assert_eq!(named, ["Mods", "contributor", "Server Booster"]);
     }
