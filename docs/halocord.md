@@ -319,7 +319,10 @@ Window (`yapfast-iced`):
 - `status.rs`: the popover's bottom uses `account::full_height`.
   Before User Settings, `halocord::popover_rows`' rows (Better user tools), each sending its
   `Press` as the top bar's buttons do.
-- `sync.rs`: `sync` starts with `halocord::stop_mic_test_in_call` (Better user tools).
+- `sync.rs`: `sync` starts with `halocord::stop_mic_test_in_call` (Better user tools) and
+  `halocord::follow_majority` (Follow majority: who has been in your voice channel with
+  you, kept in `Kept::voice_company`, not kept on disk; once another voice channel of the
+  server holds more than half of them, two at least, it joins that one).
 - `browser.rs`: opens the pages HaloCord's plugins ask for (a sticker at full size, a
   song's page, a profile's decorations).
 - `rail.rs`: `rail_view` puts `halocord::rail_top`'s items above the home tile (Read all's
@@ -616,8 +619,12 @@ Yapfast's own fix for it lands (its test still passes without ours).
 - Core `halocord::staff::tests`: ranks, tags and options. `halocord::tests` also
   covers the fake voice state.
 - Window `tests/settings.rs`: the plugins page, fake switches, the user area's dock.
-- Window `tests/halocord_buttons.rs`: the button plugins (restart, read all, close all
-  DMs, the counter, the member count).
+- Window `tests/halocord_buttons.rs`: the button plugins (restart, read all and where it
+  sits, close all DMs, the counter, the member count).
+- Window `tests/halocord_rail.rs`: Server list indicators' counts and Server sidebar's
+  column, and the folders it closes.
+- Window `tests/halocord_follow.rs`: Follow majority, followed once most have moved and
+  not for one who moves alone.
 - Window `halocord::tests`: point 5's rows, point 6's kinds, the stereo loader's
   saved values, and `every_hook_is_in_the_docs`, which fails when a Yapfast file
   calls into HaloCord or MochaCord and this page doesn't name it.

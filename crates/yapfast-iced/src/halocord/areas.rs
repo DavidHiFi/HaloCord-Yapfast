@@ -58,6 +58,7 @@ pub fn area(id: &str) -> Area {
         | id::CLICK_TO_UNMUTE
         | id::USER_VOICE_SHOW
         | id::VOICE_COUNT
+        | id::FOLLOW_MAJORITY
         | id::STREAM_DECK => Area::Voice,
         id::COUNTER
         | id::NEW_USER

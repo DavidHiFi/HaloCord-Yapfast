@@ -394,6 +394,7 @@ mod halocord_buttons;
 mod halocord_demo_frames;
 mod halocord_feature_pictures;
 mod halocord_features;
+mod halocord_follow;
 mod halocord_fixes;
 mod halocord_menu_pictures;
 mod halocord_messages;

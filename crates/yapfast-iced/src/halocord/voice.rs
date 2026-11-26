@@ -1,8 +1,9 @@
 //! Voice plugins: the stereo loader, fake mute and deafen, the volume
-//! booster, force mono, and the voice marks in the channel and member lists.
+//! booster, force mono, the voice marks in the channel and member lists, and
+//! following the majority to another voice channel.
 
 use iced::{Element, widget::text};
-use yapfast_core::halocord as engine;
+use yapfast_core::{application::Action, halocord as engine};
 
 use super::{Kept, Kind, PLUGINS, Plugin, Setting, id, off, place};
 use crate::{
@@ -312,4 +313,89 @@ pub(super) fn unmute(app: &mut App, person: &str) {
     let people = &mut app.layout.voice.muted_people;
     people.remove(person);
     crate::layout::store(app.client.root(), "muted_people", &*people);
+}
+
+pub(super) const FOLLOW_MAJORITY: Plugin = Plugin {
+    id: id::FOLLOW_MAJORITY,
+    name: "Follow majority",
+    about: "When most of the people who were in your voice channel have moved to another channel of the server, you follow them there.",
+    on_at_first: false,
+    settings: &[],
+    apply: |_, _| {},
+    hooks: None,
+};
+
+/// Hook: the state changed. While Follow majority is on and you're in a
+/// server's voice channel, notes everyone who has been in it with you; once
+/// one other voice channel of the server holds more than half of them still
+/// in its voice (two at least), joins that one.
+pub fn follow_majority(app: &mut App) {
+    let state = app.client.state();
+    let kept = &mut app.layout.halocord;
+    let mine = state
+        .voice
+        .room
+        .as_deref()
+        .filter(|_| kept.is(id::FOLLOW_MAJORITY));
+    let Some(mine) = mine else {
+        kept.voice_company = None;
+        return;
+    };
+    let Some(server) = state
+        .servers
+        .iter()
+        .find(|server| server.channels.iter().any(|channel| channel == mine))
+    else {
+        return;
+    };
+    let me = state
+        .voice
+        .participants
+        .iter()
+        .find(|one| one.local)
+        .map(|one| one.person.as_str())
+        .or(state.account.as_deref());
+    let voice_rooms = || {
+        state
+            .rooms
+            .iter()
+            .filter(|room| room.voice && server.channels.contains(&room.id))
+    };
+    if kept
+        .voice_company
+        .as_ref()
+        .is_none_or(|(room, _)| room != mine)
+    {
+        kept.voice_company = Some((mine.to_owned(), Vec::new()));
+    }
+    let Some((_, company)) = &mut kept.voice_company else {
+        return;
+    };
+    if let Some(room) = voice_rooms().find(|room| room.id == mine) {
+        for person in &room.people {
+            if Some(person.id.as_str()) != me && !company.contains(&person.id) {
+                company.push(person.id.clone());
+            }
+        }
+    }
+    let mut around = 0;
+    let mut most: Option<(&str, usize)> = None;
+    for room in voice_rooms() {
+        let here = room
+            .people
+            .iter()
+            .filter(|person| company.contains(&person.id))
+            .count();
+        around += here;
+        if room.id != mine && here > most.map_or(0, |(_, most)| most) {
+            most = Some((&room.id, here));
+        }
+    }
+    let Some((to, _)) = most.filter(|(_, here)| *here >= 2 && here * 2 > around) else {
+        return;
+    };
+    let to = to.to_owned();
+    // Noted afresh, so it asks once while the move is under way.
+    kept.voice_company = None;
+    app.client.dispatch(Action::RequestJoinVoice(to));
 }

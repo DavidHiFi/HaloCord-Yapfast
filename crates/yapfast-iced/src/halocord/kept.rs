@@ -86,6 +86,10 @@ pub struct Kept {
     /// rail's items were last made; not kept.
     #[serde(skip)]
     pub folder_side_open: bool,
+    /// Follow majority: your voice channel and who else was in it, as the
+    /// state last showed; not kept.
+    #[serde(skip)]
+    pub voice_company: Option<(String, Vec<String>)>,
 }
 
 /// A plugin switched, or a setting changed; unset is as it starts.

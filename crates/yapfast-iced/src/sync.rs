@@ -228,6 +228,8 @@ impl App {
     pub fn sync(&mut self) -> Task<Message> {
         // HaloCord's Better user tools (docs/halocord.md): no mic test in a call.
         crate::halocord::stop_mic_test_in_call(self);
+        // HaloCord's Follow majority (docs/halocord.md).
+        crate::halocord::follow_majority(self);
         let state = self.client.state();
         // HaloCord's Show badges in chat (docs/halocord.md): the open
         // profiles' badges.

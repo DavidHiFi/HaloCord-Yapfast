@@ -91,7 +91,7 @@ pub use song_buttons::buttons as song_buttons;
 pub use song_buttons::known as song_buttons_known;
 pub use user_colors::{dm_name_color, load_user_colors, name_color};
 pub use user_tools::{popover_rows, stop_mic_test_in_call};
-pub use voice::{in_voice_mark, unmute_mark, voice_count};
+pub use voice::{follow_majority, in_voice_mark, unmute_mark, voice_count};
 
 // What only the tests reach from outside.
 #[cfg(test)]
@@ -184,6 +184,7 @@ pub mod id {
     pub const SHOW_BADGES: &str = "show-badges-in-chat";
     pub const SERVER_COUNTS: &str = "server-list-indicators";
     pub const SERVER_SIDEBAR: &str = "server-sidebar";
+    pub const FOLLOW_MAJORITY: &str = "follow-majority";
 }
 
 /// The plugins, in the page's order. Each lives in its area's file.
@@ -257,6 +258,7 @@ pub static PLUGINS: &[Plugin] = &[
     chat_badges::SHOW_BADGES,
     rail_top::SERVER_COUNTS,
     folder_side::SERVER_SIDEBAR,
+    voice::FOLLOW_MAJORITY,
 ];
 
 /// Whether a search (lowercase, not empty) finds `plugin` by its name, what
