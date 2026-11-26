@@ -44,6 +44,15 @@ const PLUGIN_BUTTON: f32 = 32.0;
 const PLUGIN_TOP: f32 = 6.0;
 const PLUGIN_INSET: f32 = 8.0;
 
+/// The gap above the plugin buttons' row: compact tightens it too.
+fn plugin_top(compact: bool) -> f32 {
+    if compact { 2.0 } else { PLUGIN_TOP }
+}
+
+/// The window's own corner, which the dock's bottom-left follows (the
+/// custom corner radius on this desktop). A maximized window has none.
+pub const WINDOW_RADIUS: f32 = 16.0;
+
 /// What the card takes in all: its height, and the plugin buttons' row when
 /// one is on.
 pub fn full_height(ctx: crate::ctx::Ctx<'_>) -> f32 {
@@ -52,7 +61,7 @@ pub fn full_height(ctx: crate::ctx::Ctx<'_>) -> f32 {
         + if plugin_buttons(ctx).is_empty() {
             0.0
         } else {
-            PLUGIN_BUTTON + PLUGIN_TOP
+            PLUGIN_BUTTON + plugin_top(compact)
         }
 }
 
@@ -598,7 +607,7 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
             .padding(Padding {
                 left: PLUGIN_INSET,
                 right: PLUGIN_INSET,
-                top: PLUGIN_TOP,
+                top: plugin_top(compact),
                 bottom: 0.0,
             })
             .width(Length::Fill)
@@ -700,6 +709,11 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     {
         return stacked.push(card).into();
     }
+    // MochaCord's dock is one piece across the whole foot (`app::view`
+    // draws its ground and edges), so the card is bare and fills it.
+    if crate::style::mocha(theme) {
+        return stacked.push(card).into();
+    }
     container(
         container(stacked.push(card))
             .clip(true)
@@ -720,6 +734,55 @@ pub fn view<'a>(ctx: crate::ctx::Ctx<'a>) -> Element<'a, Message> {
     .into()
 }
 
+/// MochaCord's foot as one dock: `foot` (the voice panel over the card)
+/// on one ground across the full width, the window's own corner at the
+/// bottom-left and square elsewhere, a 2 px rest edge and the lit edge
+/// while the pointer is on it.
+pub fn dock<'a>(
+    ctx: crate::ctx::Ctx<'a>,
+    foot: Element<'a, Message>,
+    maximized: bool,
+) -> Element<'a, Message> {
+    use iced::{Border, border::Radius};
+    let theme = ctx.look.theme;
+    let ground = theme.token_colour("account", theme.panel);
+    let radius = if maximized { 0.0 } else { WINDOW_RADIUS };
+    let corner = Radius {
+        top_left: 0.0,
+        top_right: 0.0,
+        bottom_right: 0.0,
+        bottom_left: radius,
+    };
+    let rice = crate::style::rice();
+    let rest = rice.map_or(theme.edge, |rice| rice.rest);
+    let lit = rice.map_or(theme.accent, |rice| rice.hover);
+    let width = crate::style::edge_width();
+    let base = container(foot)
+        .width(Length::Fill)
+        .padding(width)
+        .style(move |_| iced::widget::container::Style {
+            background: Some(ground.into()),
+            border: Border {
+                color: rest,
+                width,
+                radius: corner,
+            },
+            ..Default::default()
+        });
+    let over = container(Space::new())
+        .width(Length::Fill)
+        .height(Length::Fill)
+        .style(move |_| iced::widget::container::Style {
+            border: Border {
+                color: lit,
+                width,
+                radius: corner,
+            },
+            ..Default::default()
+        });
+    crate::widgets::Hover::new(base, over).into()
+}
+
 /// The avatar in the green ring while the microphone carries voice, and,
 /// with no Discord presence to show, a dot saying whether the account
 /// syncs: the accent in the preview, green online, grey offline.
@@ -731,7 +794,9 @@ fn ring_and_dot<'a>(
 ) -> Element<'a, Message> {
     use iced::widget::{Space, pin, stack};
     let theme = ctx.look.theme;
-    let mut layers = stack![face];
+    // The ring goes under the face, so the status badge and its cut-out
+    // gap sit on top of it, whole.
+    let mut layers = stack![];
     if account.speaking {
         let ring = theme.live;
         let side = avatar + 6.0;
@@ -751,6 +816,7 @@ fn ring_and_dot<'a>(
             .y(-3.0),
         );
     }
+    layers = layers.push(face);
     if account.presence.is_none() {
         let ink = match account.dot {
             Dot::Preview => theme.accent,
