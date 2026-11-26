@@ -385,7 +385,8 @@ impl Application {
             }
             _ => {}
         }
-        for participant in &mut self.state.voice.participants {
+        // Only this account's own tile; the others' flags are theirs.
+        for participant in self.state.voice.participants.iter_mut().filter(|p| p.local) {
             participant.muted = self.state.voice.muted;
         }
         call_sounds(&before, &self.state.voice)

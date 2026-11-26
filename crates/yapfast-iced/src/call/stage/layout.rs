@@ -359,6 +359,17 @@ pub fn speaking(person: &Participant) -> bool {
     person.speaking && !person.muted && person.connected
 }
 
+/// The marks on someone's tile: a crossed microphone while they can't speak,
+/// are muted or deafened, and crossed headphones while deafened. Both flags
+/// already hold what the others see, a fake mute or deafen of this account's
+/// own included.
+pub fn tile_marks(person: &Participant) -> (bool, bool) {
+    (
+        person.speaking_blocked || person.muted || person.deafened,
+        person.deafened,
+    )
+}
+
 /// What this account's sharing is doing, in words.
 pub fn share_status(voice: &voice::State) -> &'static str {
     match voice.sharing.as_ref().map(|sharing| sharing.phase) {
@@ -475,6 +486,22 @@ mod tests {
             video: filming.then(yapfast_core::picture::Feed::new),
             avatar: None,
         }
+    }
+
+    #[test]
+    fn a_tile_shows_the_mute_and_deafen_marks_of_what_others_see() {
+        let mut someone = person("ana", false, false, false);
+        assert_eq!(tile_marks(&someone), (false, false));
+        someone.muted = true;
+        assert_eq!(tile_marks(&someone), (true, false), "muted");
+        // Discord shows both the microphone and headphones as off.
+        someone.deafened = true;
+        assert_eq!(tile_marks(&someone), (true, true), "deafened");
+        someone.muted = false;
+        assert_eq!(tile_marks(&someone), (true, true), "deafened, unmuted");
+        someone.deafened = false;
+        someone.speaking_blocked = true;
+        assert_eq!(tile_marks(&someone), (true, false), "can't speak here");
     }
 
     #[test]

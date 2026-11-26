@@ -811,10 +811,11 @@ fn stage_tile(
                 on_press = Message::Call(Event::Watch(person.id.clone()));
             }
             let mut marks = Vec::new();
-            if person.speaking_blocked || (person.muted && !person.deafened) {
+            let (mic_off, headphones_off) = layout::tile_marks(person);
+            if mic_off {
                 marks.push((Icon::MicOff, theme.danger));
             }
-            if person.deafened {
+            if headphones_off {
                 marks.push((Icon::HeadphoneOff, theme.danger));
             }
             let marks_count = marks.len();

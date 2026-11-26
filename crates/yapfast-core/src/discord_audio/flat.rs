@@ -234,10 +234,10 @@ impl Flat {
 
     /// Push to talk's say for this block, as [`Processing`] works it out for
     /// a pair: `Some` sends or holds back whatever the gate hears, and `None`
-    /// leaves it to the gate. A push-to-mute key held, or a fake deafen,
-    /// sends nothing in either mode.
+    /// leaves it to the gate. A push-to-mute key held sends nothing in either
+    /// mode; a fake mute or deafen only changes what Discord is told.
     fn talking(&mut self) -> Option<bool> {
-        let muting = crate::push_to_talk::muting() || crate::halocord::fake_deafened();
+        let muting = crate::push_to_talk::muting();
         if crate::push_to_talk::on() {
             let held = self.talk.block(
                 crate::push_to_talk::held(),
@@ -341,10 +341,10 @@ mod tests {
         );
     }
 
-    /// A fake deafen sends nothing, as a deafened Discord client sends
-    /// nothing; a fake mute leaves the microphone as it is.
+    /// A fake deafen or fake mute only changes the voice state Discord is
+    /// told; the microphone keeps sending.
     #[test]
-    fn a_fake_deafen_sends_nothing() {
+    fn a_fake_deafen_keeps_sending() {
         let _alone = crate::halocord::FAKE_VOICE_TESTS
             .lock()
             .unwrap_or_else(|held| held.into_inner());
@@ -358,8 +358,8 @@ mod tests {
         // Push to talk's own switches are global too; with them at rest the
         // gate decides (None).
         let at_rest = !crate::push_to_talk::on() && !crate::push_to_talk::muting();
-        assert_eq!(deafened, Some(false), "nothing is sent");
         if at_rest {
+            assert_eq!(deafened, None, "a fake deafen leaves it to the gate");
             assert_eq!(muted, None, "a fake mute leaves it to the gate");
             assert_eq!(neither, None, "and so does neither");
         }

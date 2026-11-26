@@ -178,12 +178,10 @@ async fn undeafening_leaves_the_mute_as_it_was() {
     call.await.unwrap();
 }
 
-#[test]
-fn those_heard_but_unlisted_still_show() {
-    let snapshot = Snapshot::default();
-    let listed = [yapfast_discord::service::VoiceMember {
-        user_id: "3".into(),
-        name: "Listed".into(),
+fn member(id: &str) -> yapfast_discord::service::VoiceMember {
+    yapfast_discord::service::VoiceMember {
+        user_id: id.into(),
+        name: format!("Person {id}"),
         avatar: String::new(),
         muted: false,
         deafened: false,
@@ -195,14 +193,86 @@ fn those_heard_but_unlisted_still_show() {
         elsewhere: false,
         style: None,
         tag: None,
-    }];
-    // The voice server names this account (1), one listed (3) and one the
-    // gateway missed (7): only the missed one is added.
-    let added = missed(&snapshot, "10", &listed, "1", &[1, 3, 7]);
-    let ids: Vec<&str> = added.iter().map(|member| member.user_id.as_str()).collect();
-    assert_eq!(ids, ["7"]);
-    assert_eq!(added[0].name, "Discord user", "no name known yet");
-    assert!(missed(&snapshot, "10", &listed, "1", &[1, 3]).is_empty());
+    }
+}
+
+fn tiles_of(snapshot: &Snapshot, state: &State) -> Vec<Participant> {
+    discord_participants(
+        snapshot,
+        "10",
+        "1",
+        state,
+        &[],
+        true,
+        None,
+        &Cameras::start(None),
+    )
+}
+
+/// The tiles are the gateway's live voice states, the list the channel row
+/// shows: someone who left is gone, and the voice server's roster, which can
+/// keep naming them, adds no one.
+#[test]
+fn someone_who_left_has_no_tile() {
+    let mut snapshot = Snapshot::default();
+    snapshot
+        .voice
+        .insert("10".into(), vec![member("1"), member("3"), member("7")]);
+    let state = State::default();
+    let ids = |tiles: &[Participant]| -> Vec<String> {
+        tiles.iter().map(|tile| tile.id.clone()).collect()
+    };
+    assert_eq!(ids(&tiles_of(&snapshot, &state)), ["1", "3", "7"]);
+    // 7 leaves: the gateway's list drops them, and so do the tiles.
+    snapshot
+        .voice
+        .get_mut("10")
+        .unwrap()
+        .retain(|m| m.user_id != "7");
+    assert_eq!(ids(&tiles_of(&snapshot, &state)), ["1", "3"]);
+    snapshot.voice.remove("10");
+    assert!(tiles_of(&snapshot, &state).is_empty());
+}
+
+/// This account's own tile says what everyone else sees, a fake deafen
+/// included, while the real mute and deafen stay as they are.
+#[test]
+fn the_own_tile_shows_a_fake_deafen_and_the_others_their_own_flags() {
+    let _alone = crate::halocord::FAKE_VOICE_TESTS
+        .lock()
+        .unwrap_or_else(|held| held.into_inner());
+    let mut snapshot = Snapshot::default();
+    let mut deaf = member("3");
+    deaf.deafened = true;
+    deaf.muted = true;
+    snapshot
+        .voice
+        .insert("10".into(), vec![member("1"), deaf, member("7")]);
+    let state = State::default();
+
+    crate::halocord::set_fake_voice(false, true);
+    let tiles = tiles_of(&snapshot, &state);
+    crate::halocord::set_fake_voice(true, false);
+    let muted_tiles = tiles_of(&snapshot, &state);
+    crate::halocord::set_fake_voice(false, false);
+    let plain = tiles_of(&snapshot, &state);
+
+    assert!(
+        tiles[0].local && tiles[0].deafened && tiles[0].muted,
+        "fake deafen"
+    );
+    assert!(
+        !state.deafened && !state.muted,
+        "the real state is as it was"
+    );
+    assert!(
+        muted_tiles[0].muted && !muted_tiles[0].deafened,
+        "fake mute"
+    );
+    assert!(!plain[0].muted && !plain[0].deafened, "neither");
+    let other = |tiles: &[Participant]| tiles.iter().find(|t| t.id == "3").unwrap().clone();
+    assert!(other(&tiles).deafened && other(&tiles).muted, "theirs");
+    assert!(!tiles.iter().find(|t| t.id == "7").unwrap().deafened);
 }
 
 /// One call in `guild`'s `channel` until it connects, then left; the next
