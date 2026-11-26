@@ -175,23 +175,14 @@ pub fn fake_stream() -> bool {
 
 /// Makes others see this account muted, or muted and deafened, in calls,
 /// whatever it really is: the voice state sent to Discord says so, while the
-/// sound stays as the account set it. A fake mute leaves the microphone as
-/// it is; a fake deafen stops it sending (see [`fake_deafened`]). See
-/// [`voice_state`].
+/// sound stays as the account set it. Neither touches the microphone, which
+/// keeps sending, or what the account hears. See [`voice_state`].
 pub fn set_fake_voice(mute: bool, deaf: bool) {
     FAKE_MUTE.store(mute, Ordering::Relaxed);
     FAKE_DEAF.store(deaf, Ordering::Relaxed);
     // A call joined meanwhile says deafened from its first voice state.
     #[cfg(feature = "discord")]
     yapfast_discord::halocord::set_fake_deafen(deaf);
-}
-
-/// Whether a fake deafen is on. While it is, the microphone sends nothing,
-/// as while a push-to-mute key is held: others are told this account is
-/// deafened, and a deafened Discord client sends no voice, so no one hears
-/// it from an account that shows deafened.
-pub fn fake_deafened() -> bool {
-    FAKE_DEAF.load(Ordering::Relaxed)
 }
 
 /// Held by every test that sets the fake voice state, which is global.
