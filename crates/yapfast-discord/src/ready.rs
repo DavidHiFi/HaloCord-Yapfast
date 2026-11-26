@@ -31,6 +31,15 @@ pub const PUBLIC_THREAD: u64 = 11;
 pub const PRIVATE_THREAD: u64 = 12;
 const GUILD_STAGE_VOICE: u64 = 13;
 
+/// A channel flag: this account may not view the channel, whose name and
+/// topic Discord sends as [`HIDDEN_NAME`]; see
+/// <https://docs.discord.food/resources/channel#channel-flags>.
+const OBFUSCATED: u64 = 1 << 17;
+/// What Discord sends for a hidden channel's name and topic.
+const HIDDEN_NAME: &str = "___hidden___";
+/// The name a hidden channel shows, as Discord's client shows it.
+pub const NO_ACCESS: &str = "No Access";
+
 /// Discord's permission bits, as roles and channel overwrites carry them;
 /// see <https://docs.discord.food/topics/permissions>.
 pub mod permission {
@@ -158,6 +167,11 @@ pub struct Server {
     pub role_names: Arc<HashMap<String, String>>,
     /// The position and RGB colour of each coloured role, by id.
     pub role_colors: Arc<HashMap<String, (i64, u32)>>,
+    /// The second colour of each role whose name is a gradient (its
+    /// `colors.secondary_color`), by id: names run from the role's colour
+    /// to this one.
+    #[serde(default)]
+    pub role_gradients: Arc<HashMap<String, (u32, Option<u32>)>>,
     /// The address of the picture of each role that has one, which a member
     /// list draws by the role's name.
     #[serde(default)]
@@ -186,6 +200,14 @@ pub struct Server {
     /// [`crate::marked::MarkedServer::follows_only`].
     #[serde(default)]
     pub community: bool,
+    /// Its invites are paused with no end, a feature it lists as
+    /// `INVITES_DISABLED`; see [`Server::invites_paused`].
+    #[serde(default)]
+    pub invites_disabled: bool,
+    /// When its invites resume, in Unix seconds, while its Security
+    /// Actions pause them for a while: its `incidents_data`.
+    #[serde(default)]
+    pub invites_paused_until: Option<u64>,
     /// The channel its rules are in, from `rules_channel_id`.
     #[serde(default)]
     pub rules_channel: Option<String>,
@@ -211,6 +233,12 @@ pub struct Server {
     /// would go on drawing icons the client doesn't.
     #[serde(default)]
     pub role_icons_allowed: bool,
+    /// Whether its roles' names may be gradients: the
+    /// `ENHANCED_ROLE_COLORS` feature, a boost perk. Discord's client draws
+    /// a role's second colour only while the server has it, and keeps the
+    /// colours on the role after it goes.
+    #[serde(default)]
+    pub role_gradients_allowed: bool,
     /// What its owner chose about the member list's Activity panel; see
     /// [`crate::activity_feed::shown_in`].
     pub activity_feed: Option<bool>,
@@ -376,6 +404,10 @@ pub struct Channel {
     /// Age-restricted, as its `nsfw` says.
     #[serde(default)]
     pub nsfw: bool,
+    /// Hidden from this account, as Discord marks it with the
+    /// `OBFUSCATED` flag; its name is [`NO_ACCESS`] and it has no topic.
+    #[serde(default)]
+    pub obfuscated: bool,
 }
 
 /// What a thread has that a channel doesn't; see
@@ -627,6 +659,18 @@ pub struct Private {
     pub spam: bool,
 }
 
+/// Sorts Discord snowflake ids numerically ascending (falling back to
+/// lexicographical order for non-numeric test ids) and removes duplicates.
+pub fn sort_snowflakes(ids: &mut Vec<String>) {
+    ids.sort_by(|a, b| match (a.parse::<u64>(), b.parse::<u64>()) {
+        (Ok(a), Ok(b)) => a.cmp(&b),
+        (Ok(_), Err(_)) => std::cmp::Ordering::Less,
+        (Err(_), Ok(_)) => std::cmp::Ordering::Greater,
+        (Err(_), Err(_)) => a.cmp(b),
+    });
+    ids.dedup();
+}
+
 /// A DM or group DM, or a message request, from a channel object.
 pub fn private_channel(channel: &Value) -> Option<Private> {
     let group = match channel["type"].as_u64() {
@@ -637,7 +681,7 @@ pub fn private_channel(channel: &Value) -> Option<Private> {
     let spam = channel["is_spam"] == true;
     let id = channel["id"].as_str()?.to_owned();
     // With deduplicated users, READY gives ids and lists the users apart.
-    let recipients = match channel["recipient_ids"].as_array() {
+    let mut recipients: Vec<String> = match channel["recipient_ids"].as_array() {
         Some(ids) => ids
             .iter()
             .filter_map(Value::as_str)
@@ -650,18 +694,22 @@ pub fn private_channel(channel: &Value) -> Option<Private> {
             .filter_map(|user| user["id"].as_str().map(str::to_owned))
             .collect(),
     };
+    sort_snowflakes(&mut recipients);
     Some(Private {
         group,
         name: channel["name"]
             .as_str()
             .filter(|name| !name.is_empty())
             .map(str::to_owned),
-        icon: channel["icon"].as_str().map(|hash| {
-            format!(
-                "{}/channel-icons/{id}/{hash}.png?size={PICTURE_SIZE}",
-                cdn()
-            )
-        }),
+        icon: channel["icon"]
+            .as_str()
+            .filter(|hash| !hash.is_empty())
+            .map(|hash| {
+                format!(
+                    "{}/channel-icons/{id}/{hash}.png?size={PICTURE_SIZE}",
+                    cdn()
+                )
+            }),
         recipients,
         owner: group
             .then(|| channel["owner_id"].as_str().map(str::to_owned))
@@ -740,6 +788,10 @@ impl Server {
     /// permissions, then the channel's overwrites for @everyone, for the roles,
     /// and for the member.
     pub fn access(&self, channel: &Channel, user: &str, roles: &[String]) -> Access {
+        // Discord says so itself.
+        if channel.obfuscated {
+            return Access::Hidden;
+        }
         // Without the server's roles there is nothing to decide with.
         if self.roles.is_empty() {
             return Access::Join;
@@ -882,7 +934,7 @@ impl Server {
                 Arc::make_mut(&mut self.categories).insert(
                     id.to_owned(),
                     Category {
-                        name: channel["name"].as_str().unwrap_or_default().to_owned(),
+                        name: shown_name(channel, obfuscated(channel)),
                         position: channel["position"].as_i64().unwrap_or_default(),
                         overwrites: Arc::new(overwrites(channel)),
                     },
@@ -1192,6 +1244,17 @@ impl Server {
         owner == Some(me) || self.top_position(my_roles) > self.top_position(target_roles)
     }
 
+    /// When its paused invites resume, in Unix seconds, while they're
+    /// paused at `now`: by `INVITES_DISABLED`, which has no end
+    /// ([`u64::MAX`]), or by its Security Actions until a time to come, as
+    /// Discord's client asks (its module 347951).
+    pub fn invites_paused(&self, now: u64) -> Option<u64> {
+        if self.invites_disabled {
+            return Some(u64::MAX);
+        }
+        self.invites_paused_until.filter(|&until| until > now)
+    }
+
     /// Whether `me`, holding `my_roles`, may give `role` to someone or take
     /// it away: it takes [`permission::MANAGE_ROLES`] and a highest role
     /// above it, unless `me` owns the server. Nobody grants @everyone, a
@@ -1263,6 +1326,19 @@ impl Server {
                     Arc::make_mut(&mut self.role_colors).remove(&id);
                 }
             }
+            match value["colors"]["secondary_color"].as_u64() {
+                Some(color) => {
+                    // A third colour makes it holographic, as Discord calls it.
+                    let third = value["colors"]["tertiary_color"]
+                        .as_u64()
+                        .map(|third| third as u32);
+                    Arc::make_mut(&mut self.role_gradients)
+                        .insert(id.clone(), (color as u32, third));
+                }
+                None => {
+                    Arc::make_mut(&mut self.role_gradients).remove(&id);
+                }
+            }
             Arc::make_mut(&mut self.roles).insert(id, permissions);
         }
     }
@@ -1272,6 +1348,7 @@ impl Server {
         Arc::make_mut(&mut self.roles).remove(id);
         Arc::make_mut(&mut self.role_names).remove(id);
         Arc::make_mut(&mut self.role_colors).remove(id);
+        Arc::make_mut(&mut self.role_gradients).remove(id);
         Arc::make_mut(&mut self.role_icons).remove(id);
         Arc::make_mut(&mut self.role_positions).remove(id);
         Arc::make_mut(&mut self.mentionable_roles).remove(id);
@@ -1315,15 +1392,18 @@ impl Server {
                 let name = self.role_names.get(role)?;
                 let position = self.role_positions.get(role).copied().unwrap_or_default();
                 let color = self.role_colors.get(role).map(|(_, color)| *color);
+                // Two roles at one position rank by id, the older higher,
+                // as Discord's client ranks them.
+                let id = role.parse::<u64>().unwrap_or(u64::MAX);
                 Some((
-                    std::cmp::Reverse(position),
+                    (std::cmp::Reverse(position), id),
                     name.clone(),
                     color,
                     role.clone(),
                 ))
             })
             .collect();
-        named.sort();
+        named.sort_by_key(|(rank, ..)| *rank);
         named
             .into_iter()
             .map(|(_, name, color, id)| (id, name, color))
@@ -1359,10 +1439,44 @@ impl Server {
             .max_by_key(|(position, _)| *position)
             .map(|(_, color)| *color)
     }
+
+    /// Where a member's name's gradient ends: the second colour of the
+    /// highest coloured role they have, when that role's name is a
+    /// gradient, as Discord's enhanced role colours draw it.
+    pub fn gradient(&self, roles: &[String]) -> Option<(u32, Option<u32>)> {
+        if !self.role_gradients_allowed {
+            return None;
+        }
+        let top = roles
+            .iter()
+            .filter_map(|role| Some((role, self.role_colors.get(role)?)))
+            .max_by_key(|(_, (position, _))| *position)?
+            .0;
+        self.role_gradients.get(top).copied()
+    }
 }
 
 pub fn user_id(ready: &Value) -> Option<&str> {
     ready["user"]["id"].as_str()
+}
+
+/// Who the account READY came for is, as the account switcher lists it.
+pub struct OwnAccount {
+    pub username: String,
+    pub name: String,
+    pub avatar: String,
+}
+
+/// The account READY came for, or none if READY doesn't say.
+pub fn own_account(ready: &Value) -> Option<OwnAccount> {
+    let user = &ready["user"];
+    let id = user["id"].as_str()?;
+    let username = user["username"].as_str()?;
+    Some(OwnAccount {
+        username: username.to_owned(),
+        name: display_name(user).unwrap_or(username).to_owned(),
+        avatar: avatar(id, user["avatar"].as_str()),
+    })
 }
 
 /// The login Discord refreshed this one to, which takes the place of the
@@ -1437,6 +1551,7 @@ pub fn server(guild: &Value) -> Option<Server> {
             Some(1 | 3)
         ),
         role_icons_allowed: premium_tier >= 2 || has("ROLE_ICONS"),
+        role_gradients_allowed: has("ENHANCED_ROLE_COLORS"),
         activity_feed: if has("ACTIVITY_FEED_ENABLED_BY_USER") {
             Some(true)
         } else if has("ACTIVITY_FEED_DISABLED_BY_USER") {
@@ -1467,6 +1582,15 @@ pub fn server(guild: &Value) -> Option<Server> {
         forwarding_disabled: has("FORWARDING_DISABLED"),
         verified: has("VERIFIED") || has("PARTNERED"),
         community: has("COMMUNITY"),
+        invites_disabled: has("INVITES_DISABLED"),
+        invites_paused_until: crate::server_settings::parse_incidents(
+            if guild["incidents_data"].is_null() {
+                &guild["properties"]["incidents_data"]
+            } else {
+                &guild["incidents_data"]
+            },
+        )
+        .0,
         rules_channel: guild["rules_channel_id"]
             .as_str()
             .or_else(|| guild["properties"]["rules_channel_id"].as_str())
@@ -1591,19 +1715,41 @@ pub fn parse_thread(value: &Value) -> Option<Channel> {
     Some(thread)
 }
 
+/// Whether Discord hides `channel` from this account, as its `OBFUSCATED`
+/// flag says.
+fn obfuscated(channel: &Value) -> bool {
+    channel["flags"]
+        .as_u64()
+        .is_some_and(|flags| flags & OBFUSCATED != 0)
+}
+
+/// A channel's or category's name: [`NO_ACCESS`] for a hidden one, or one
+/// whose name Discord sends as [`HIDDEN_NAME`].
+fn shown_name(channel: &Value, obfuscated: bool) -> String {
+    let name = channel["name"].as_str().unwrap_or_default();
+    if obfuscated || name == HIDDEN_NAME {
+        NO_ACCESS
+    } else {
+        name
+    }
+    .to_owned()
+}
+
 fn parse_channel(channel: &Value) -> Option<Channel> {
+    let obfuscated = obfuscated(channel);
     Some(Channel {
         channel_type: channel["type"]
             .as_u64()
             .and_then(|kind| u8::try_from(kind).ok()),
         id: channel["id"].as_str()?.to_owned(),
-        name: channel["name"].as_str().unwrap_or_default().to_owned(),
+        name: shown_name(channel, obfuscated),
         position: channel["position"].as_i64().unwrap_or_default(),
         parent: channel["parent_id"].as_str().map(str::to_owned),
         topic: channel["topic"]
             .as_str()
-            .filter(|topic| !topic.trim().is_empty())
+            .filter(|topic| !obfuscated && *topic != HIDDEN_NAME && !topic.trim().is_empty())
             .map(Arc::from),
+        obfuscated,
         overwrites: Arc::new(overwrites(channel)),
         announcement: channel["type"].as_u64() == Some(GUILD_ANNOUNCEMENT),
         stage: channel["type"].as_u64() == Some(GUILD_STAGE_VOICE),
@@ -1671,6 +1817,12 @@ pub fn sticker_at(id: &str, format: u64, size: u32) -> String {
         STICKER_LOTTIE => format!("{}/stickers/{id}.json", cdn()),
         _ => format!("{}/stickers/{id}.png?size={size}", cdn()),
     }
+}
+
+/// A sticker's picture's address without the size it was asked at, as
+/// Discord's Copy Sticker Image Link gives it.
+pub fn sticker_link(url: &str) -> &str {
+    url.split_once('?').map_or(url, |(address, _)| address)
 }
 
 /// Whether `url` is a Lottie sticker's, as [`sticker`] makes them: the only
@@ -1796,15 +1948,14 @@ fn murmur3(data: &[u8]) -> u32 {
     const C2: u32 = 0x1b87_3593;
     let scramble = |k: u32| k.wrapping_mul(C1).rotate_left(15).wrapping_mul(C2);
     let mut hash = 0u32;
-    let mut blocks = data.chunks_exact(4);
-    for block in &mut blocks {
-        let k = u32::from_le_bytes([block[0], block[1], block[2], block[3]]);
+    let (blocks, tail) = data.as_chunks::<4>();
+    for &block in blocks {
+        let k = u32::from_le_bytes(block);
         hash = (hash ^ scramble(k))
             .rotate_left(13)
             .wrapping_mul(5)
             .wrapping_add(0xe654_6b64);
     }
-    let tail = blocks.remainder();
     if !tail.is_empty() {
         let k = tail
             .iter()
@@ -1832,6 +1983,38 @@ mod tests {
             let channel = parse_channel(&serde_json::json!({"id": "1", "type": kind})).unwrap();
             assert_eq!(channel.channel_type, Some(kind as u8));
         }
+    }
+
+    #[test]
+    fn roles_at_one_position_rank_by_id_the_older_higher() {
+        let names = [
+            ("900", "Server Booster"),
+            ("12", "contributor"),
+            ("5", "Mods"),
+        ];
+        let server = Server {
+            id: "1".into(),
+            role_names: Arc::new(
+                names
+                    .iter()
+                    .map(|(id, name)| (id.to_string(), name.to_string()))
+                    .collect(),
+            ),
+            role_positions: Arc::new(
+                [("900", 2), ("12", 2), ("5", 3)]
+                    .iter()
+                    .map(|(id, position)| (id.to_string(), *position))
+                    .collect(),
+            ),
+            ..Server::default()
+        };
+        let roles: Vec<String> = ["900", "12", "5"].iter().map(|id| id.to_string()).collect();
+        let named: Vec<String> = server
+            .named_roles(&roles)
+            .into_iter()
+            .map(|(_, name, _)| name)
+            .collect();
+        assert_eq!(named, ["Mods", "contributor", "Server Booster"]);
     }
 
     #[test]
@@ -1863,6 +2046,21 @@ mod tests {
     }
 
     #[test]
+    fn sticker_links_drop_the_size_they_were_asked_at() {
+        assert_eq!(
+            sticker_link(&sticker_at("9", 1, 96)),
+            format!("{}/stickers/9.png", cdn())
+        );
+        assert_eq!(
+            sticker_link(&sticker_at("9", STICKER_GIF, 96)),
+            format!("{}/stickers/9.gif", media())
+        );
+        // A Lottie sticker's has no size to drop.
+        let lottie = sticker_at("9", STICKER_LOTTIE, 96);
+        assert_eq!(sticker_link(&lottie), lottie);
+    }
+
+    #[test]
     fn reads_user_ready_guilds() {
         let ready = json!({
             "user": {"id": "1"},
@@ -1889,6 +2087,73 @@ mod tests {
             .map(|c| c.name.as_str())
             .collect();
         assert_eq!(names, ["Lounge", "Second"]);
+    }
+
+    /// A role whose name is a gradient gives its members' names the
+    /// second colour too, from the highest coloured role only.
+    #[test]
+    fn a_gradient_roles_second_colour_ends_its_members_names() {
+        let mut server = Server {
+            role_gradients_allowed: true,
+            ..Server::default()
+        };
+        server.put_role(&json!({"id": "1", "name": "Fade", "position": 5, "color": 0xff0000,
+            "colors": {"primary_color": 0xff0000, "secondary_color": 0x0000ff, "tertiary_color": null}}));
+        server.put_role(
+            &json!({"id": "2", "name": "Plain", "position": 9, "color": 0x00ff00,
+            "colors": {"primary_color": 0x00ff00, "secondary_color": null}}),
+        );
+        server.put_role(
+            &json!({"id": "3", "name": "Low", "position": 1, "color": 0x111111,
+            "colors": {"primary_color": 0x111111, "secondary_color": 0x222222}}),
+        );
+        let has = |roles: &[&str]| {
+            roles
+                .iter()
+                .map(|role| (*role).to_owned())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(server.gradient(&has(&["1"])), Some((0x0000ff, None)));
+        assert_eq!(server.color(&has(&["1"])), Some(0xff0000));
+        assert_eq!(
+            server.gradient(&has(&["1", "2"])),
+            None,
+            "the plain role is higher"
+        );
+        assert_eq!(server.gradient(&has(&["1", "3"])), Some((0x0000ff, None)));
+        server.put_role(&json!({"id": "4", "name": "Holo", "position": 20, "color": 0xa9c9ff,
+            "colors": {"primary_color": 0xa9c9ff, "secondary_color": 0xffbbec, "tertiary_color": 0xffc3a0}}));
+        assert_eq!(
+            server.gradient(&has(&["4"])),
+            Some((0xffbbec, Some(0xffc3a0))),
+            "holographic: a third colour"
+        );
+        // Without the server's ENHANCED_ROLE_COLORS the role's colours
+        // stay on it, but its name is the one colour, as in Discord's client.
+        server.role_gradients_allowed = false;
+        assert_eq!(server.gradient(&has(&["4"])), None, "the perk is gone");
+        server.role_gradients_allowed = true;
+        server.put_role(&json!({"id": "1", "name": "Fade", "position": 5, "color": 0xff0000}));
+        assert_eq!(server.gradient(&has(&["1"])), None, "made plain again");
+    }
+
+    /// A server's roles may be gradients only with ENHANCED_ROLE_COLORS.
+    #[test]
+    fn role_gradients_follow_the_servers_feature() {
+        let guild = |features: &[&str]| {
+            json!({
+                "id": "10",
+                "properties": {"name": "Test", "features": features},
+                "roles": [{"id": "20", "name": "Fade", "permissions": "0", "position": 2,
+                    "color": 0xff0000, "colors": {"primary_color": 0xff0000, "secondary_color": 0x0000ff}}],
+            })
+        };
+        let mine = ["20".to_owned()];
+        let plain = server(&guild(&[])).unwrap();
+        assert_eq!(plain.gradient(&mine), None);
+        assert_eq!(plain.color(&mine), Some(0xff0000));
+        let enhanced = server(&guild(&["ENHANCED_ROLE_COLORS"])).unwrap();
+        assert_eq!(enhanced.gradient(&mine), Some((0x0000ff, None)));
     }
 
     #[test]
@@ -2126,6 +2391,69 @@ mod tests {
             Access::Join,
             "administrators too"
         );
+    }
+
+    #[test]
+    fn hidden_channels_come_as_no_access() {
+        // As Discord sends a voice channel this account may not view, and
+        // a category, with the OBFUSCATED flag and their names hidden.
+        let mut server = server(&json!({
+            "id": "10", "properties": {"name": "Test"},
+            "roles": [{"id": "10", "permissions": (VIEW_CHANNEL | CONNECT).to_string()}],
+            "channels": [
+                {"id": "11", "type": 2, "name": "___hidden___", "topic": "___hidden___",
+                 "flags": 1 << 17, "position": 0, "parent_id": "12", "permission_overwrites": []},
+                {"id": "12", "type": 4, "name": "___hidden___", "flags": 1 << 17, "position": 0},
+                {"id": "13", "type": 2, "name": "Lounge", "flags": 0, "position": 1},
+            ],
+        }))
+        .unwrap();
+        let hidden = server.channel("11").unwrap();
+        assert_eq!(
+            (hidden.name.as_str(), hidden.topic.as_deref()),
+            ("No Access", None)
+        );
+        assert!(hidden.obfuscated);
+        assert_eq!(server.categories["12"].name, "No Access");
+        assert_eq!(
+            server.access(hidden, "1", &[]),
+            Access::Hidden,
+            "hidden though no overwrite says so"
+        );
+        assert_eq!(
+            server.access(server.channel("13").unwrap(), "1", &[]),
+            Access::Join
+        );
+        // Shown again, it comes with its name.
+        server.put_channel(
+            &json!({"id": "11", "type": 2, "name": "Staff", "flags": 0, "guild_id": "10"}),
+        );
+        let shown = server.channel("11").unwrap();
+        assert_eq!((shown.name.as_str(), shown.obfuscated), ("Staff", false));
+        assert_eq!(server.access(shown, "1", &[]), Access::Join);
+    }
+
+    #[test]
+    fn paused_invites_come_from_features_and_incidents() {
+        let paused = server(&json!({
+            "id": "10",
+            "properties": {
+                "name": "Test",
+                "incidents_data": {"invites_disabled_until": "2030-01-01T00:00:00+00:00"},
+            },
+        }))
+        .unwrap();
+        let until = 1_893_456_000;
+        assert_eq!(paused.invites_paused_until, Some(until));
+        assert_eq!(paused.invites_paused(until - 1), Some(until));
+        assert_eq!(paused.invites_paused(until), None, "resumed");
+        let disabled = server(&json!({
+            "id": "10", "properties": {"name": "Test", "features": ["INVITES_DISABLED"]},
+        }))
+        .unwrap();
+        assert_eq!(disabled.invites_paused(until), Some(u64::MAX), "no end");
+        let open = server(&json!({"id": "10", "properties": {"name": "Test"}})).unwrap();
+        assert_eq!(open.invites_paused(0), None);
     }
 
     #[test]
@@ -2494,5 +2822,23 @@ mod tests {
         }))
         .unwrap();
         assert_eq!(dm.owner, None);
+    }
+
+    #[test]
+    fn a_group_dm_sorts_recipients_deterministically_by_snowflake() {
+        let from_ids = private_channel(&json!({
+            "id": "5", "type": 3, "icon": "", "recipient_ids": ["10", "2", "3", "2"],
+        }))
+        .unwrap();
+        assert_eq!(from_ids.recipients, ["2", "3", "10"]);
+        assert_eq!(from_ids.icon, None);
+
+        let from_users = private_channel(&json!({
+            "id": "5",
+            "type": 3,
+            "recipients": [{"id": "30"}, {"id": "5"}, {"id": "12"}],
+        }))
+        .unwrap();
+        assert_eq!(from_users.recipients, ["5", "12", "30"]);
     }
 }

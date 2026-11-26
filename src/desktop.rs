@@ -12,15 +12,20 @@ use std::{
 };
 
 use yapfast_core::{chat::Alert, runtime::BackgroundRuntime};
-use yapfast_iced::{Heard, Offered, Tell, TrayChoice, UpdateChoices, UpdateStatus, UpdatesShown};
+use yapfast_iced::{
+    Heard, IconChoice, IconTarget, Offered, Tell, TrayChoice, UpdateChoices, UpdateStatus,
+    UpdatesShown,
+};
 
 use crate::{
+    icon::Artwork,
     keybinds, paste,
     update::{
-        self, Outcome, Release, Version,
-        install::{self, Prepared, Progress, Stage},
+        self, halocord,
+        install::{Prepared, Progress, Stage},
     },
 };
+use yapfast_iced::halocord_updates as hc;
 
 /// What the window asks of the desktop, for one start of Yapfast.
 pub struct Shell {
@@ -34,12 +39,12 @@ pub struct Shell {
     pasted: Arc<Mutex<Option<tempfile::TempDir>>>,
 }
 
-/// What the last look at the releases found, and an update under way. The
-/// tasks write their results here.
+/// What the last look at HaloCord's releases found, and an update under
+/// way. The tasks write their results here.
 #[derive(Default)]
 struct Updating {
-    /// The releases GitHub listed, or why it couldn't.
-    found: Option<Result<Vec<Release>, String>>,
+    /// The channel's release, or why GitHub couldn't say.
+    found: Option<Result<hc::Release, String>>,
     checking: bool,
     /// The last look's task and the last update's: dropping one stops it,
     /// and a finished one is replaced by the next.
@@ -49,6 +54,11 @@ struct Updating {
     install_error: String,
     /// An update that is ready for `main` to finish once the window closes.
     prepared: Option<Prepared>,
+    /// An update put in place for the next start, and its release.
+    placed: Option<(PathBuf, hc::Release)>,
+    /// The release an automatic install last tried, so a failed one isn't
+    /// tried again on every look.
+    tried: Option<String>,
 }
 
 /// An update being downloaded.
@@ -74,10 +84,18 @@ impl Shell {
         })
     }
 
-    /// The window closed for good: pasted pictures go. The window keeps
-    /// this shell until the process ends, so nothing drops them.
+    /// The window closed for good. The window keeps this shell until the
+    /// process ends, so release what the next start needs here.
     pub fn closed(&self) {
         drop(self.pasted.lock().map(|mut folder| folder.take()));
+        // On Windows the replacement starts before this process exits.
+        #[cfg(windows)]
+        drop(std::mem::take(
+            &mut *self
+                .instance
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+        ));
     }
 
     /// The update downloaded and checked, for `main` to finish.
@@ -98,6 +116,29 @@ impl Shell {
     }
 }
 
+#[cfg(all(test, windows))]
+#[test]
+fn the_replacement_can_claim_the_folder_before_the_old_process_exits() {
+    use crate::instance::{Start, claim};
+
+    let root = tempfile::tempdir().expect("data folder");
+    let claim = || claim(root.path(), true, false, None);
+    let Start::Run(instance) = claim() else {
+        panic!("the first start runs");
+    };
+    let shell = Shell::new(
+        Arc::new(BackgroundRuntime::new().expect("background workers")),
+        false,
+        instance,
+    );
+    yapfast_iced::Desktop::start(&*shell, Arc::new(|_| {}));
+    assert!(matches!(claim(), Start::Handed));
+
+    shell.closed();
+
+    assert!(matches!(claim(), Start::Run(_)));
+}
+
 /// The tray, as `tray::Tray`.
 struct Tray(crate::tray::Tray);
 
@@ -108,6 +149,10 @@ impl yapfast_iced::Tray for Tray {
 
     fn show(&self, unread: bool, call: bool) {
         self.0.show(crate::tray::Shown { unread, call });
+    }
+
+    fn set_icon(&self, root: &Path, source: IconTarget, choice: &IconChoice) {
+        self.0.set_icon(&Artwork::load(root, source, choice));
     }
 }
 
@@ -137,15 +182,25 @@ impl yapfast_iced::Desktop for Shell {
             });
     }
 
-    fn tray(&self, tell: Tell) -> Option<Box<dyn yapfast_iced::Tray>> {
-        let tray = crate::tray::Tray::start(Arc::new(move |choice| {
+    fn tray(
+        &self,
+        tell: Tell,
+        root: &Path,
+        source: IconTarget,
+        choice: &IconChoice,
+    ) -> Option<Box<dyn yapfast_iced::Tray>> {
+        let artwork = Artwork::load(root, source, choice);
+        let chosen = Arc::new(move |choice| {
             tell(Heard::Tray(match choice {
                 crate::tray::Choice::Open => TrayChoice::Open,
                 crate::tray::Choice::Disconnect => TrayChoice::Disconnect,
+                crate::tray::Choice::CheckForUpdates => TrayChoice::CheckForUpdates,
+                crate::tray::Choice::Restart => TrayChoice::Restart,
                 crate::tray::Choice::Quit => TrayChoice::Quit,
                 crate::tray::Choice::Available => TrayChoice::Available,
             }));
-        }))?;
+        });
+        let tray = crate::tray::Tray::start(chosen, &artwork)?;
         Some(Box::new(Tray(tray)))
     }
 
@@ -175,19 +230,16 @@ impl yapfast_iced::Desktop for Shell {
             .map(|pointer| Box::new(pointer) as Box<dyn yapfast_iced::PointerAt>)
     }
 
+    #[cfg(target_os = "linux")]
     fn decorate(&self, window: &dyn yapfast_iced::Window, tell: Tell) {
-        #[cfg(windows)]
-        if let Ok(handle) = window.window_handle()
-            && let raw_window_handle::RawWindowHandle::Win32(handle) = handle.as_raw()
-        {
-            crate::icon::set_on(handle.hwnd.get());
-        }
-        #[cfg(target_os = "linux")]
         watch_wayland_drops(window, tell);
-        #[cfg(not(target_os = "linux"))]
-        let _ = tell;
-        #[cfg(not(any(windows, target_os = "linux")))]
-        let _ = window;
+    }
+
+    #[cfg(windows)]
+    fn taskbar_unread(&self, window: &dyn yapfast_iced::Window, unread: u8) {
+        if let Some(hwnd) = win32(window) {
+            crate::icon::set_taskbar(hwnd, unread);
+        }
     }
 
     fn window_place(&self, window: &dyn yapfast_iced::Window) -> Option<[i32; 2]> {
@@ -239,14 +291,57 @@ impl yapfast_iced::Desktop for Shell {
         }
     }
 
-    fn window_icon(&self) -> Option<(Vec<u8>, u32, u32)> {
-        #[cfg(target_os = "linux")]
-        {
-            let icon = crate::icon::window_icon()?;
-            Some((icon.pixels, icon.width, icon.height))
+    #[cfg(target_os = "linux")]
+    fn window_icon(&self, root: &Path, choice: &IconChoice) -> Option<(Vec<u8>, u32, u32)> {
+        let icon = Artwork::load(root, IconTarget::Application, choice).window(64)?;
+        Some((icon.pixels, icon.width, icon.height))
+    }
+
+    #[cfg(windows)]
+    fn set_window_icon(
+        &self,
+        window: &dyn yapfast_iced::Window,
+        root: &Path,
+        choice: &IconChoice,
+        unread: u8,
+    ) {
+        if let Some(window) = win32(window) {
+            crate::icon::set_on(
+                window,
+                &Artwork::load(root, IconTarget::Application, choice),
+                unread,
+            );
         }
-        #[cfg(not(target_os = "linux"))]
-        None
+    }
+
+    fn supports_desktop_icons(&self) -> bool {
+        cfg!(any(windows, target_os = "linux"))
+    }
+
+    #[cfg(any(windows, target_os = "linux"))]
+    fn icon_preview(
+        &self,
+        root: &Path,
+        target: IconTarget,
+        choice: &IconChoice,
+    ) -> Option<(Vec<u8>, u32, u32)> {
+        let artwork = Artwork::load(root, target, choice);
+        if *choice == IconChoice::Custom && !matches!(artwork, Artwork::Custom(_)) {
+            return None;
+        }
+        let icon = match target {
+            IconTarget::Application => artwork.window(48),
+            IconTarget::Tray => artwork.tray(48, false),
+        }?;
+        Some((icon.pixels, icon.width, icon.height))
+    }
+
+    fn prepare_icon(&self, path: &Path) -> Result<Vec<u8>, String> {
+        crate::icon::prepare(path)
+    }
+
+    fn save_icon(&self, root: &Path, target: IconTarget, png: &[u8]) -> Result<(), String> {
+        crate::icon::save(root, target, png)
     }
 
     fn autostart(&self) -> Option<bool> {
@@ -379,48 +474,85 @@ pub fn release_memory() {
     tracing::info!("memory released");
 }
 
-/// What the releases mean for this build under the layout's choices.
-fn outcome(choices: &UpdateChoices, found: &[Release]) -> Option<Outcome> {
-    let build = crate::build_info::current();
-    let current = Version::parse(build.version())?;
-    Some(update::decide(
-        found,
-        &current,
-        build.channel(),
-        choices.nightlies,
-        choices.skipped.as_deref(),
-    ))
+/// What HaloCord's release means for this build under the layout's choices.
+fn outcome(choices: &UpdateChoices, release: &hc::Release) -> hc::Outcome {
+    let current = halocord::current();
+    let released = current.is_some()
+        || crate::build_info::current().channel() != crate::build_info::Channel::Development;
+    hc::decide(release, current, released, choices.skipped.as_deref())
 }
 
-/// Whether Update and restart is offered for `release`, and the line under it:
-/// what it will do, or why this copy can't update itself. A package manager's
-/// copy says so elsewhere on the page.
-fn install_offer(release: &Release) -> (bool, String) {
-    match install::target(release) {
-        Ok(target) => {
-            let megabytes = target.asset().size.div_ceil(1_000_000);
-            (
-                true,
-                format!("{megabytes} MB. Yapfast restarts when it's done."),
-            )
-        }
-        Err(_) if update::source().manager().is_some() => (false, String::new()),
-        Err(reason) => (false, reason),
+impl Shell {
+    /// Downloads `release` and puts it in place; `restart` ends Yapfast
+    /// once it's in, so `main` starts the new one.
+    fn start_install(&self, updating: &mut Updating, release: hc::Release, restart: bool) {
+        updating.install_error.clear();
+        let client = match update::client() {
+            Ok(client) => client,
+            Err(why) => {
+                updating.install_error = why;
+                return;
+            }
+        };
+        let progress = Arc::new(Progress::default());
+        let (runtime, shared, tell) = (
+            self.runtime.clone(),
+            self.updates.clone(),
+            self.tell.get().cloned(),
+        );
+        let part = halocord::download_path(&release);
+        let reading = progress.clone();
+        updating.install = Some(self.runtime.spawn(async move {
+            let result = halocord::prepare(&runtime, &client, &release, reading).await;
+            let mut updating = shared
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            updating.installing = None;
+            match result {
+                Ok(program) if restart => {
+                    tracing::info!(name = %release.name, "HaloCord's update is in; restarting");
+                    updating.prepared = Some(Prepared::Replaced(program));
+                }
+                Ok(program) => {
+                    tracing::info!(name = %release.name, "HaloCord's update is in for the next start");
+                    updating.placed = Some((program, release));
+                }
+                Err(error) => {
+                    tracing::warn!(%error, "HaloCord's update failed");
+                    updating.install_error = error;
+                }
+            }
+            drop(updating);
+            if let Some(tell) = tell {
+                tell(Heard::Updates);
+            }
+        }));
+        updating.installing = Some(Installing { progress, part });
+    }
+
+    /// The release the last look found that this build can take.
+    fn available(updating: &Updating, choices: &UpdateChoices) -> Option<hc::Release> {
+        let Some(Ok(release)) = &updating.found else {
+            return None;
+        };
+        (outcome(choices, release) == hc::Outcome::Available).then(|| release.clone())
     }
 }
 
 impl yapfast_iced::Updates for Shell {
-    fn look(&self) {
+    fn look(&self, choices: &UpdateChoices) {
         let mut updating = self.lock_updates();
         if updating.checking {
             return;
         }
         updating.checking = true;
+        halocord::clear_old();
+        let channel = choices.channel;
         let (shared, tell) = (self.updates.clone(), self.tell.get().cloned());
         updating.look = Some(self.runtime.spawn(async move {
-            let found = update::check().await;
+            let found = halocord::check(channel).await;
             if let Err(error) = &found {
-                tracing::warn!(%error, "could not look for a newer release");
+                tracing::warn!(%error, ?channel, "could not look for a newer HaloCord");
             }
             let mut updating = shared
                 .lock()
@@ -451,25 +583,32 @@ impl yapfast_iced::Updates for Shell {
         };
         shown.status = match &updating.found {
             _ if updating.checking => UpdateStatus::Checking,
+            _ if updating.placed.is_some() => {
+                if let Some((_, release)) = &updating.placed {
+                    shown.latest.clone_from(&release.name);
+                    shown.notes.clone_from(&release.notes);
+                }
+                UpdateStatus::Ready
+            }
             None => UpdateStatus::Idle,
             Some(Err(why)) => {
                 shown.error.clone_from(why);
                 UpdateStatus::Failed
             }
-            Some(Ok(found)) => match outcome(choices, found) {
-                None | Some(Outcome::UpToDate) => UpdateStatus::Current,
-                Some(Outcome::FromSource) => UpdateStatus::Source,
-                Some(Outcome::Available(release)) => {
-                    let (can_install, note) = install_offer(&release);
+            Some(Ok(release)) => match outcome(choices, release) {
+                hc::Outcome::UpToDate => UpdateStatus::Current,
+                hc::Outcome::FromSource => UpdateStatus::Source,
+                hc::Outcome::Available => {
+                    let (can_install, note) = halocord::install_offer(release);
                     shown.can_install = can_install && updating.installing.is_none();
                     shown.install_note = note;
-                    shown.latest = release.tag;
-                    shown.notes = release.notes;
+                    shown.latest.clone_from(&release.name);
+                    shown.notes.clone_from(&release.notes);
                     UpdateStatus::Available
                 }
-                Some(Outcome::Skipped(release)) => {
-                    shown.latest = release.tag;
-                    shown.notes = release.notes;
+                hc::Outcome::Skipped => {
+                    shown.latest.clone_from(&release.name);
+                    shown.notes.clone_from(&release.notes);
                     UpdateStatus::Skipped
                 }
             },
@@ -483,7 +622,7 @@ impl yapfast_iced::Updates for Shell {
                 }
                 (Stage::Downloading, None) => ("Downloading".to_owned(), -1.0),
                 (Stage::Testing, _) => ("Checking the update…".to_owned(), -1.0),
-                (Stage::Installing, _) => ("Restarting…".to_owned(), 1.0),
+                (Stage::Installing, _) => ("Putting it in place…".to_owned(), 1.0),
             };
             shown.can_cancel = matches!(stage, Stage::Starting | Stage::Downloading);
         } else if updating.prepared.is_some() {
@@ -494,17 +633,17 @@ impl yapfast_iced::Updates for Shell {
 
     fn offered(&self, choices: &UpdateChoices) -> Option<Offered> {
         let updating = self.lock_updates();
-        let Some(Ok(found)) = &updating.found else {
+        let Some(Ok(release)) = &updating.found else {
             return None;
         };
-        let (release, skipped) = match outcome(choices, found)? {
-            Outcome::Available(release) => (release, false),
-            Outcome::Skipped(release) => (release, true),
-            Outcome::UpToDate | Outcome::FromSource => return None,
+        let skipped = match outcome(choices, release) {
+            hc::Outcome::Available => false,
+            hc::Outcome::Skipped => true,
+            hc::Outcome::UpToDate | hc::Outcome::FromSource => return None,
         };
         Some(Offered {
-            tag: release.tag,
-            page: release.page,
+            tag: release.name.clone(),
+            page: release.page.clone(),
             skipped,
         })
     }
@@ -514,54 +653,33 @@ impl yapfast_iced::Updates for Shell {
         if updating.installing.is_some() || updating.prepared.is_some() {
             return;
         }
-        let Some(Ok(found)) = &updating.found else {
+        // Restart now: the update already went in for the next start.
+        if let Some((program, _)) = updating.placed.take() {
+            updating.prepared = Some(Prepared::Replaced(program));
+        } else if let Some(release) = Self::available(&updating, choices) {
+            self.start_install(&mut updating, release, true);
+        } else {
+            return;
+        }
+        drop(updating);
+        self.tell(Heard::Updates);
+    }
+
+    fn install_later(&self, choices: &UpdateChoices) {
+        let mut updating = self.lock_updates();
+        if updating.installing.is_some() || updating.prepared.is_some() || updating.placed.is_some()
+        {
+            return;
+        }
+        let Some(release) = Self::available(&updating, choices) else {
             return;
         };
-        let Some(Outcome::Available(release)) = outcome(choices, found) else {
+        // Once for each release: a failed one waits for Check now's button.
+        if updating.tried.as_deref() == Some(release.name.as_str()) {
             return;
-        };
-        updating.install_error.clear();
-        let started = install::target(&release)
-            .and_then(|target| update::client().map(|client| (target, client)));
-        let (target, client) = match started {
-            Ok(started) => started,
-            Err(why) => {
-                updating.install_error = why;
-                drop(updating);
-                self.tell(Heard::Updates);
-                return;
-            }
-        };
-        let progress = Arc::new(Progress::default());
-        let (runtime, shared, tell) = (
-            self.runtime.clone(),
-            self.updates.clone(),
-            self.tell.get().cloned(),
-        );
-        let part = target.part();
-        let reading = progress.clone();
-        updating.install = Some(self.runtime.spawn(async move {
-            let result = install::prepare(&runtime, &client, &release, &target, reading).await;
-            let mut updating = shared
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
-            updating.installing = None;
-            match result {
-                Ok(prepared) => {
-                    tracing::info!(?prepared, "the update is ready; restarting to finish it");
-                    updating.prepared = Some(prepared);
-                }
-                Err(error) => {
-                    tracing::warn!(%error, "the update failed");
-                    updating.install_error = error;
-                }
-            }
-            drop(updating);
-            if let Some(tell) = tell {
-                tell(Heard::Updates);
-            }
-        }));
-        updating.installing = Some(Installing { progress, part });
+        }
+        updating.tried = Some(release.name.clone());
+        self.start_install(&mut updating, release, false);
         drop(updating);
         self.tell(Heard::Updates);
     }

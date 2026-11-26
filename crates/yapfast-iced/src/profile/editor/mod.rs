@@ -594,10 +594,11 @@ pub(super) fn editor_pictures(ctx: crate::ctx::Ctx<'_>) -> Vec<String> {
     };
     let profile = editor.shown.look.profile();
     let cosmetics = ctx.state.cosmetics;
+    let banner = cosmetics.background(profile.banner.as_deref());
     let mut urls: Vec<String> = [
         profile.avatar.clone(),
-        profile.banner.clone(),
-        profile.banner.as_deref().and_then(chat::moving_banner),
+        banner.map(str::to_owned),
+        banner.and_then(chat::moving_banner),
     ]
     .into_iter()
     .flatten()
@@ -608,7 +609,8 @@ pub(super) fn editor_pictures(ctx: crate::ctx::Ctx<'_>) -> Vec<String> {
             .decoration(profile.decoration.as_deref())
             .map(str::to_owned),
     );
-    urls.extend(profile.badges.iter().map(|badge| badge.icon.clone()));
+    let badges = cosmetics.badges(&profile.badges).into_iter().flatten();
+    urls.extend(badges.map(|badge| badge.icon.clone()));
     urls.extend(profile.server_icon.clone());
     urls.extend(
         cosmetics
@@ -685,7 +687,9 @@ pub fn profile_editor_view<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<Element<'a, M
             .width(card_width)
             .height(card_height)
             .clip(true)
-            .style(crate::profile::frame_style(inks, theme.edge, 12.0, true))
+            .style(crate::profile::frame_style(
+                inks, theme, theme.edge, 12.0, true,
+            ))
     ];
     if main {
         card = card.push(

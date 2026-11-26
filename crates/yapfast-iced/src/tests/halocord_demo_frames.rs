@@ -70,7 +70,7 @@ fn turn(app: &mut App, id: &str, on: bool) {
 fn mocha() -> (App, tempfile::TempDir) {
     let (mut app, folder) = preview();
     app.shell.frame.height = 2400.0;
-    let _ = app.update(Message::Settings(Event::Open(Section::Appearance)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Appearance)));
     let _ = app.update(crate::settings::appearance_event(
         crate::settings::ThemeEvent::Choose("mochacord".into()),
     ));
@@ -83,7 +83,7 @@ fn mocha() -> (App, tempfile::TempDir) {
 }
 
 fn close_settings(app: &mut App) {
-    let _ = app.update(Message::Settings(Event::Close));
+    let _ = app.update(crate::app::settings(Event::Close));
     let _ = app.update(Message::PopupGone(Popup::Layer(Layer::Settings)));
 }
 
@@ -95,7 +95,7 @@ fn halocord_demo_frames() {
     let mut reel = Reel::new();
     reel.frame(&app, "window");
 
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
     let _ = app.sync();
     reel.frame(&app, "plugins-page");
     for (query, ids) in [
@@ -108,7 +108,7 @@ fn halocord_demo_frames() {
         let mut typed = String::new();
         for letter in query.chars() {
             typed.push(letter);
-            let _ = app.update(Message::Settings(Event::Search(typed.clone())));
+            let _ = app.update(crate::app::settings(Event::Search(typed.clone())));
         }
         let _ = app.sync();
         reel.frame(&app, &format!("search-{query}"));
@@ -118,7 +118,7 @@ fn halocord_demo_frames() {
             reel.frame(&app, id);
         }
     }
-    let _ = app.update(Message::Settings(Event::Search(String::new())));
+    let _ = app.update(crate::app::settings(Event::Search(String::new())));
     close_settings(&mut app);
     let _ = app.sync();
     app.show_roster(false);
@@ -183,7 +183,7 @@ fn halocord_demo4_frames() {
     let _ = app.sync();
     reel.frame(&app, "window");
 
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
     let _ = app.sync();
     for (query, id) in [
         ("platform", crate::halocord::PLATFORMS),
@@ -192,7 +192,7 @@ fn halocord_demo4_frames() {
         let mut typed = String::new();
         for letter in query.chars() {
             typed.push(letter);
-            let _ = app.update(Message::Settings(Event::Search(typed.clone())));
+            let _ = app.update(crate::app::settings(Event::Search(typed.clone())));
         }
         let _ = app.sync();
         reel.frame(&app, &format!("search-{}", query.replace(' ', "-")));
@@ -200,7 +200,7 @@ fn halocord_demo4_frames() {
         let _ = app.sync();
         reel.frame(&app, id);
     }
-    let _ = app.update(Message::Settings(Event::Search(String::new())));
+    let _ = app.update(crate::app::settings(Event::Search(String::new())));
     close_settings(&mut app);
 
     for (user, apps) in [
@@ -235,7 +235,7 @@ fn halocord_theme_frames() {
     let (mut app, _folder) = preview();
     let mut reel = Reel::into("release7");
     app.shell.frame = Size::new(1280.0, 1400.0);
-    let _ = app.update(Message::Settings(Event::Open(Section::Appearance)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Appearance)));
     let _ = app.sync();
     reel.frame(&app, "appearance-tiles");
     for id in ["tokyo-night", "rose-pine", "catppuccin-latte"] {
@@ -268,7 +268,7 @@ fn halocord_theme_frames() {
         app.shell.frame = FRAME;
         let _ = app.sync();
         reel.frame(&app, &format!("window-{id}"));
-        let _ = app.update(Message::Settings(Event::Open(Section::Appearance)));
+        let _ = app.update(crate::app::settings(Event::Open(Section::Appearance)));
         app.shell.frame = Size::new(1280.0, 1400.0);
     }
 }

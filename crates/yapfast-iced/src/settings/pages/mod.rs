@@ -1,5 +1,6 @@
 //! Settings' pages of switches and choices: My account, Messages,
-//! Notifications, Sounds, Advanced, About, Discord and Game Activity; and
+//! Notifications, Sounds, Advanced, About, Updates, Discord and Game
+//! Activity; and
 //! what their preferences do when changed.
 
 use iced::Element;
@@ -24,10 +25,12 @@ mod discord;
 mod games;
 mod halocord;
 mod halocord_themes;
+pub use games::{block_game, open_detected_games_menu};
 mod messages;
 mod mochacord;
 mod notifications;
 mod sounds;
+mod updates;
 
 pub(super) use halocord::mocha_found;
 pub use halocord::{HaloEvent, HaloState, halo_message};
@@ -47,9 +50,12 @@ pub enum Pref {
     Animate(usize),
     LinkPreviews(bool),
     CollapseLong(bool),
+    PeekChannels(bool),
+    DmSearchSwitcher(bool),
     BoostGems(bool),
     ShareTyping(bool),
     ReplyPing(bool),
+    ReplyTitles(bool),
     StripTracking(bool),
     Notifications(bool),
     NotificationText(bool),
@@ -73,10 +79,14 @@ pub enum Pref {
     ShowIdle(bool),
     HideBlocked(bool),
     CheckUpdates(bool),
-    Nightlies(bool),
+    AutoInstall(bool),
+    UpdateChannel(crate::halocord::updates::Channel),
     StartOnSignIn(bool),
     DiscordLinks(bool),
     SystemTitleBar(bool),
+    /// HaloCord's window setting: the window may shrink past Yapfast's own
+    /// least size. It shows from the next start.
+    NoMinSize(bool),
 }
 
 /// My account's and the Discord page's buttons.
@@ -99,6 +109,10 @@ pub struct GameDraft {
     pub name: String,
     pub editing: Option<usize>,
     pub invalid: bool,
+    /// What is being written to add to the games never shown, and whether the
+    /// last try was refused.
+    pub blocked: String,
+    pub blocked_invalid: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -110,10 +124,20 @@ pub enum GameEvent {
     Remove(usize),
     Save,
     Cancel,
+    /// What the games never shown field says, adding it to them, and taking
+    /// one out (by its place).
+    Blocked(String),
+    Block,
+    Unblock(usize),
+    /// The detected games' menu opens, to choose one never shown.
+    Detected,
+    /// A listed game's switch: hidden, or allowed to show again (by its
+    /// place).
+    ToggleBlocked(usize),
 }
 
 fn pref(pref: Pref) -> Message {
-    Message::Settings(Event::Pref(pref))
+    crate::app::settings(Event::Pref(pref))
 }
 
 impl Settings {
@@ -157,6 +181,14 @@ impl Settings {
                 cx.keep("collapse_long", on);
                 cx.request(Request::Changed(Shown::Rows));
             }
+            Pref::PeekChannels(on) => {
+                cx.layout.peek_channels = on;
+                cx.keep("peek_channels", on);
+            }
+            Pref::DmSearchSwitcher(on) => {
+                cx.layout.dm_search_switcher = on;
+                cx.keep("dm_search_switcher", on);
+            }
             Pref::BoostGems(on) => {
                 prefs.boost_gems = Some(on);
                 cx.keep("boost_gems", on);
@@ -171,6 +203,11 @@ impl Settings {
                 prefs.reply_ping = Some(on);
                 cx.keep("reply_ping", on);
                 cx.dispatch(Action::ReplyPing(on));
+            }
+            Pref::ReplyTitles(on) => {
+                prefs.reply_titles = on;
+                cx.keep("reply_titles", on);
+                cx.dispatch(Action::ReplyTitles(on));
             }
             Pref::StripTracking(on) => {
                 prefs.strip_tracking = Some(on);
@@ -281,15 +318,25 @@ impl Settings {
                 cx.dispatch(Action::HideBlocked(on));
             }
             Pref::CheckUpdates(on) => {
-                prefs.check_for_updates = on;
+                prefs.check_for_updates = Some(on);
                 cx.keep("check_for_updates", on);
                 if on {
                     cx.request(Request::LookForUpdates(true));
                 }
             }
-            Pref::Nightlies(on) => {
-                prefs.update_nightlies = on;
-                cx.keep("update_nightlies", on);
+            Pref::AutoInstall(on) => {
+                prefs.auto_install_updates = Some(on);
+                cx.keep("auto_install_updates", on);
+                if on {
+                    cx.request(Request::LookForUpdates(false));
+                }
+            }
+            Pref::UpdateChannel(channel) => {
+                if prefs.update_channel != channel {
+                    prefs.update_channel = channel;
+                    cx.keep("update_channel", channel);
+                    cx.request(Request::LookForUpdates(false));
+                }
             }
             Pref::StartOnSignIn(on) => {
                 match crate::desktop::desktop().set_autostart(on) {
@@ -310,6 +357,10 @@ impl Settings {
                 cx.layout.system_title_bar = Some(on);
                 cx.keep("system_title_bar", on);
                 cx.request(Request::TitleBar(on));
+            }
+            Pref::NoMinSize(on) => {
+                cx.layout.no_min_size = Some(on);
+                cx.keep("no_min_size", on);
             }
         }
         cx.touch();
@@ -343,7 +394,7 @@ impl<'a> Page<'a> {
 }
 
 fn account_message(event: AccountEvent) -> Message {
-    Message::Settings(Event::Account(event))
+    crate::app::settings(Event::Account(event))
 }
 
 /// Messages' text at a size: 14 px small, 15 default, 18 large.

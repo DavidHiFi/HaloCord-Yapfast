@@ -14,6 +14,8 @@ pub(super) fn notification(
 ) -> Notification {
     let snapshot = discord.snapshots().borrow().clone();
     let server = guild.and_then(|guild| snapshot.servers.iter().find(|server| server.id == guild));
+    // The account this message came to: the one connected.
+    let me = snapshot.user_id.as_deref().unwrap_or_default();
     let author = discord
         .name(
             guild.unwrap_or(yapfast_discord::ready::PRIVATE),
@@ -85,11 +87,35 @@ pub(super) fn notification(
         author,
         body,
         avatar: Some(discord.avatar(guild, &message.author_id)),
-        mention: message.mentions_me(
-            snapshot.user_id.as_deref().unwrap_or_default(),
-            server.map(|server| &*server.marks),
-        ),
+        mention: message.mentions_me(me, server.map(|server| &*server.marks)),
+        replied: replied(message.reply.as_ref(), me, |user| {
+            discord.name(guild.unwrap_or(yapfast_discord::ready::PRIVATE), user)
+        }),
     }
+}
+
+/// Whom `reply` answers, for a notification's title: `me`, the account the
+/// message came to, or someone by `name`, which gives their name where the
+/// message is, else the name the original came with. Nothing when the
+/// message isn't a reply, or its original is gone or wasn't looked up.
+fn replied(
+    reply: Option<&DiscordReply>,
+    me: &str,
+    name: impl FnOnce(&str) -> Option<String>,
+) -> Option<crate::chat::Replied> {
+    let Some(DiscordReply::Message {
+        author_id, author, ..
+    }) = reply
+    else {
+        return None;
+    };
+    if !me.is_empty() && author_id == me {
+        return Some(crate::chat::Replied::You);
+    }
+    name(author_id.as_str())
+        .or_else(|| Some(author.clone()))
+        .filter(|name| !name.is_empty())
+        .map(crate::chat::Replied::Person)
 }
 
 /// A message as a pinned message or a search result shows it: who wrote
@@ -128,6 +154,7 @@ pub(super) fn found(
             .style(guild, &message.author_id)
             .map(|style| Arc::new(style.into())),
         color: server.and_then(|server| discord.color(server, &message.author_id)),
+        color_end: server.and_then(|server| discord.gradient(server, &message.author_id)),
         bot: message.bot,
         body,
         author,
@@ -378,6 +405,42 @@ pub(super) fn found_in(discord: &Discord, room: &str, messages: &[Message]) -> V
         .collect()
 }
 
+/// This account's recent mentions, as [`found`] shows them, each with its
+/// room: in the server its message says, or with
+/// [`yapfast_discord::ready::PRIVATE`] a DM. A message without a server is
+/// looked up in each server's channels; threads list under their own id.
+/// What calls on this account is worked out as the timeline works it out,
+/// so a reply that pings it counts as well as a mention by name: the
+/// reply's `<@id>` lives in its metadata rather than its text, which the
+/// Mentions tab would otherwise miss.
+pub(super) fn mentioned(discord: &Discord, messages: &[Message]) -> Vec<(String, ChatMessage)> {
+    let snapshot = discord.snapshots().borrow().clone();
+    let me = snapshot.user_id.as_deref().unwrap_or_default();
+    messages
+        .iter()
+        .map(|message| {
+            let guild = message
+                .guild_id
+                .as_deref()
+                .or_else(|| {
+                    snapshot
+                        .servers
+                        .iter()
+                        .find(|server| server.server.channel(&message.channel_id).is_some())
+                        .map(|server| server.id.as_str())
+                })
+                .unwrap_or(yapfast_discord::ready::PRIVATE);
+            let marked = snapshot.servers.iter().find(|server| server.id == guild);
+            let server = marked.map(|marked| &*marked.server);
+            let mut shown = found(discord, server, message);
+            let marks = marked.map(|marked| &*marked.marks);
+            shown.mentions_me = message.names_me(me, marks);
+            shown.replies_to_me = message.replies_to(me);
+            (discord::room_id(guild, &message.channel_id), shown)
+        })
+        .collect()
+}
+
 /// Messages a search found in a server, or with [`yapfast_discord::ready::PRIVATE`]
 /// in DMs, as [`found`] shows them, each with its room.
 pub(super) fn hits_in(
@@ -450,6 +513,24 @@ pub(super) fn custom_emoji(message: &Message) -> Vec<CustomEmoji> {
         }
     }
     found
+}
+
+/// A reply quote's first line as plain text, with the Discord custom emoji
+/// that appear in it (each once, with its static or animated picture URL).
+pub(super) fn reply_snippet(
+    discord: &Discord,
+    server: Option<&yapfast_discord::ready::Server>,
+    content: &str,
+) -> (String, Vec<CustomEmoji>) {
+    reply_snippet_with(|text| discord.render(server, text), content)
+}
+
+fn reply_snippet_with(
+    render: impl FnOnce(&str) -> String,
+    content: &str,
+) -> (String, Vec<CustomEmoji>) {
+    let hidden = crate::spoiler::hide(content);
+    crate::chat::reply_snippet(&render(&hidden), emoji_in(&hidden))
 }
 
 /// The custom emoji in Discord's markup.
@@ -940,6 +1021,7 @@ pub(super) fn chat_member(member: ListedMember) -> ChatMember {
         role_icon: member.role_icon,
         presence: Some(discord::presence(member.presence)),
         color: member.color,
+        color_end: member.color_end,
         activity: member.activity,
         activities: member.activities,
         roles: member.roles,
@@ -993,6 +1075,66 @@ mod tests {
             still[0].picture.contains("/emojis/8.png"),
             "{}",
             still[0].picture
+        );
+    }
+
+    #[test]
+    fn reply_snippets_keep_static_and_animated_custom_emoji_for_the_first_line() {
+        let names = yapfast_discord::message::Names::default();
+        let (body, emoji) = reply_snippet_with(
+            |text| names.render(None, text),
+            "**hi** <:AMkiss:123> <a:party:7> `<:code:5>` ||<:secret:9>||\n<:line2:8>",
+        );
+        // One in code shows its name, as the message's text does.
+        assert_eq!(body, "hi :AMkiss: :party: :code: (spoiler)");
+        assert_eq!(emoji.len(), 2);
+        assert_eq!(emoji[0].text, ":AMkiss:");
+        assert_eq!(emoji[0].id, "123");
+        assert!(!emoji[0].animated);
+        assert!(emoji[0].picture.contains("/emojis/123.png"));
+        assert_eq!(emoji[1].text, ":party:");
+        assert_eq!(emoji[1].id, "7");
+        assert!(emoji[1].animated);
+        assert!(emoji[1].picture.contains("/emojis/7.gif"));
+    }
+
+    /// A reply's notification names whom it answers: this account, or
+    /// someone else by their name where it was sent, else the name the
+    /// original came with. A message that isn't a reply names nobody.
+    #[test]
+    fn a_replys_notification_names_whom_it_answers() {
+        use crate::chat::Replied;
+        let to = |author_id: &str| DiscordReply::Message {
+            id: "500".into(),
+            author_id: author_id.into(),
+            author: "lena_k".into(),
+            content: "co-op tonight?".into(),
+        };
+        let named = |user: &str| (user == "2").then(|| "Lena".to_owned());
+        let nameless = |_: &str| None;
+        assert_eq!(replied(Some(&to("1")), "1", named), Some(Replied::You));
+        assert_eq!(
+            replied(Some(&to("2")), "1", named),
+            Some(Replied::Person("Lena".into()))
+        );
+        assert_eq!(
+            replied(Some(&to("2")), "1", nameless),
+            Some(Replied::Person("lena_k".into()))
+        );
+        assert_eq!(replied(None, "1", named), None);
+        assert_eq!(replied(Some(&DiscordReply::Deleted), "1", named), None);
+        assert_eq!(
+            replied(
+                Some(&DiscordReply::Unknown { id: "500".into() }),
+                "1",
+                named
+            ),
+            None
+        );
+        // Without a known account, nobody is taken for it.
+        assert_eq!(
+            replied(Some(&to("")), "", nameless),
+            Some(Replied::Person("lena_k".into()))
         );
     }
 }

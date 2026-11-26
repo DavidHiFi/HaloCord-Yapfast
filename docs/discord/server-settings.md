@@ -140,8 +140,12 @@ page: a role changed elsewhere shows unless the draft changed the same
 field, and one deleted elsewhere closes if it was open.
 
 Roles reads `GET /guilds/{id}` for the roles, boost level and features,
-and `GET /guilds/{id}/roles/member-counts`, and holds them only while it's
-open; members come by id, with names from those Yapfast already knows or
+and `GET /guilds/{id}/roles/member-counts` when it opens, and holds them
+only while it's open. Creating, copying, deleting or editing a role reads
+the roles again but not the counts, as Discord's client keeps its own: a
+role keeps the count it had, and a new one shows 0. Giving or taking a
+role shows its members again first, then its count once Discord sends
+it. Members come by id, with names from those Yapfast already knows or
 asks the gateway for. It saves with:
 
 - `PATCH /guilds/{id}/roles`, `[{id, position}]`, only the roles that
@@ -278,7 +282,12 @@ then sends `PUT /guilds/{id}/incident-actions` with
 `invites_disabled_until` and `dms_disabled_until`, the same time that many
 hours on, or `null`, and `lockdown_duration_hours`. Invites are paused
 while the server's `incidents_data` says so, or it has `INVITES_DISABLED`;
-their rows dim. GUILD_UPDATE keeps it current. The questions Discord's
+their rows dim. GUILD_UPDATE keeps it current. The server's guild object
+from READY, GUILD_CREATE or GUILD_UPDATE carries both
+(`Server::invites_paused`), and for an account that may Manage Server
+its rail tooltip says "Invites paused for this server" under its name,
+as Discord's (module 347951); see
+[navigation](../client/navigation.md). The questions Discord's
 client asks after resuming go only to its analytics, and are left out.
 
 ## Safety Setup

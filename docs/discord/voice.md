@@ -1,5 +1,8 @@
 # Discord voice
 
+The gateway voice state reports denied speaking permission through `suppress`.
+Yapfast keeps this flag separate from self-mute and moderator mute.
+
 Scope for the beta:
 
 - Server voice channels: join, leave, a participant list, speaking indicators,
@@ -44,7 +47,11 @@ the voice server didn't answer address discovery, asked 5 times over 5 s.",
 where address discovery is the UDP exchange a firewall or VPN may block. The log has a warning at the
 default level with the whole chain of causes, whether it was a server's
 channel or a DM, and the step: asking Discord, or connecting to its voice
-server. A stream that can't start or be watched logs its chain the same way.
+server. A join that times out (Discord sent no complete answer in 15 s) also
+logs, without ids, which half of the answer came (this session's voice state in
+the channel, the voice server), this session's voice states for no channel or
+another, other sessions' voice states, and voice servers still being allocated.
+A stream that can't start or be watched logs its chain the same way.
 `a_call_that_cant_connect_says_why` checks it, with the fake's voice server
 ignoring address discovery (`POST /_control/voice-discovery?off`).
 
@@ -117,7 +124,8 @@ its minute, which changes only as the minute turns.
 ## Who is in a voice channel
 
 Discord reports who is in every voice channel, and the channel list shows
-them under each one without joining it. As in Discord's client, pointing at
+them under each one without joining it, a hidden one's too while the list
+shows hidden channels. As in Discord's client, pointing at
 a busy voice channel's row also opens a card beside it: a line summing the
 channel up, "3 people · 1 live · 1 camera", then each person with their
 camera and LIVE marks, the first eight and how many more. It comes from the
@@ -230,7 +238,10 @@ tick of the call's thread decodes one frame from everyone and mixes them
 (`Hearing` in `discord_audio.rs`). A packet that hasn't come yet plays as
 Opus's loss concealment, and the packet itself plays next when it comes, so
 nothing is cut; a packet lost while the next has come is rebuilt from the
-next one's forward error correction. A speaker's audio plays to its end: the
+next one's forward error correction. A packet that has come but that Opus
+can't read, or that decodes to nothing, is concealed the same way, so the
+sound carries on rather than leaving 20 ms of nothing in a word. A speaker's
+audio plays to its end: the
 five silent frames Discord's clients send as they stop, and a speaking
 message saying they stopped, change nothing, and only after 100 ms with no
 packets do they drop out of the mix until they speak again.

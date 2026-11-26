@@ -32,11 +32,11 @@ fn audit(name: &str) -> PathBuf {
 fn mocha(size: Size) -> (App, tempfile::TempDir) {
     let (mut app, folder) = preview();
     app.shell.frame.height = 2400.0;
-    let _ = app.update(Message::Settings(Event::Open(Section::Appearance)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Appearance)));
     let _ = app.update(crate::settings::appearance_event(
         crate::settings::ThemeEvent::Choose("mochacord".into()),
     ));
-    let _ = app.update(Message::Settings(Event::Close));
+    let _ = app.update(crate::app::settings(Event::Close));
     let _ = app.update(Message::PopupGone(Popup::Layer(Layer::Settings)));
     app.shell.frame = size;
     app.shell.own_title_bar = true;
@@ -61,12 +61,12 @@ fn draw(app: &App, name: &str) {
 }
 
 fn open(app: &mut App, section: Section) {
-    let _ = app.update(Message::Settings(Event::Open(section)));
+    let _ = app.update(crate::app::settings(Event::Open(section)));
     let _ = app.sync();
 }
 
 fn halo(app: &mut App, event: HaloEvent) {
-    let _ = app.update(Message::Settings(Event::HaloCord(event)));
+    let _ = app.update(crate::app::settings(Event::HaloCord(event)));
     let _ = app.sync();
 }
 
@@ -154,7 +154,7 @@ fn picture_of_mochacord_dialog() {
 fn picture_of_appearance() {
     let (mut app, _folder) = mocha(WIDE);
     open(&mut app, Section::Appearance);
-    assert!(shows(&app, "Change"));
+    assert!(shows(&app, "PROFILES"));
     draw(&app, "appearance");
 }
 

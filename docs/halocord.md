@@ -21,6 +21,12 @@ whole list to carry across.
     (`card_fit`: the room the name keeps, the plugin buttons on the row above it
     and the tray for the rest in `card_tray`, the name cut by `ellipsized`, from
     SickoHours' pull request 2).
+  - `rail_top.rs`: Server list indicators (friends online and servers, at the top of
+    the server list) and `rail_top`, what plugins put above the home tile: it draws
+    Read all's button there too, while its "Where it sits" says the server list.
+  - `folder_side.rs`: Server sidebar: an open folder's tiles in their own column beside the
+    rail (`server_sidebar`), and the folders it closes (`folder_pressed`, `server_picked`,
+    `home_picked`).
   - `presence.rs`: Custom RPC and Animated status, what each tells the Discord
     service (`set_custom_rpc`, `set_animated`).
   - `fake_dialog.rs`: Fake DMs' box (who says it, the text, when, Add) and its
@@ -95,7 +101,7 @@ whole list to carry across.
   Platform indicators' record of which of
   Discord's apps each person is on, from a presence's `client_status`.
 - `crates/yapfast-discord/src/halocord/presence.rs`: Custom RPC's activity (type
-  numbers, timer, pictures, buttons), Animated status's lines, the outside
+  numbers, timer, pictures, buttons, the console platform), Animated status's lines, the outside
   pictures' keys, and `Watch`, which a session keeps to put both in the
   presence it sends and to say when to send again (one timer, idle while both
   are off).
@@ -313,9 +319,22 @@ Window (`yapfast-iced`):
 - `status.rs`: the popover's bottom uses `account::full_height`.
   Before User Settings, `halocord::popover_rows`' rows (Better user tools), each sending its
   `Press` as the top bar's buttons do.
-- `sync.rs`: `sync` starts with `halocord::stop_mic_test_in_call` (Better user tools).
+- `sync.rs`: `sync` starts with `halocord::stop_mic_test_in_call` (Better user tools) and
+  `halocord::follow_majority` (Follow majority: who has been in your voice channel with
+  you, kept in `Kept::voice_company`, not kept on disk; once another voice channel of the
+  server holds more than half of them, two at least, it joins that one).
 - `browser.rs`: opens the pages HaloCord's plugins ask for (a sticker at full size, a
   song's page, a profile's decorations).
+- `rail.rs`: `rail_view` puts `halocord::rail_top`'s items above the home tile (Read all's
+  button and Server list indicators' counts).
+- `rail.rs`: `Rail::side`, Server sidebar's tiles, drawn by `side_view` beside the rail (its
+  tiles don't drag); `rail::width`, the rail's width with that column, which
+  `conversation::navigation`, `arrange.rs` (`finish_moving`), `sidebar/mod.rs` (`room`, the
+  header's and events' menus), `account.rs` and `halocord/buttons.rs` (the compact card) use
+  in place of `rail::WIDTH`; `update` asks `halocord::home_picked`, `server_picked` and
+  `folder_pressed`, and gives a folder's press `halocord::server_sidebar` as `sync.rs`'
+  `make_lists` does for the rail's items (`Kept::folder_side_open`, not kept, says whether
+  the column shows).
 - `rail.rs`: `home_tile` asks `halocord::home_face` first (Home typing's dots while someone
   types in a DM), else draws the logo; `typing.rs`: `dots`, the typing line's dots on their
   own, `pub(crate)` for it.
@@ -444,10 +463,23 @@ Window (`yapfast-iced`):
   crate fills it from `build_info::halocord_line`, which reads the `HALOCORD_BUILD`
   number that `build.rs` passes on (the updater can set it; without it the line has no
   number).
+- Updates come from HaloCord's own releases, not Yapfast's. `halocord/updates.rs` holds
+  the rules (the Stable and Nightly channels, the build numbers, which release is newer)
+  and `look_up`; the root crate's `src/update/halocord.rs` asks GitHub and puts a release
+  in place. Hooks: `settings/mod.rs` gives HaloCord's group the `Section::Updates` page
+  (`pages/updates.rs`, moved out of About, which keeps only its card and links);
+  `settings/updates.rs` heads nothing itself and its notice opens Updates;
+  `desktop.rs`'s `Updates::look` takes the choices, so a look follows the channel;
+  `updates.rs` opens Updates for the release notification; the root `src/desktop.rs`'s
+  `Updates` impl calls `update::halocord`; `build.rs` passes `HALOCORD_NIGHTLY` on as
+  `YAPFAST_BUILD_HALOCORD_NIGHTLY`; the root `Cargo.toml` adds `chrono` to `desktop`.
+  The `HaloCord Nightly` workflow builds the `nightly` pre-release, with the files
+  `scripts/halocord-package.py` names.
 - `markdown.rs`: inline code and code blocks fill with the theme's `code` role, not
   `panel`.
 - `active_now.rs`: `card_corners` gives the head's and the last row's lit edge the
   card's round corners (`lit_style` takes per-corner radii).
+- `conversation.rs`: `navigation` adds `rail::side_width` for Server sidebar's folder column.
 - `tests/mod.rs`: `mod halocord_buttons;`, `mod halocord_button_pictures;`,
   `mod halocord_fixes;` and `mod halocord_presence;`.
 
@@ -457,6 +489,8 @@ Kit (`yapfast-iced-kit`) and vendor:
 - `widgets/pointer.rs`: `DoublePress`, a left double press that leaves the child its
   presses; `widgets/mod.rs`: `Inner::interaction`, the child's pointer look.
 - `style.rs`: `set_corner_scale`, read in `rounded`, `edge` and `round`; `controls.rs` `lit_style` takes its corners from `round`, and its radius may be per corner.
+- `dialog.rs`: draws HaloCord's riced floating card over the theme's dialog style.
+- `widgets/motion.rs`: `set_speed` scales popup open/close timings for MochaCord's motion setting.
 - `widgets/smooth.rs` and `smooth/bar.rs`: `BarGradient` and `set_bar_look`, drawn in
   `Smooth::draw`.
 - `renderer.rs`: `want_glass`, `glass_wanted`, `glass_active`.
@@ -517,6 +551,7 @@ Core (`yapfast-core`):
 
 Discord (`yapfast-discord`):
 
+- `gateway.rs`: `voice_state` takes `self_stream` so Fake stream holds up Go Live without a live stream behind it.
 - `lib.rs`: `pub mod halocord;`.
 - `member_list.rs`: `presence` and the member list's rows call `halocord::note` with the
   presence (one line each).
@@ -600,8 +635,12 @@ Yapfast's own fix for it lands (its test still passes without ours).
 - Core `halocord::staff::tests`: ranks, tags and options. `halocord::tests` also
   covers the fake voice state.
 - Window `tests/settings.rs`: the plugins page, fake switches, the user area's dock.
-- Window `tests/halocord_buttons.rs`: the button plugins (restart, read all, close all
-  DMs, the counter, the member count).
+- Window `tests/halocord_buttons.rs`: the button plugins (restart, read all and where it
+  sits, close all DMs, the counter, the member count).
+- Window `tests/halocord_rail.rs`: Server list indicators' counts and Server sidebar's
+  column, and the folders it closes.
+- Window `tests/halocord_follow.rs`: Follow majority, followed once most have moved and
+  not for one who moves alone.
 - Window `halocord::tests`: point 5's rows, point 6's kinds, the stereo loader's
   saved values, and `every_hook_is_in_the_docs`, which fails when a Yapfast file
   calls into HaloCord or MochaCord and this page doesn't name it.

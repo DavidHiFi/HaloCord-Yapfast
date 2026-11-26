@@ -20,6 +20,8 @@ pub const PREVIEW_HEIGHT: u32 = 400;
 /// The pictures a pinned message's or a search result's card shows at
 /// most; it names the rest.
 pub const FOUND_PICTURES: usize = 4;
+/// How many of a channel's newest messages peeking at it shows.
+pub const PEEK_MESSAGES: usize = 6;
 /// The image viewer shows pictures up to this size, so a full-size photo
 /// costs at most about 9 MiB while it's open.
 pub const VIEW_WIDTH: u32 = 1920;
@@ -28,7 +30,9 @@ pub const VIEW_HEIGHT: u32 = 1200;
 /// What someone is doing on Discord: a game, music, a stream or a Hang
 /// status, shared as the gateway parsed it.
 #[cfg(feature = "discord")]
-pub use yapfast_discord::activity::{Activities, Activity, Kind as ActivityKind};
+pub use yapfast_discord::activity::{
+    Activities, Activity, ActivityButton, Kind as ActivityKind, RichButtons,
+};
 
 /// Only Discord says what people are doing.
 #[cfg(not(feature = "discord"))]
@@ -58,6 +62,15 @@ pub use yapfast_discord::commands::CommandIndex;
 #[cfg(not(feature = "discord"))]
 #[derive(Clone, Debug, PartialEq)]
 pub enum CommandIndex {}
+
+/// One of the two members shown on a group DM's fallback icon when it has no
+/// custom icon and more than two members.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+pub struct GroupAvatar {
+    pub id: String,
+    pub name: String,
+    pub avatar: String,
+}
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ChatRoom {
@@ -92,8 +105,11 @@ pub struct ChatRoom {
     /// decides apart from sending: a read-only channel may still take
     /// reactions.
     pub reacts: Reacts,
-    /// A Discord channel or thread whose slowmode this account waits out
-    /// between messages.
+    /// A Discord channel's or thread's slowmode, the seconds each member
+    /// waits between messages; 0 without one.
+    pub slowmode: u32,
+    /// Whether this account waits out that slowmode, as those who may
+    /// bypass it don't.
     pub slowed: bool,
     /// When this account's timeout in the room's Discord server ends, in
     /// Unix milliseconds, while it lasts.
@@ -118,6 +134,9 @@ pub struct ChatRoom {
     /// The address of a Discord DM's picture: the other person's avatar or
     /// the group's icon. See [`DiscordCommand::Pictures`].
     pub avatar: Option<String>,
+    /// When a group DM has no custom icon and more than two members, the two
+    /// members whose overlapping avatars form its fallback icon.
+    pub group_avatars: Option<[GroupAvatar; 2]>,
     /// The address of the decoration the other person in a one-to-one DM
     /// wears around their avatar, their nameplate, and how they draw their
     /// name.
@@ -294,6 +313,8 @@ pub struct Friend {
     /// When they became friends, in Unix milliseconds; written out only for
     /// the profile on screen.
     pub since: Option<u64>,
+    /// How they draw their name, on Discord.
+    pub style: Option<Arc<NameStyle>>,
 }
 
 /// A file waiting in the composer to go with the next message.
@@ -490,6 +511,9 @@ pub struct VoicePerson {
     pub deafened: bool,
     /// Muted or deafened by the Discord server, which shows in red.
     pub server_muted: bool,
+    /// Discord won't let them speak here (`suppress`): no Speak
+    /// permission, the AFK channel, a stage's audience.
+    pub speaking_blocked: bool,
     pub server_deafened: bool,
     /// Sharing their screen.
     pub streaming: bool,
@@ -498,6 +522,10 @@ pub struct VoicePerson {
     /// This account, in the call on another client, as Discord shows it:
     /// dimmed, without its icons.
     pub elsewhere: bool,
+    /// How they draw their name in the call's server, or everywhere, and
+    /// the server tag they wear by it, on Discord.
+    pub style: Option<Arc<NameStyle>>,
+    pub tag: Option<ServerTag>,
 }
 
 #[derive(Clone, Default, PartialEq, Eq, Hash)]
@@ -534,6 +562,11 @@ pub struct ChatServer {
     pub banner: Option<String>,
     /// Verified or partnered, which its name carries a tick for.
     pub verified: bool,
+    /// When its paused invites resume, in Unix seconds ([`u64::MAX`] for
+    /// no end), for an account that may Manage Server, which its rail
+    /// tooltip tells while they're paused, as Discord's does. None for
+    /// anyone else, or invites that aren't paused.
+    pub invites_paused_until: Option<u64>,
     /// Its scheduled events that haven't ended, soonest first, which its
     /// channel list counts in an "N Events" row.
     pub events: Vec<ServerEvent>,
@@ -1153,8 +1186,10 @@ pub struct ChatMember {
     pub role_icon: Option<Arc<str>>,
     /// Whether they're around; Matrix members have no presence here.
     pub presence: Option<Presence>,
-    /// The RGB colour of their name, from their highest coloured Discord role.
+    /// The RGB colour of their name, from their highest coloured Discord role,
+    /// and where its gradient ends when that role's name is one.
     pub color: Option<u32>,
+    pub color_end: Option<(u32, Option<u32>)>,
     /// Their custom status, else what they're doing, from Discord, and
     /// what they're doing in full.
     pub activity: Option<String>,
@@ -1227,13 +1262,16 @@ pub enum Delivery {
     Failed,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Reply {
     pub author: String,
     /// The address of the author's avatar, where the network gives one; see
     /// [`DiscordCommand::Pictures`].
     pub avatar: Option<String>,
     pub body: String,
+    /// The Discord custom emoji in `body`, which show as pictures once their
+    /// pictures arrive.
+    pub emoji: Vec<CustomEmoji>,
     /// The original message's item, to jump to it; none when it's gone.
     pub item: Option<String>,
     /// The author's role colour, where the network gives one.
@@ -1274,6 +1312,11 @@ pub struct ThreadLink {
     /// Its messages after the first, when Yapfast knows.
     pub messages: Option<u64>,
     pub archived: bool,
+    /// Its newest message, while Yapfast knows it.
+    pub recent: Option<RecentMessage>,
+    /// When it was last active, in Unix milliseconds: its newest message's
+    /// time, else its own start.
+    pub active_ms: u64,
 }
 
 /// A Discord thread as a channel's list of its threads shows it.
@@ -1358,6 +1401,9 @@ pub struct ThreadPerson {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 pub struct RecentMessage {
     pub author: ThreadPerson,
+    /// The server tag its author wears, which a message's thread card shows
+    /// after the name.
+    pub tag: Option<ServerTag>,
     /// Its text on one line, mentions and custom emoji as text.
     pub text: String,
 }
@@ -1387,6 +1433,39 @@ pub struct SearchHit {
     /// A thread it's in that isn't listed, as Discord sent it with the
     /// results: its name, and its channel's room id.
     pub thread: Option<(String, Option<String>)>,
+}
+
+/// What a request for this account's recent mentions asks Discord for, as
+/// its Mentions inbox's filter menu sets it: whether @everyone and @here
+/// mentions count (`everyone`), whether role mentions do (`roles`), and
+/// with a server's id, only that server's (`guild_id`).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MentionsQuery {
+    pub everyone: bool,
+    pub roles: bool,
+    pub server: Option<String>,
+}
+
+impl Default for MentionsQuery {
+    /// As Discord's client asks before its filter changes: every kind,
+    /// from every server.
+    fn default() -> Self {
+        Self {
+            everyone: true,
+            roles: true,
+            server: None,
+        }
+    }
+}
+
+impl MentionsQuery {
+    /// Whether it may list a mention `before` didn't: a kind turned back on,
+    /// or a server's limit lifted or moved.
+    pub fn widens(&self, before: &MentionsQuery) -> bool {
+        (self.everyone && !before.everyone)
+            || (self.roles && !before.roles)
+            || (before.server.is_some() && self.server != before.server)
+    }
 }
 
 /// The order a search's results come in, as its Sort menu offers them.
@@ -1505,14 +1584,20 @@ pub struct Picture {
     pub animation: Option<Animation>,
 }
 
-/// A picture's RGBA pixels. Once the UI has said how to make its own buffers
-/// ([`set_pixel_buffers`]), they're made in one, which it shows without a
-/// copy; until then, and without a UI, they're a plain vector.
+/// A picture's pixels. Once the UI has said how to make its own buffers
+/// ([`set_pixel_buffers`]), they're made in one, in its format, which it shows
+/// without a copy; until then, and without a UI, they're a plain vector of
+/// straight RGBA. Anything leaving Yapfast takes [`Pixels::straight_rgba`].
 pub struct Pixels(Box<dyn PixelBuffer>);
 
-/// Memory a picture's RGBA pixels live in.
+/// Memory a picture's pixels live in.
 pub trait PixelBuffer: std::any::Any + Send + Sync {
     fn bytes(&self) -> &[u8];
+
+    /// The pixels as straight RGBA, whatever format the buffer keeps.
+    fn straight_rgba(&self) -> Vec<u8> {
+        self.bytes().to_vec()
+    }
 }
 
 impl PixelBuffer for Vec<u8> {
@@ -1542,6 +1627,12 @@ impl Pixels {
     /// The buffer the pixels are in, when it's a `T`.
     pub fn buffer<T: PixelBuffer>(&self) -> Option<&T> {
         (self.0.as_ref() as &dyn std::any::Any).downcast_ref()
+    }
+
+    /// A copy as straight RGBA, as files, the clipboard and notifications
+    /// take pictures: the UI's own buffers may keep another byte order.
+    pub fn straight_rgba(&self) -> Vec<u8> {
+        self.0.straight_rgba()
     }
 }
 
@@ -2026,6 +2117,9 @@ pub struct ChatMessage {
     /// The RGB colour of the author's name, from their highest coloured
     /// Discord role.
     pub color: Option<u32>,
+    /// The author's role colour's second colour, and its third for a
+    /// holographic one, when it is a gradient.
+    pub color_end: Option<(u32, Option<u32>)>,
     /// The author is a Discord bot or webhook.
     pub bot: bool,
     /// The server tag the author wears by their name, on Discord.
@@ -2035,6 +2129,11 @@ pub struct ChatMessage {
     /// The author joined the server in the last week, which Discord marks
     /// by their name as a new member.
     pub new_member: bool,
+    /// When the author's Discord timeout ends, in Unix milliseconds, for an
+    /// account that may time them out: Moderate Members and a higher role,
+    /// as Discord's client asks before it marks their name with a clock.
+    /// None for anyone else; it may have ended since.
+    pub author_timed_out_until: Option<u64>,
     pub body: String,
     /// The body is Markdown source whose sender also sent formatting.
     pub formatted: bool,
@@ -2046,8 +2145,10 @@ pub struct ChatMessage {
     pub deleted: bool,
     /// From someone this account blocked: it shows collapsed until asked for.
     pub blocked: bool,
+    /// From someone this account ignored: it shows collapsed until revealed.
+    pub ignored: bool,
     /// Mentions this account or a group it's in, other than as a reply to
-    /// its message. The timeline highlights it.
+    /// its message, or is its own naming it. The timeline highlights it.
     pub mentions_me: bool,
     /// Replies to this account's message, which the timeline highlights
     /// while it's new; see [`Self::highlighted`].
@@ -2168,6 +2269,13 @@ impl ChatMessage {
     /// client does, and a reply to this account's message while it's `new`.
     pub fn highlighted(&self, new: bool) -> bool {
         self.mentions_me || (self.replies_to_me && new)
+    }
+
+    /// Custom emoji shown by this message's body, reactions and reply quote.
+    pub fn all_emoji(&self) -> impl Iterator<Item = &CustomEmoji> {
+        self.emoji
+            .iter()
+            .chain(self.reply.iter().flat_map(|reply| &reply.emoji))
     }
 }
 
@@ -2974,6 +3082,17 @@ pub enum DiscordCommand {
     Pins {
         room: String,
     },
+    /// A Discord DM's or channel's newest [`PEEK_MESSAGES`], to peek at
+    /// without opening or reading it; [`Event::Peeked`] follows. A channel
+    /// kept in memory and up to date answers from there; any other is asked
+    /// for that many once, and nothing of them is kept.
+    Peek {
+        room: String,
+    },
+    /// This account's recent mentions, the newest first, of the kinds and
+    /// from the server the query asks for: Discord's Mentions inbox;
+    /// [`Event::RecentMentions`] follows.
+    RecentMentions(MentionsQuery),
     /// A page of a Discord server channel's threads, by its room id, as its
     /// list of threads shows them: the archived ones from the `offset`th,
     /// or with a `query`, those of any kind whose name it finds.
@@ -3044,6 +3163,14 @@ pub enum DiscordCommand {
     /// back as [`Event::Error`].
     Notifications {
         place: String,
+        change: NotificationChange,
+    },
+    /// Make the same change to the notification settings of several Discord
+    /// servers, by their server ids, in one request, as a rail folder's menu
+    /// does for its servers. Snapshots show it once Discord confirms it; a
+    /// failure comes back as [`Event::Error`].
+    FolderNotifications {
+        servers: Vec<String>,
         change: NotificationChange,
     },
     /// Mark a Discord channel, by its room id, unread after the message
@@ -3245,6 +3372,20 @@ pub enum DiscordCommand {
     /// Set the Discord status: `online`, `idle`, `dnd` or `invisible`;
     /// [`Event::StatusSet`] follows.
     SetStatus(String),
+    /// Adds a Discord channel, DM or group DM to the account's Favorites, or
+    /// takes it off; [`Event::ChannelFavorited`] follows.
+    FavoriteChannel {
+        room: String,
+        favorite: bool,
+    },
+    /// Places a server in a folder or moves a server or folder beside a tile.
+    FileServer {
+        server: String,
+        source_folder: bool,
+        target: String,
+        folder: bool,
+        before: Option<bool>,
+    },
     /// Share the game the Discord account plays, or stop;
     /// [`Event::ShowGameSet`] follows.
     ShowGame(bool),
@@ -3272,10 +3413,26 @@ pub enum DiscordCommand {
         since: Option<u64>,
         show_idle: bool,
     },
-    /// Connect the Discord account that was just linked.
+    /// Connect the Discord account that is active on this device, in place
+    /// of the one running: after linking another, which becomes the active
+    /// one. [`Event::DiscordAccounts`] follows.
     Start,
-    /// Forget the linked Discord account on this device, ending its session
-    /// on Discord; [`Event::DiscordUnlinked`] follows.
+    /// Make the linked Discord account with this id the active one and
+    /// connect it in place of the one running; [`Event::DiscordSwitched`]
+    /// and [`Event::DiscordAccounts`] follow, or [`Event::Error`] when it
+    /// can't.
+    SwitchAccount(String),
+    /// Forget the linked Discord account with this id on this device, ending
+    /// its session on Discord if Yapfast's QR login made it.
+    /// [`Event::DiscordAccounts`] follows; so does [`Event::DiscordSwitched`]
+    /// when it was the active one and another takes its place, or
+    /// [`Event::DiscordUnlinked`] when it was the last, then
+    /// [`Event::DiscordSessionKept`] for a pasted token.
+    RemoveAccount(String),
+    /// Forget every linked Discord account on this device, ending the
+    /// running one's session on Discord if Yapfast's QR login made it;
+    /// [`Event::DiscordUnlinked`] follows, then [`Event::DiscordSessionKept`]
+    /// for a pasted token.
     Unlink,
     /// Change a member of a Discord server, by its server id; a nickname,
     /// a timeout, a kick or a ban answers with [`Event::PersonSaved`], and
@@ -3290,12 +3447,15 @@ pub enum DiscordCommand {
     /// the effect it names as [`Event::ProfileEffect`] when `effect` asks
     /// for it; without, the shop isn't asked what the effect is made of.
     /// Its frame comes with it, or as [`Event::ProfileFrame`] the first time,
-    /// when `frame` asks for it.
+    /// when `frame` asks for it. The levels of its badges come as
+    /// [`Event::BadgeLevels`] when `badges` asks for them; without, they
+    /// aren't asked for.
     Profile {
         room: String,
         user: String,
         effect: bool,
         frame: bool,
+        badges: bool,
     },
     /// Download server icons and avatars by address. Each that arrives comes
     /// back as [`Event::Picture`]; one that fails doesn't.
@@ -3317,6 +3477,14 @@ pub enum DiscordCommand {
     /// What someone did lately, read-only; [`Event::ProfileRecent`] follows.
     ProfileRecent {
         user: String,
+    },
+    /// The addresses of someone's Rich Presence buttons, by the activity's
+    /// session and application, read-only, as a click on one that came
+    /// without its address asks; [`Event::ActivityLinks`] follows.
+    ActivityLinks {
+        user: String,
+        session: String,
+        application: String,
     },
     /// This account's profile for its editor: in a Discord server, by its
     /// server id, or its main profile; [`Event::OwnProfile`] follows.
@@ -4239,6 +4407,14 @@ pub enum Event {
     },
     /// The layers of a profile effect a [`Profile::effect`] names.
     ProfileEffect(Arc<ProfileEffect>),
+    /// Someone's presence in the server their open profile is from, which
+    /// Discord answers apart from the profile.
+    ProfilePresence {
+        user: String,
+        presence: Presence,
+        activity: Option<String>,
+        activities: Activities,
+    },
     /// The layers of the frame of `user`'s profile, which the shop
     /// described after [`Event::Profile`] came.
     ProfileFrame {
@@ -4269,6 +4445,15 @@ pub enum Event {
     ProfileRecent {
         user: String,
         recent: Vec<RecentActivity>,
+    },
+    /// The addresses [`DiscordCommand::ActivityLinks`] asked for of `user`'s
+    /// activity in `session` of `application`, in the buttons' order (none
+    /// for a button Discord gave none), or why they didn't come.
+    ActivityLinks {
+        user: String,
+        session: String,
+        application: String,
+        result: Result<Vec<Option<String>>, String>,
     },
     /// The profile Yapfast kept of someone [`DiscordCommand::Profile`] asked
     /// for, to show until [`Event::Profile`] comes.
@@ -4329,6 +4514,10 @@ pub enum Event {
     CustomStatusSet(Result<(), String>),
     /// Whether [`DiscordCommand::SetStatus`] changed it, or why not.
     StatusSet(Result<(), String>),
+    /// Whether the account's server folders were saved.
+    ServerFiled(Result<(), String>),
+    /// Whether [`DiscordCommand::FavoriteChannel`] was saved, or why not.
+    ChannelFavorited(Result<(), String>),
     /// Whether [`DiscordCommand::ShowGame`] changed it, or why not.
     ShowGameSet(Result<(), String>),
     /// Whether [`DiscordCommand::ArrangeServers`] went through, or why not.
@@ -4340,13 +4529,40 @@ pub enum Event {
     SoundCatalog(Result<Arc<[crate::voice::SoundGroup]>, String>),
     /// Whether [`DiscordCommand::SetJoinSound`] changed it, or why not.
     JoinSoundSet(Result<(), String>),
-    /// [`DiscordCommand::Unlink`] forgot the account.
+    /// [`DiscordCommand::Unlink`] forgot the account, or
+    /// [`DiscordCommand::RemoveAccount`] forgot the last one.
     DiscordUnlinked,
+    /// The Discord accounts linked on this device, and which is active. Sent
+    /// when Yapfast starts with any, and after each change to them.
+    DiscordAccounts {
+        accounts: Vec<DiscordAccount>,
+        /// The active account's id; empty when none is linked.
+        active: String,
+    },
+    /// The active Discord account is another now: what Yapfast showed of the
+    /// one before belongs to it no longer.
+    DiscordSwitched,
+    /// The account just unlinked, or signed out of, with none left, was
+    /// linked with a pasted token, or before Yapfast kept how, so its session
+    /// stays signed in: a pasted token's is the app or browser it came from.
+    DiscordSessionKept,
+    /// [`DiscordCommand::Peek`]'s messages, oldest first, or why they didn't
+    /// come.
+    Peeked {
+        room: String,
+        result: Result<Vec<ChatMessage>, String>,
+    },
     /// [`DiscordCommand::Pins`]'s messages, the latest pinned first, or why
     /// they didn't come.
     Pins {
         room: String,
         result: Result<Vec<ChatMessage>, String>,
+    },
+    /// [`DiscordCommand::RecentMentions`]'s messages for `query`, each with
+    /// its room, the newest first, or why they didn't come.
+    RecentMentions {
+        query: MentionsQuery,
+        result: Result<Vec<(String, ChatMessage)>, String>,
     },
     /// [`DiscordCommand::StartThread`]'s thread, by room id, in the channel
     /// `room`, or why it didn't start.
@@ -4586,8 +4802,12 @@ pub enum Event {
         server: String,
         role: String,
         result: Result<Vec<RoleMember>, String>,
-        /// How many hold it, after a change to them.
-        count: Option<u64>,
+    },
+    /// How many members hold a role after a membership change.
+    RoleCount {
+        server: String,
+        role: String,
+        count: u64,
     },
     /// The members [`RoleAction::FindMembers`] found for a text.
     RoleCandidates {
@@ -5202,20 +5422,45 @@ impl Animation {
 
 /// The first line of a Markdown body as plain text, for reply quotes.
 pub fn plain_snippet(markdown: &str) -> String {
-    use pulldown_cmark::{Event, Parser, TagEnd};
     let mut text = String::new();
+    first_line(markdown, |part, _| text.push_str(part));
+    text
+}
+
+/// A reply quote's first line as plain text, as [`plain_snippet`] has it,
+/// and those of `emoji` its text shows: each whose `:name:` is in the line
+/// out of code, which shows a name as text.
+pub fn reply_snippet(markdown: &str, mut emoji: Vec<CustomEmoji>) -> (String, Vec<CustomEmoji>) {
+    let mut text = String::new();
+    // The line's text with each piece of code as a mark no name holds.
+    let mut prose = String::new();
+    first_line(markdown, |part, code| {
+        text.push_str(part);
+        prose.push_str(if code { "\0" } else { part });
+    });
+    emoji.retain(|each| prose.contains(&each.text));
+    (text, emoji)
+}
+
+/// Hands `each` the text of a Markdown body's first line, piece by piece,
+/// and whether the piece is code.
+fn first_line(markdown: &str, mut each: impl FnMut(&str, bool)) {
+    use pulldown_cmark::{Event, Parser, TagEnd};
+    let mut any = false;
     for event in Parser::new(markdown) {
         match event {
-            Event::Text(part) | Event::Code(part) => text.push_str(&part),
-            Event::SoftBreak | Event::HardBreak | Event::End(TagEnd::Paragraph)
-                if !text.is_empty() =>
-            {
-                break;
+            Event::Text(part) => {
+                any |= !part.is_empty();
+                each(&part, false);
             }
+            Event::Code(part) => {
+                any |= !part.is_empty();
+                each(&part, true);
+            }
+            Event::SoftBreak | Event::HardBreak | Event::End(TagEnd::Paragraph) if any => break,
             _ => {}
         }
     }
-    text
 }
 
 /// A Markdown body as plain text for a notification: its paragraphs and list items on
@@ -5262,6 +5507,37 @@ pub fn can_restore(root: &std::path::Path) -> bool {
     }
 }
 
+/// A Discord account linked on this device, as the account switcher lists it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct DiscordAccount {
+    /// Discord's id for the account, or an id of Yapfast's own for a login
+    /// that hasn't said whose it is yet.
+    pub id: String,
+    /// The account's username, which is empty until it has connected once.
+    pub username: String,
+    /// The name it shows, which is the username when it has none.
+    pub name: String,
+    /// The address of its picture, if it has one; see [`DiscordCommand::Pictures`].
+    pub avatar: Option<String>,
+}
+
+impl DiscordAccount {
+    /// What the switcher calls the account: its username, as Discord lists
+    /// accounts, else its name. An account that hasn't said either yet is
+    /// shown by its user id, and as "Account" when it hasn't even one, so a
+    /// row is never blank.
+    pub fn label(&self) -> &str {
+        [self.username.as_str(), self.name.as_str()]
+            .into_iter()
+            .find(|label| !label.is_empty())
+            .or_else(|| {
+                Some(self.id.as_str())
+                    .filter(|id| !id.is_empty() && id.bytes().all(|byte| byte.is_ascii_digit()))
+            })
+            .unwrap_or("Account")
+    }
+}
+
 /// A new message that should notify the person, by their notification settings on its
 /// network.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -5275,6 +5551,17 @@ pub struct Notification {
     pub avatar: Option<String>,
     /// It mentions this account, rather than notifying as any message there does.
     pub mention: bool,
+    /// Whom it replies to, when it's a reply whose original is known.
+    pub replied: Option<Replied>,
+}
+
+/// Whom a reply answers, for its notification's title.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Replied {
+    /// The account the message came to.
+    You,
+    /// Someone else, by their name where the message is.
+    Person(String),
 }
 
 /// A notification ready to show: its conversation, a title naming who wrote where, the
@@ -5372,6 +5659,8 @@ pub async fn run(
     if let Some(error) = &discord_error {
         let _ = events.send(Event::Error(error.clone()));
     }
+    #[cfg(feature = "discord")]
+    send_discord_accounts(&events);
     #[cfg(not(feature = "matrix"))]
     let _ = events.send(Event::Connected {
         user: "Discord".into(),
@@ -5426,31 +5715,88 @@ pub async fn run(
                 #[cfg(feature = "discord")]
                 Route::Discord => match command {
                     Command::Discord(DiscordCommand::Start) => {
-                        if discord.is_none() {
-                            // Linking saved the login just before.
-                            let started = crate::discord_text::Chat::start().and_then(|started| {
-                                started.ok_or_else(|| anyhow::anyhow!("its login wasn't saved"))
-                            });
-                            match started {
-                                Ok(started) => {
-                                    discord = Some(started);
+                        // Linking saved the login and made it the active one.
+                        let replacing = discord.is_some();
+                        connect_discord(&mut discord, &mut discord_error, &linked, &voice, &events);
+                        if replacing {
+                            let _ = events.send(Event::DiscordSwitched);
+                        }
+                        send_discord_accounts(&events);
+                    }
+                    Command::Discord(DiscordCommand::SwitchAccount(id)) => {
+                        match yapfast_discord::token::switch(&id) {
+                            Ok(()) => {
+                                connect_discord(
+                                    &mut discord,
+                                    &mut discord_error,
+                                    &linked,
+                                    &voice,
+                                    &events,
+                                );
+                                let _ = events.send(Event::DiscordSwitched);
+                            }
+                            Err(error) => {
+                                tracing::warn!(%error, "could not switch the Discord account");
+                                let _ = events.send(Event::Error(
+                                    "Could not switch to that Discord account.".into(),
+                                ));
+                            }
+                        }
+                        send_discord_accounts(&events);
+                    }
+                    Command::Discord(DiscordCommand::RemoveAccount(id)) => {
+                        let active = yapfast_discord::token::listing()
+                            .ok()
+                            .and_then(|listing| listing.active);
+                        if active.as_deref() == Some(id.as_str()) {
+                            // Its session ends, if Yapfast's QR login made it, and
+                            // the next account, if any, takes its place.
+                            let kept = stop_discord(&mut discord, &linked, &voice, true);
+                            let remaining = yapfast_discord::token::forget_account(&id);
+                            match remaining {
+                                Ok(Some(_)) => {
+                                    connect_discord(
+                                        &mut discord,
+                                        &mut discord_error,
+                                        &linked,
+                                        &voice,
+                                        &events,
+                                    );
+                                    let _ = events.send(Event::DiscordSwitched);
+                                }
+                                Ok(None) => {
                                     discord_error = None;
+                                    let _ = events.send(Event::DiscordUnlinked);
+                                    if kept {
+                                        let _ = events.send(Event::DiscordSessionKept);
+                                    }
                                 }
                                 Err(error) => {
-                                    let error = discord_failed(&error);
-                                    let _ = events.send(Event::Error(error.clone()));
-                                    discord_error = Some(error);
+                                    tracing::warn!(%error, "could not forget the Discord login");
+                                    let _ = events.send(Event::Error(
+                                        "Could not log out of that Discord account.".into(),
+                                    ));
                                 }
                             }
-                            linked.send_replace(
-                                discord.as_ref().map(crate::discord_text::Chat::service),
-                            );
+                        } else {
+                            end_other_session(&id);
+                            if let Err(error) = yapfast_discord::token::forget_account(&id) {
+                                tracing::warn!(%error, "could not forget the Discord login");
+                                let _ = events.send(Event::Error(
+                                    "Could not log out of that Discord account.".into(),
+                                ));
+                            }
                         }
+                        send_discord_accounts(&events);
                     }
                     Command::Discord(DiscordCommand::Unlink) => {
-                        unlink_discord(&mut discord, &linked, &voice);
+                        let kept = unlink_discord(&mut discord, &linked, &voice);
                         discord_error = None;
                         let _ = events.send(Event::DiscordUnlinked);
+                        if kept {
+                            let _ = events.send(Event::DiscordSessionKept);
+                        }
+                        send_discord_accounts(&events);
                     }
                     command => match discord.as_mut() {
                         Some(discord) => discord.command(command, &events),
@@ -5472,9 +5818,40 @@ pub async fn run(
                 #[cfg(not(feature = "matrix"))]
                 Route::Matrix => {
                     if let Command::Logout = command {
+                        // Only the active account logs out; another one, if
+                        // linked, takes its place.
                         #[cfg(feature = "discord")]
-                        unlink_discord(&mut discord, &linked, &voice);
+                        let mut kept = false;
+                        #[cfg(feature = "discord")]
+                        {
+                            let active = yapfast_discord::token::listing()
+                                .ok()
+                                .and_then(|listing| listing.active);
+                            if let Some(active) = active {
+                                kept = stop_discord(&mut discord, &linked, &voice, true);
+                                if matches!(
+                                    yapfast_discord::token::forget_account(&active),
+                                    Ok(Some(_))
+                                ) {
+                                    connect_discord(
+                                        &mut discord,
+                                        &mut discord_error,
+                                        &linked,
+                                        &voice,
+                                        &events,
+                                    );
+                                    let _ = events.send(Event::DiscordSwitched);
+                                    send_discord_accounts(&events);
+                                    continue;
+                                }
+                            }
+                        }
                         let _ = events.send(Event::LoggedOut);
+                        // After the reset, for the sign-in screen to say.
+                        #[cfg(feature = "discord")]
+                        if kept {
+                            let _ = events.send(Event::DiscordSessionKept);
+                        }
                         break;
                     }
                 }
@@ -5509,14 +5886,76 @@ fn discord_failed(error: &anyhow::Error) -> String {
     format!("Discord couldn't start: {error}")
 }
 
-/// Forgets the linked Discord account on this device: leaves its call, ends
-/// its session on Discord, and stops it.
+/// Connects the active Discord account in place of the one running, which
+/// is stopped first so that what it kept goes to disk before the next one
+/// takes its files. Why it couldn't connect answers the commands that need it.
 #[cfg(feature = "discord")]
-fn unlink_discord(
+fn connect_discord(
+    discord: &mut Option<crate::discord_text::Chat>,
+    discord_error: &mut Option<String>,
+    linked: &tokio::sync::watch::Sender<Option<yapfast_discord::service::Discord>>,
+    voice: &voice::Controller,
+    events: &UnboundedSender<Event>,
+) {
+    stop_discord(discord, linked, voice, false);
+    let started = crate::discord_text::Chat::start()
+        .and_then(|started| started.ok_or_else(|| anyhow::anyhow!("its login wasn't saved")));
+    match started {
+        Ok(started) => {
+            *discord = Some(started);
+            *discord_error = None;
+        }
+        Err(error) => {
+            let error = discord_failed(&error);
+            let _ = events.send(Event::Error(error.clone()));
+            *discord_error = Some(error);
+        }
+    }
+    linked.send_replace(discord.as_ref().map(crate::discord_text::Chat::service));
+}
+
+/// Says which Discord accounts are linked, and which is active.
+#[cfg(feature = "discord")]
+fn send_discord_accounts(events: &UnboundedSender<Event>) {
+    let listing = match yapfast_discord::token::listing() {
+        Ok(listing) => listing,
+        Err(error) => {
+            tracing::warn!(%error, "could not list the Discord accounts");
+            return;
+        }
+    };
+    let accounts = listing
+        .accounts
+        .into_iter()
+        .map(|account| DiscordAccount {
+            avatar: Some(account.avatar).filter(|avatar| !avatar.is_empty()),
+            id: account.id,
+            name: if account.name.is_empty() {
+                account.username.clone()
+            } else {
+                account.name
+            },
+            username: account.username,
+        })
+        .collect();
+    let _ = events.send(Event::DiscordAccounts {
+        accounts,
+        active: listing.active.unwrap_or_default(),
+    });
+}
+
+/// Stops the running Discord account, the active one: leaves its call and,
+/// with `log_out`, ends its session on Discord if Yapfast's QR login made
+/// it. A pasted token's session is the app or browser it came from, which
+/// stays signed in; says whether it was one. Called before the account is
+/// forgotten, which takes how it was linked.
+#[cfg(feature = "discord")]
+fn stop_discord(
     discord: &mut Option<crate::discord_text::Chat>,
     linked: &tokio::sync::watch::Sender<Option<yapfast_discord::service::Discord>>,
     voice: &voice::Controller,
-) {
+    log_out: bool,
+) -> bool {
     if voice
         .states
         .borrow()
@@ -5527,20 +5966,64 @@ fn unlink_discord(
         voice.command(voice::Command::Leave);
     }
     linked.send_replace(None);
-    if let Some(chat) = discord.take() {
-        let service = chat.service();
-        tokio::spawn(async move {
-            if let Err(error) = service.logout().await {
-                tracing::warn!(
-                    error = format!("{error:#}"),
-                    "could not end the Discord session"
-                );
-            }
-        });
+    let Some(chat) = discord.take() else {
+        return false;
+    };
+    if !log_out {
+        return false;
     }
+    let origin = yapfast_discord::token::origin();
+    let service = chat.service();
+    tokio::spawn(async move {
+        if let Err(error) = service.sign_out(origin).await {
+            tracing::warn!(
+                error = format!("{error:#}"),
+                "could not end the Discord session"
+            );
+        }
+    });
+    !origin.ends_session()
+}
+
+/// Ends the session on Discord of a linked account that isn't running, if
+/// Yapfast's QR login made it; a pasted token's stays, as the running one's
+/// does.
+#[cfg(feature = "discord")]
+fn end_other_session(id: &str) {
+    if !yapfast_discord::token::origin_of(id).ends_session() {
+        return;
+    }
+    let Ok(token) = yapfast_discord::token::token_of(id) else {
+        return;
+    };
+    tokio::spawn(async move {
+        let ended = match yapfast_discord::api::Api::new(token) {
+            Ok(api) => api.logout().await,
+            Err(error) => Err(error),
+        };
+        if let Err(error) = ended {
+            tracing::warn!(
+                error = format!("{error:#}"),
+                "could not end the Discord session"
+            );
+        }
+    });
+}
+
+/// Forgets every linked Discord account on this device: leaves the call,
+/// ends the running session on Discord if Yapfast's QR login made it, and
+/// stops it; says whether that session stays, as [`stop_discord`] does.
+#[cfg(feature = "discord")]
+fn unlink_discord(
+    discord: &mut Option<crate::discord_text::Chat>,
+    linked: &tokio::sync::watch::Sender<Option<yapfast_discord::service::Discord>>,
+    voice: &voice::Controller,
+) -> bool {
+    let kept = stop_discord(discord, linked, voice, true);
     if let Err(error) = yapfast_discord::token::forget() {
         tracing::warn!(%error, "could not forget the Discord login");
     }
+    kept
 }
 
 #[cfg(test)]

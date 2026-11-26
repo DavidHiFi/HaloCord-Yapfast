@@ -59,6 +59,30 @@ pub fn set_custom_games(games: &[(String, String)]) {
     let _ = games;
 }
 
+/// The programs and games this device never shows as the game being played,
+/// each an executable (a file name or a full path) or the name shown after
+/// Playing. Detection running takes them at once.
+pub fn set_blocked_games(blocked: &[String]) {
+    #[cfg(feature = "discord")]
+    yapfast_discord::game_detection::custom_games::set_blocked(blocked.to_vec());
+    #[cfg(not(feature = "discord"))]
+    let _ = blocked;
+}
+
+/// The games the running programs are taken for now, each by the name that
+/// would show after Playing; none while detection isn't scanning, as when
+/// sharing the game is off.
+pub fn detected_games() -> Vec<String> {
+    #[cfg(feature = "discord")]
+    {
+        yapfast_discord::game_detection::custom_games::detected()
+    }
+    #[cfg(not(feature = "discord"))]
+    {
+        Vec::new()
+    }
+}
+
 #[cfg(feature = "discord")]
 use crate::chat::is_frame_layer;
 
@@ -134,8 +158,12 @@ pub(crate) fn read_kept(url: &str, mut picture: chat::Picture) -> chat::Picture 
 }
 
 /// The start of a Discord folder's [`chat::ServerFolder::id`].
-#[cfg(feature = "discord")]
 const FOLDER_PREFIX: &str = "discord-folder:";
+
+/// The Discord folder a rail tile names.
+pub fn parse_folder(id: &str) -> Option<&str> {
+    id.strip_prefix(FOLDER_PREFIX)
+}
 
 pub fn server_id(guild: &str) -> String {
     format!("{PREFIX}{guild}")
@@ -314,10 +342,13 @@ fn voice_person(member: &yapfast_discord::service::VoiceMember) -> VoicePerson {
         muted: member.muted,
         deafened: member.deafened,
         server_muted: member.server_muted,
+        speaking_blocked: member.speaking_blocked,
         server_deafened: member.server_deafened,
         streaming: member.streaming,
         video: member.video,
         elsewhere: member.elsewhere,
+        style: member.style.map(|style| Arc::new(style.into())),
+        tag: server_tag(member.tag.clone()),
     }
 }
 
@@ -624,12 +655,10 @@ pub fn listed_thread(
             color: server.color(names.roles(&server.id, user)),
         })
     };
-    let recent = details.recent.as_deref().map(|recent| chat::RecentMessage {
-        author: thread_person(server, names, &recent.author),
-        text: one_line(&chat::notification_text(
-            &names.render(Some(server), &recent.content),
-        )),
-    });
+    let recent = details
+        .recent
+        .as_deref()
+        .map(|recent| recent_message(server, names, recent));
     Some(chat::ListedThread {
         room: room_id(&server.id, &thread.id),
         name: thread.name.clone(),
@@ -637,7 +666,7 @@ pub fn listed_thread(
         joined: details.joined,
         archived: details.archived,
         last,
-        active_ms: (last >> 22) + DISCORD_EPOCH,
+        active_ms: snowflake_ms(last),
         owner: details.owner.as_deref().and_then(person),
         recent,
         members: details.members,
@@ -651,8 +680,31 @@ pub fn listed_thread(
         replies: details.messages,
         opened: marks.opened,
         unread: marks.opened && marks.unread,
-        created_ms: (thread.id.parse::<u64>().unwrap_or_default() >> 22) + DISCORD_EPOCH,
+        created_ms: snowflake_ms(thread.id.parse().unwrap_or_default()),
     })
+}
+
+/// When a snowflake was made, in Unix milliseconds.
+#[cfg(feature = "discord")]
+pub fn snowflake_ms(snowflake: u64) -> u64 {
+    (snowflake >> 22) + DISCORD_EPOCH
+}
+
+/// A thread's newest message in `server`, naming its author as `names`
+/// knows them.
+#[cfg(feature = "discord")]
+pub fn recent_message(
+    server: &yapfast_discord::ready::Server,
+    names: &yapfast_discord::message::Names,
+    recent: &yapfast_discord::ready::Recent,
+) -> chat::RecentMessage {
+    chat::RecentMessage {
+        author: thread_person(server, names, &recent.author),
+        tag: server_tag(names.server_tag(&recent.author).cloned()),
+        text: one_line(&chat::notification_text(
+            &names.render(Some(server), &recent.content),
+        )),
+    }
 }
 
 /// Someone a forum's card or a list of threads names, as `names` knows
@@ -764,6 +816,7 @@ fn dm_room(snapshot: &Snapshot, dm: &Conversation, premium: u8, me: &str) -> Cha
         } else {
             Reacts::Any
         },
+        slowmode: 0,
         slowed: false,
         timed_out_until: None,
         category: match (dm.request, dm.spam) {
@@ -784,6 +837,13 @@ fn dm_room(snapshot: &Snapshot, dm: &Conversation, premium: u8, me: &str) -> Cha
             .collect(),
         incoming: dm.ringing.iter().any(|person| person.user_id == me),
         avatar: dm.avatar.clone(),
+        group_avatars: dm.group_avatars.as_ref().map(|pair| {
+            pair.clone().map(|member| chat::GroupAvatar {
+                id: member.id,
+                name: member.name,
+                avatar: member.avatar,
+            })
+        }),
         decoration: dm.decoration.clone(),
         nameplate: dm.nameplate.clone().map(|plate| Arc::new(plate.into())),
         style: dm.style.map(|style| Arc::new(style.into())),
@@ -924,10 +984,11 @@ fn server_rooms(
                 join_locked: marks.access != Access::Join,
                 read_only: !server.may_send(channel, me, &server.marks.roles),
                 reacts: reacts(server, channel, me),
+                slowmode: channel.slowmode,
                 slowed: server.slowed(channel, me, &server.marks.roles),
                 timed_out_until: server.my_timeout.as_ref().map(|timeout| timeout.until),
                 category,
-                category_id: category_id.clone(),
+                category_id,
                 request: false,
                 person: None,
                 people: in_voice(snapshot, &channel.id),
@@ -935,6 +996,7 @@ fn server_rooms(
                 ringing: vec![],
                 incoming: false,
                 avatar: None,
+                group_avatars: None,
                 decoration: None,
                 nameplate: None,
                 style: None,
@@ -979,16 +1041,18 @@ fn server_rooms(
                 join_locked: false,
                 read_only: marks.access == Access::Locked,
                 reacts: reacts(server, channel, me),
+                slowmode: channel.slowmode,
                 slowed: server.slowed(channel, me, &server.marks.roles),
                 timed_out_until: server.my_timeout.as_ref().map(|timeout| timeout.until),
                 category,
-                category_id: category_id.clone(),
+                category_id,
                 request: false,
                 person: None,
                 people: vec![],
                 ringing: vec![],
                 incoming: false,
                 avatar: None,
+                group_avatars: None,
                 decoration: None,
                 nameplate: None,
                 style: None,
@@ -1039,6 +1103,13 @@ fn server_rooms(
         pinned,
         banner: server.banner.clone(),
         verified: server.verified,
+        // Only those who may Manage Server hear of it, as in Discord's
+        // client (its module 347951).
+        invites_paused_until: (server.server_permissions(me, &server.marks.roles)
+            & yapfast_discord::ready::permission::MANAGE_GUILD
+            != 0)
+            .then(|| server.invites_paused(crate::clock::now_ms() / 1000))
+            .flatten(),
         boosts: server.boost_bar.then_some(server.boosts),
         premium_tier: (server.premium_tier > 0).then_some(server.premium_tier),
         events: server
@@ -1138,6 +1209,7 @@ fn thread_room(
         // Locked, or this account may not write in threads here.
         read_only: thread.marks.access == Access::Locked,
         reacts: reacts(server, &thread, me),
+        slowmode: thread.slowmode,
         slowed: server.slowed(&thread, me, &server.marks.roles),
         timed_out_until: server.my_timeout.as_ref().map(|timeout| timeout.until),
         category: parent.category.clone(),
@@ -1148,6 +1220,7 @@ fn thread_room(
         ringing: vec![],
         incoming: false,
         avatar: None,
+        group_avatars: None,
         decoration: None,
         nameplate: None,
         style: None,
@@ -2621,7 +2694,10 @@ mod tests {
             video: false,
             elsewhere: false,
             server_muted: false,
+            speaking_blocked: false,
             server_deafened: false,
+            style: None,
+            tag: None,
         };
         let first = Snapshot {
             servers: vec![server("10", "11", "12"), server("20", "21", "22")],
@@ -2786,10 +2862,13 @@ mod tests {
                 muted: false,
                 deafened: false,
                 server_muted: false,
+                speaking_blocked: false,
                 server_deafened: false,
                 streaming: false,
                 video: false,
                 elsewhere: false,
+                style: None,
+                tag: None,
             }],
         );
         assert!(kept.update_into(&call, false, &mut rooms, &mut servers));
@@ -2880,10 +2959,13 @@ mod tests {
             muted: false,
             deafened: false,
             server_muted: false,
+            speaking_blocked: false,
             server_deafened: false,
             streaming: false,
             video: false,
             elsewhere: false,
+            style: None,
+            tag: None,
         };
         let snapshot = Snapshot {
             servers: vec![MarkedServer::marked(
@@ -2955,21 +3037,45 @@ mod tests {
                     _ => access(Access::Join),
                 },
             )],
-            voice: [(
-                "11".to_owned(),
-                vec![yapfast_discord::service::VoiceMember {
-                    user_id: "2".into(),
-                    name: "Ann".into(),
-                    avatar: "ann.png".into(),
-                    muted: true,
-                    deafened: false,
-                    streaming: true,
-                    video: false,
-                    elsewhere: false,
-                    server_muted: false,
-                    server_deafened: false,
-                }],
-            )]
+            voice: [
+                (
+                    "11".to_owned(),
+                    vec![yapfast_discord::service::VoiceMember {
+                        user_id: "2".into(),
+                        name: "Ann".into(),
+                        avatar: "ann.png".into(),
+                        muted: true,
+                        deafened: false,
+                        streaming: true,
+                        video: false,
+                        elsewhere: false,
+                        server_muted: false,
+                        speaking_blocked: false,
+                        server_deafened: false,
+                        style: None,
+                        tag: None,
+                    }],
+                ),
+                // Discord sends who is in a hidden voice channel too.
+                (
+                    "13".to_owned(),
+                    vec![yapfast_discord::service::VoiceMember {
+                        user_id: "3".into(),
+                        name: "Bea".into(),
+                        avatar: "bea.png".into(),
+                        muted: false,
+                        deafened: true,
+                        streaming: false,
+                        video: false,
+                        elsewhere: false,
+                        server_muted: false,
+                        speaking_blocked: false,
+                        server_deafened: false,
+                        style: None,
+                        tag: None,
+                    }],
+                ),
+            ]
             .into(),
             ..Default::default()
         };
@@ -3013,7 +3119,46 @@ mod tests {
         );
         let (rooms, _) = index(&snapshot, true);
         assert!(rooms.len() == 6 && rooms[2].locked && rooms[5].locked);
+        // A hidden voice channel lists who is in it, as a voice channel
+        // does, though it can't be joined.
+        assert_eq!(rooms[5].id, "discord:10:13");
+        assert!(rooms[5].voice && rooms[5].join_locked);
+        assert_eq!(rooms[5].people.len(), 1);
+        assert_eq!(rooms[5].people[0].name, "Bea");
+        assert!(rooms[5].people[0].deafened && rooms[5].members == 1);
         assert_eq!(parse_room("discord:10:11"), Some(("10", "11")));
         assert_eq!(parse_room("!room:example.org"), None);
+    }
+
+    #[test]
+    fn only_one_who_may_manage_a_server_hears_its_invites_are_paused() {
+        use yapfast_discord::ready::permission::MANAGE_GUILD;
+        let now = crate::clock::now_ms() / 1000;
+        // This account, 1, with @everyone's permissions `everyone`.
+        let paused = |everyone: u64, disabled: bool, until: Option<u64>| {
+            let snapshot = Snapshot {
+                user_id: Some("1".into()),
+                servers: vec![MarkedServer::from(Server {
+                    id: "10".into(),
+                    owner_id: Some("99".into()),
+                    roles: std::sync::Arc::new([("10".to_owned(), everyone)].into_iter().collect()),
+                    invites_disabled: disabled,
+                    invites_paused_until: until,
+                    ..Default::default()
+                })],
+                ..Default::default()
+            };
+            index(&snapshot, false).1[0].invites_paused_until
+        };
+        let later = now + 600;
+        assert_eq!(paused(MANAGE_GUILD, false, Some(later)), Some(later));
+        assert_eq!(paused(MANAGE_GUILD, true, None), Some(u64::MAX), "no end");
+        assert_eq!(paused(0, false, Some(later)), None, "without Manage Server");
+        assert_eq!(paused(0, true, None), None, "without Manage Server");
+        assert_eq!(
+            paused(MANAGE_GUILD, false, Some(now - 600)),
+            None,
+            "resumed"
+        );
     }
 }

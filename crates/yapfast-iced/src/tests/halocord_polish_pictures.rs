@@ -132,6 +132,10 @@ fn playing(name: &str) -> Activity {
         url: None,
         link: None,
         emoji: None,
+        created: None,
+        display: None,
+        console: None,
+        buttons: None,
     }
 }
 
@@ -146,6 +150,7 @@ fn friend(id: &str, name: &str, activity: Activity) -> Friend {
         activity: None,
         activities: Arc::from([activity]),
         since: None,
+        style: None,
     }
 }
 
@@ -237,4 +242,41 @@ fn choices_wrap_and_fit() {
         .width(width);
         let _ = draw(view.into(), Size::new(width, 190.0), name, |_| {});
     }
+}
+
+/// A follow-up message's clock with seconds, under the pointer, beside its
+/// text, in MochaCord.
+#[test]
+#[ignore]
+fn a_clock_with_seconds_beside_a_follow_up_message() {
+    use yapfast_core::chat::ChatMessage;
+    let (mut app, _folder) = mocha();
+    app.layout.prefs.clock_seconds = true;
+    let said = |item: &str, body: &str, timestamp: u64| {
+        Arc::new(ChatMessage {
+            item: item.into(),
+            author: "Sam".into(),
+            sender: "7".into(),
+            body: body.into(),
+            timestamp,
+            ..Default::default()
+        })
+    };
+    change(&mut app, |state| {
+        state.messages = Arc::new(vec![
+            said(
+                "i0",
+                "Preview of my Seamless app, first in Rust",
+                1_790_000_000,
+            ),
+            said(
+                "i1",
+                "Preview of my Seamless app, first in Rust",
+                1_790_000_045,
+            ),
+        ]);
+    });
+    app.pointed.message = Some("i1".into());
+    let frame = app.shell.frame;
+    let _ = draw(app.view(), frame, "clock-seconds.png", |_| {});
 }

@@ -7,7 +7,7 @@ use yapfast_core::{
     chat::Command,
 };
 
-use super::{change, preview};
+use super::{change, open_plugin, preview, shows};
 use crate::{
     app::Message,
     halocord::{Change, Press, READ_ALL, RESTART, changed, place, presses},
@@ -34,13 +34,80 @@ fn the_buttons_are_on_from_the_start_and_go_when_switched_off() {
     };
     assert_eq!(
         labels(&app),
-        ["Restart Yapfast", "Mark everything read"],
-        "both are the owner's own, on at first"
+        ["Restart Yapfast"],
+        "Read all sits at the top of the server list at first"
     );
+    let plugin = place(READ_ALL).expect("the plugin");
+    for (choice, bar) in [(1, true), (2, true), (0, false)] {
+        changed(
+            &mut app.layout,
+            &mut app.client,
+            Change::Choose {
+                plugin,
+                setting: 0,
+                choice,
+            },
+        );
+        assert_eq!(
+            labels(&app).contains(&"Mark everything read"),
+            bar,
+            "the top bar has it for choice {choice}"
+        );
+    }
     switch(&mut app, RESTART, false);
-    assert_eq!(labels(&app), ["Mark everything read"]);
-    switch(&mut app, READ_ALL, false);
     assert!(labels(&app).is_empty());
+}
+
+#[test]
+fn read_all_sits_at_the_top_of_the_server_list_and_goes_when_off() {
+    let (mut app, _folder) = preview();
+    let plugin = place(READ_ALL).expect("the plugin");
+    // The small text button's words, so the window shows it as text.
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Flag {
+            plugin,
+            setting: 1,
+            on: true,
+        },
+    );
+    change(&mut app, |_| {});
+    assert!(shows(&app, "Read all"), "the small button at the top");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 0,
+            choice: 1,
+        },
+    );
+    change(&mut app, |_| {});
+    assert!(!shows(&app, "Read all"), "only in the top bar now");
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Choose {
+            plugin,
+            setting: 0,
+            choice: 2,
+        },
+    );
+    change(&mut app, |_| {});
+    assert!(shows(&app, "Read all"), "both places");
+    switch(&mut app, READ_ALL, false);
+    change(&mut app, |_| {});
+    assert!(!shows(&app, "Read all"), "gone while off");
+}
+
+#[test]
+fn read_all_lists_its_settings() {
+    let (mut app, _folder) = preview();
+    open_plugin(&mut app, READ_ALL);
+    for row in ["Where it sits", "Small text button"] {
+        assert!(shows(&app, row), "{row} is offered");
+    }
 }
 
 #[test]
@@ -298,7 +365,7 @@ fn signed_in(app: &mut crate::app::App) {
 /// The middle of the card's Settings cog, its last button.
 fn cog_at(app: &crate::app::App) -> iced::Point {
     let compact = app.layout.halocord.dock().compact;
-    let right = crate::conversation::navigation(&app.layout) - crate::account::INSET;
+    let right = crate::conversation::navigation_ctx(app.ctx()) - crate::account::INSET;
     // On the narrowest sidebar the card's buttons take the compact size.
     let small = compact || app.layout.sidebar_width.is_some_and(|width| width <= 180.0);
     let (pad, side) = match (compact, small) {
@@ -316,7 +383,7 @@ fn cog_at(app: &crate::app::App) -> iced::Point {
 /// tray's, when some buttons go in it. The row is inset 8 px a side, its
 /// buttons 32 px tall, 32 px wide at the least and 6 px under the card's top.
 fn last_plugin_at(app: &crate::app::App) -> iced::Point {
-    let right = crate::conversation::navigation(&app.layout) - crate::account::INSET;
+    let right = crate::conversation::navigation_ctx(app.ctx()) - crate::account::INSET;
     let top =
         app.shell.frame.height - crate::account::INSET - crate::account::full_height(app.ctx());
     iced::Point::new(right - 8.0 - 16.0, top + 6.0 + 16.0)
@@ -342,7 +409,7 @@ fn the_settings_cog_is_always_on_the_card() {
     let opens_settings = |app: &crate::app::App| {
         clicked_at(app, cog_at(app))
             .iter()
-            .any(|message| matches!(message, Message::Settings(crate::settings::Event::Reopen)))
+            .any(|message| matches!(message, Message::Settings(event) if matches!(event.as_ref(), crate::settings::Event::Reopen)))
     };
     let (mut app, _folder) = preview();
     app.shell.own_title_bar = false;
@@ -367,9 +434,10 @@ fn the_settings_cog_is_always_on_the_card() {
             },
         );
     };
-    // Fake mute, fake deafen, stats, stereo and game: with the top bar's
-    // two, seven plugin buttons.
-    for setting in [2, 3, 4, 5, 6] {
+    // Fake mute, fake deafen, fake camera, stats, stereo and game: with
+    // the top bar's Restart (Read all sits on the server list), seven
+    // plugin buttons.
+    for setting in [2, 3, 4, 6, 7, 8] {
         flag(&mut app, setting, true);
     }
     let _ = app.sync();
@@ -421,7 +489,7 @@ fn the_settings_cog_is_always_on_the_card() {
 /// width, however many buttons there are: the rest go in the tray.
 #[test]
 fn the_card_keeps_room_for_the_name() {
-    let card = crate::conversation::navigation(&Default::default()) - 2.0 * crate::account::INSET;
+    let card = (crate::rail::WIDTH + crate::sidebar::WIDTH) - 2.0 * crate::account::INSET;
     for extras in 0..12 {
         for compact in [false, true] {
             let fit = crate::halocord::shared(card, compact, true, extras, false);

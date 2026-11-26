@@ -88,6 +88,7 @@ fn notifications_name_the_place_and_open_it() {
             body: "Thinking co-op".into(),
             avatar: None,
             mention: false,
+            replied: None,
         }));
         match effects.as_slice() {
             [Effect::Notify(alert)] => (alert.room.clone(), alert.title.clone()),
@@ -110,6 +111,43 @@ fn notifications_name_the_place_and_open_it() {
     app.dispatch(Action::Open("dm".into()));
     assert_eq!(app.state.navigation, Navigation::DirectMessages);
     assert_eq!(app.state.selected.as_deref(), Some("dm"));
+}
+
+/// A reply's notification says whom it answers only once that's asked for;
+/// until then, and for a message that isn't a reply, the title is as ever.
+#[test]
+fn a_replys_title_says_whom_it_replies_to_when_asked() {
+    let mut app = connected();
+    let title = |app: &mut Application, room: &str, replied: Option<chat::Replied>| {
+        let effects = app.apply(Event::Notify(chat::Notification {
+            room: room.into(),
+            author: "Sam".into(),
+            body: "Thinking co-op".into(),
+            avatar: None,
+            mention: false,
+            replied,
+        }));
+        match effects.as_slice() {
+            [Effect::Notify(alert)] => alert.title.clone(),
+            _ => panic!("expected one notification"),
+        }
+    };
+    let lena = || Some(chat::Replied::Person("Lena".into()));
+    assert!(!app.state.reply_titles, "off until asked for");
+    assert_eq!(
+        title(&mut app, "games", Some(chat::Replied::You)),
+        "Sam in games"
+    );
+    assert_eq!(title(&mut app, "unknown", lena()), "Sam");
+    app.dispatch(Action::ReplyTitles(true));
+    assert_eq!(
+        title(&mut app, "games", Some(chat::Replied::You)),
+        "Sam replied to you in games"
+    );
+    assert_eq!(title(&mut app, "unknown", lena()), "Sam replied to Lena");
+    assert_eq!(title(&mut app, "games", None), "Sam in games");
+    app.dispatch(Action::ReplyTitles(false));
+    assert_eq!(title(&mut app, "unknown", lena()), "Sam");
 }
 
 #[test]
@@ -547,4 +585,47 @@ fn alt_shift_down_finds_the_next_unread_channel_as_discords_does() {
     app.dispatch(Action::SelectRoom("games".into()));
     set(&mut app, "dm", 2, 0, false);
     assert_eq!(app.state.next_unread(true), None);
+}
+
+#[test]
+fn the_quick_switcher_lists_the_mentions_not_listed_yet_before_a_search() {
+    let mut app = connected();
+    app.state.rooms.extend(
+        [
+            ChatRoom {
+                mentions: 2,
+                ..preview_room("ping", "ping", false, 3)
+            },
+            ChatRoom {
+                mentions: 5,
+                ..preview_room("loud", "loud", false, 3)
+            },
+            ChatRoom {
+                mentions: 9,
+                locked: true,
+                ..preview_room("staff", "staff", false, 3)
+            },
+        ]
+        .map(Arc::new),
+    );
+    app.dispatch(Action::Open("games".into()));
+    app.dispatch(Action::Open("general".into()));
+    let mentioned = |app: &Application| -> Vec<String> {
+        app.state
+            .switcher_mentions()
+            .iter()
+            .map(|room| room.name.clone())
+            .collect()
+    };
+    assert!(mentioned(&app).is_empty(), "closed");
+    app.dispatch(Action::ToggleSwitcher);
+    assert_eq!(mentioned(&app), ["loud", "ping"], "most mentions first");
+    // One opened lately is under Previous Channels already.
+    app.dispatch(Action::ToggleSwitcher);
+    app.state.places_used.visit("ping", 1);
+    app.dispatch(Action::ToggleSwitcher);
+    assert_eq!(mentioned(&app), ["loud"]);
+    // A search lists none.
+    app.dispatch(Action::SearchSwitcher("l".into()));
+    assert!(mentioned(&app).is_empty());
 }

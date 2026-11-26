@@ -45,6 +45,24 @@ fn without_an_account_the_sign_in_screen_shows_and_the_preview_leaves_it() {
 
 #[test]
 #[cfg(not(feature = "matrix"))]
+fn says_a_pasted_token_can_sign_its_app_out_and_that_unlinking_left_it() {
+    let folder = tempfile::tempdir_in(local()).expect("test folder");
+    let mut app = start(&folder, false);
+    let note = "Pasting a token from another app can make Discord sign that app out. \
+                The QR code is the safe way to link.";
+    let kept = "Yapfast forgot your login on this computer. If you pasted a token, \
+                the app or browser you copied it from is still signed in.";
+    assert!(shows(&app, note));
+    assert!(!shows(&app, kept));
+    // Signed out of an account linked with a pasted token.
+    app.client.apply(Event::LoggedOut);
+    app.client.apply(Event::DiscordSessionKept);
+    let _ = app.sync();
+    assert!(shows(&app, kept));
+}
+
+#[test]
+#[cfg(not(feature = "matrix"))]
 fn a_pasted_token_goes_once_the_account_is_linked() {
     let folder = tempfile::tempdir_in(local()).expect("test folder");
     let mut app = start(&folder, false);
@@ -189,4 +207,23 @@ fn back_on_the_sign_in_screen_the_matrix_id_takes_the_keys() {
     assert_eq!(focus.units(), usize::from(signin::MATRIX));
     let again = app.sign_in.sync(app.client.state(), app.client.root());
     assert_eq!(again.units(), 0);
+}
+
+/// Sign-in shows the stock look even with a theme chosen, so no theme can
+/// dress it up with its own logo or faces; the workspace shows the theme.
+#[test]
+fn the_sign_in_screen_shows_the_stock_look_whatever_the_theme() {
+    let folder = tempfile::tempdir_in(local()).expect("test folder");
+    let mut themed = start(&folder, true);
+    assert!(themed.choose_theme("nord"));
+    crate::layout::flush(folder.path());
+    drop(themed);
+    let mut app = start(&folder, false);
+    assert!(!crate::signin::workspace(&app));
+    assert_eq!(app.theme.id, crate::themes::stock_theme().id);
+    interact(&mut app, |ui| {
+        ui.click("Explore local preview").expect("the preview");
+    });
+    assert!(crate::signin::workspace(&app));
+    assert_eq!(app.theme.id, "nord");
 }

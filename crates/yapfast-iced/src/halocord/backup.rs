@@ -2,7 +2,7 @@
 //! plugins (`halocord` in `layout.json`), MochaCord's options (`mochacord`),
 //! the person's own themes and the theme chosen. Save to file writes it,
 //! Load from file reads one back, checks it and hands it to Settings to
-//! apply. The file dialogs work as `theme_files.rs`'s do.
+//! apply. The file dialogs work as the theme Import and Export do.
 
 use std::path::PathBuf;
 
@@ -98,7 +98,7 @@ impl Backup {
 pub const FILE_NAME: &str = "halocord-backup.json";
 
 fn message(event: HaloEvent) -> Message {
-    Message::Settings(SettingsEvent::HaloCord(event))
+    crate::app::settings(SettingsEvent::HaloCord(event))
 }
 
 /// Asks where to save `backup`, then writes it there.
@@ -168,6 +168,9 @@ mod tests {
             name: "Plum".into(),
             base: base.id,
             theme: base.theme,
+            parts: Default::default(),
+            creator: None,
+            folder: None,
         }];
         Backup::of(&halocord, &mochacord, &themes, Some("custom:1"))
     }

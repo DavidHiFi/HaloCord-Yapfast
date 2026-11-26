@@ -1106,6 +1106,7 @@ fn load_members(open: &mut OpenRoom, events: &UnboundedSender<Event>) {
                         nameplate: None,
                         style: None,
                         boosting_since: None,
+                        color_end: None,
                     })
                     .collect();
                 sort_members(&mut members);
@@ -1201,6 +1202,7 @@ async fn room_index(client: &Client) -> RoomIndex {
             join_locked: false,
             read_only: false,
             reacts: Reacts::Any,
+            slowmode: 0,
             slowed: false,
             timed_out_until: None,
             category: String::new(),
@@ -1211,6 +1213,7 @@ async fn room_index(client: &Client) -> RoomIndex {
             ringing: vec![],
             incoming: false,
             avatar: None,
+            group_avatars: None,
             upload_limit: MAX_ATTACHMENT_BYTES,
             presence: None,
             activity: None,
@@ -1797,6 +1800,7 @@ async fn notification_of(
             .actions
             .iter()
             .any(|action| action.is_highlight()),
+        replied: None,
     })
 }
 
@@ -2054,6 +2058,7 @@ async fn publish_timeline(
                         author: display_name(&embedded.sender, &embedded.sender_profile),
                         avatar: None,
                         body: summary(&embedded.content),
+                        emoji: Vec::new(),
                         item,
                         color: None,
                         tag: None,
@@ -2063,6 +2068,7 @@ async fn publish_timeline(
                     author: String::new(),
                     avatar: None,
                     body: "The original message could not be loaded.".into(),
+                    emoji: Vec::new(),
                     item,
                     color: None,
                     tag: None,
@@ -2080,6 +2086,7 @@ async fn publish_timeline(
                         author: String::new(),
                         avatar: None,
                         body: "Loading the original message...".into(),
+                        emoji: Vec::new(),
                         item,
                         color: None,
                         tag: None,

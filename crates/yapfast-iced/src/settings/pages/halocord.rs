@@ -103,7 +103,7 @@ impl HaloState {
                 // Opened again as it closes, it grows on from there.
                 let start = match self.leaving.take() {
                     Some(_) => match self.moved.get() {
-                        Some(closing) => Some(motion::reopened(closing, now)),
+                        Some(closing) => Some(motion::reopened(Default::default(), closing, now)),
                         None => now.checked_sub(motion::open_time()),
                     },
                     None => None,
@@ -118,8 +118,9 @@ impl HaloState {
                 }
                 // Closed as it opens, it turns round from there.
                 let opened = self.moved.get();
-                self.moved
-                    .set(opened.and_then(|opened| motion::closed_from(opened, now)));
+                self.moved.set(
+                    opened.and_then(|opened| motion::closed_from(Default::default(), opened, now)),
+                );
                 self.leaving = Some(was);
             }
             (Some(_), Some(_)) => {
@@ -163,11 +164,11 @@ pub enum HaloEvent {
 
 /// A HaloCord page's event as a message.
 pub fn halo_message(event: HaloEvent) -> Message {
-    Message::Settings(Event::HaloCord(event))
+    crate::app::settings(Event::HaloCord(event))
 }
 
 fn open(section: Section) -> Message {
-    Message::Settings(Event::Open(section))
+    crate::app::settings(Event::Open(section))
 }
 
 impl Settings {
@@ -302,6 +303,30 @@ impl<'a> Page<'a> {
             go("Themes", Look::Plain, Section::Themes),
             go("Backup & Restore", Look::Plain, Section::Backup),
         ];
+        // HaloCord's own links: where to help, the owner's server and his
+        // Ko-fi, as the other clients put on their About pages.
+        const REPO: &str = "https://github.com/DavidHiFi/HaloCord-Yapfast";
+        const LOCKER: &str = "https://discord.gg/PETWgTfS9x";
+        const KOFI: &str = "https://ko-fi.com/davidhifi";
+        let open_link = |label: &'static str, icon: crate::pictures::Icon, page: &'static str| {
+            action(
+                theme,
+                label,
+                Look::Plain,
+                Some(super::account_message(super::AccountEvent::Open(page))),
+            )
+            .icon(self.cx.look.icon(icon, 18, crate::theme::rgb(theme.text)))
+            .into()
+        };
+        let links: Vec<Element<'a, Message>> = vec![
+            open_link("Contribute on GitHub", crate::pictures::Icon::GitHub, REPO),
+            open_link(
+                "Join Davey Jones' Locker",
+                crate::pictures::Icon::Discord,
+                LOCKER,
+            ),
+            open_link("Donate on Ko-fi", crate::pictures::Icon::Star, KOFI),
+        ];
         form::page([
             form::title(theme, "HaloCord"),
             form::card(
@@ -318,6 +343,30 @@ impl<'a> Page<'a> {
             ),
             tiles.into(),
             row(jumps).spacing(8).wrap().vertical_spacing(8).into(),
+            form::heading(theme, "LINKS"),
+            row(links).spacing(8).wrap().vertical_spacing(8).into(),
+            form::heading(theme, "WINDOW"),
+            self.title_bar_switch(),
+            form::switch(
+                "Acrylic behind the window",
+                self.cx.layout.mochacord.glass,
+                Some(pref(Pref::MochaCord(crate::mochacord::Change::Glass(
+                    !self.cx.layout.mochacord.glass,
+                )))),
+            )
+            .description("Windows blurs the desktop behind Yapfast, as Vencord's Acrylic material. The strength is with the other look options, on the Themes page.")
+            .fresh(self.fresh("halocord-glass"))
+            .view(self.cx.look),
+            form::switch(
+                "Disable the minimum window size",
+                self.cx.layout.no_min_size.unwrap_or(false),
+                Some(pref(Pref::NoMinSize(
+                    !self.cx.layout.no_min_size.unwrap_or(false),
+                ))),
+            )
+            .description("The window may shrink smaller than Yapfast normally allows. It shows from the next time Yapfast opens.")
+            .fresh(self.fresh("halocord-no-min-size"))
+            .view(self.cx.look),
         ])
     }
 
@@ -607,9 +656,14 @@ impl<'a> Page<'a> {
         .into()]));
         let framed = look.framed(body, DIALOG, close);
         Some(if closing {
-            motion::leave(framed, &halo.moved, halo_message(HaloEvent::DialogGone))
+            motion::leave(
+                framed,
+                &halo.moved,
+                halo_message(HaloEvent::DialogGone),
+                Default::default(),
+            )
         } else {
-            motion::motion(framed, &halo.moved)
+            motion::motion(framed, &halo.moved, Default::default())
         })
     }
 

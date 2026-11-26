@@ -82,6 +82,14 @@ pub(super) const fn off(key: &'static str, heading: &'static str, note: &'static
 #[serde(default)]
 pub struct Kept {
     pub plugins: BTreeMap<String, PluginState>,
+    /// Whether Server sidebar has a folder open beside the rail, as the
+    /// rail's items were last made; not kept.
+    #[serde(skip)]
+    pub folder_side_open: bool,
+    /// Follow majority: your voice channel and who else was in it, as the
+    /// state last showed; not kept.
+    #[serde(skip)]
+    pub voice_company: Option<(String, Vec<String>)>,
 }
 
 /// A plugin switched, or a setting changed; unset is as it starts.
@@ -215,10 +223,16 @@ impl Kept {
     /// Fake mute and Fake deafen start off at each launch, as Fake deafen
     /// did in HaloCord: one left on would otherwise carry into the next
     /// start, and the account would join later calls showing muted or
-    /// deafened without knowing. Only the start calls this, so restoring a
+    /// deafened without knowing. Fake camera and Fake stream join them, on
+    /// the same grounds. Only the start calls this, so restoring a
     /// backup leaves them as they were.
     pub fn start_off(&mut self) {
-        for id in [id::FAKE_MUTE, id::FAKE_DEAFEN] {
+        for id in [
+            id::FAKE_MUTE,
+            id::FAKE_DEAFEN,
+            id::FAKE_CAMERA,
+            id::FAKE_STREAM,
+        ] {
             if let Some(state) = self.plugins.get_mut(id) {
                 state.on = None;
             }

@@ -46,6 +46,8 @@ pub type Found = std::rc::Rc<RefCell<Vec<(u64, f32)>>>;
 struct Measure<M> {
     report: Report<M>,
     found: Found,
+    /// The viewport height to fill above a short list.
+    viewport_height: f32,
     /// The row (by its place among those pushed) at the view's top while
     /// someone reads earlier ones; none while the list follows its end.
     pivot: Option<usize>,
@@ -57,6 +59,8 @@ struct Measure<M> {
 struct RowsState {
     keys: Vec<u64>,
     differ: Vec<(u64, f32)>,
+    /// A list that shrank may fit now and stop reporting its viewport.
+    shrank: bool,
 }
 
 impl<'a, M> Rows<'a, M> {
@@ -80,11 +84,18 @@ impl<'a, M> Rows<'a, M> {
     /// the top of the view of someone reading earlier ones, run on into
     /// the room below them instead, and their heights are reported with
     /// `report` once drawn, so the app can keep what's read in place.
-    pub fn measured(mut self, report: Report<M>, found: Found, pivot: Option<usize>) -> Self {
+    pub fn measured(
+        mut self,
+        report: Report<M>,
+        found: Found,
+        pivot: Option<usize>,
+        viewport_height: f32,
+    ) -> Self {
         self.measured = Some(Measure {
             report,
             found,
             pivot,
+            viewport_height,
         });
         self
     }
@@ -163,7 +174,7 @@ impl<M> Widget<M, Theme, Renderer> for Rows<'_, M> {
             let mut found = Vec::new();
             let mut grown = 0.0;
             let mut next = self.tops.first().copied().unwrap_or(0.0);
-            let nodes = self
+            let mut nodes: Vec<_> = self
                 .children
                 .iter_mut()
                 .zip(&mut tree.children)
@@ -194,8 +205,17 @@ impl<M> Widget<M, Theme, Renderer> for Rows<'_, M> {
             if !found.is_empty() {
                 measure.found.borrow_mut().extend(found);
             }
-            tree.state.downcast_mut::<RowsState>().differ = differ;
-            return layout::Node::with_children(Size::new(width, self.total + grown), nodes);
+            let state = tree.state.downcast_mut::<RowsState>();
+            state.differ = differ;
+            state.shrank = grown < -0.5;
+            let height = self.total + grown;
+            let lead = (measure.viewport_height - height).max(0.0);
+            if lead > 0.0 {
+                for node in &mut nodes {
+                    node.move_to_mut((0.0, node.bounds().y + lead));
+                }
+            }
+            return layout::Node::with_children(Size::new(width, height + lead), nodes);
         }
         let nodes = self
             .children
@@ -251,8 +271,12 @@ impl<M> Widget<M, Theme, Renderer> for Rows<'_, M> {
         if let Some(measure) = &self.measured
             && let iced::Event::Window(iced::window::Event::RedrawRequested(_)) = event
         {
-            let differ = std::mem::take(&mut tree.state.downcast_mut::<RowsState>().differ);
-            if !differ.is_empty() {
+            let state = tree.state.downcast_mut::<RowsState>();
+            let differ = std::mem::take(&mut state.differ);
+            let shrank = std::mem::take(&mut state.shrank);
+            // A report also takes in the heights found when the list shrank
+            // enough to stop sending scroll reports.
+            if !differ.is_empty() || shrank {
                 shell.publish((measure.report)(differ));
             }
         }
@@ -339,5 +363,35 @@ impl<M> Widget<M, Theme, Renderer> for Rows<'_, M> {
 impl<'a, M: 'a> From<Rows<'a, M>> for Element<'a, M> {
     fn from(rows: Rows<'a, M>) -> Self {
         Element::new(rows)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use iced::{Font, Pixels, advanced::renderer::Headless as _, widget::Space};
+
+    use super::*;
+    use crate::testing::Message;
+
+    #[test]
+    fn measured_rows_fill_the_viewport_using_their_laid_out_height() {
+        let renderer = iced_test::futures::futures::executor::block_on(Renderer::new(
+            Font::DEFAULT,
+            Pixels(16.0),
+            None,
+        ))
+        .expect("a headless renderer");
+        let limits = layout::Limits::new(Size::ZERO, Size::new(400.0, f32::INFINITY));
+        for (estimate, actual, height, top) in
+            [(300.0, 80.0, 200.0, 120.0), (80.0, 300.0, 300.0, 0.0)]
+        {
+            let mut rows =
+                Rows::new(estimate).measured(|_| Message::Nothing, Found::default(), None, 200.0);
+            rows.push(1, 0.0, estimate, Space::new().height(actual));
+            let mut tree = Tree::new(&rows as &dyn Widget<_, _, _>);
+            let node = rows.layout(&mut tree, &renderer, &limits);
+            assert_eq!(node.size().height, height);
+            assert_eq!(node.children()[0].bounds().y, top);
+        }
     }
 }

@@ -135,6 +135,16 @@ pub(super) const CUSTOM_RPC: Plugin = Plugin {
             "Used with Streaming. It has to be a Twitch or YouTube link.",
             "https://twitch.tv/",
         ),
+        Setting {
+            key: "platform",
+            heading: "PLATFORM",
+            note: "A console puts its badge beside the game, the way a real PlayStation or Xbox game shows.",
+            kind: Kind::Choice {
+                names: &["Computer", "PlayStation", "Xbox"],
+                values: &[0, 1, 2],
+                unless_changed: 0,
+            },
+        },
     ],
     apply: |kept, plugin| {
         let at = |place: usize| text(kept, plugin, place).to_owned();
@@ -151,6 +161,7 @@ pub(super) const CUSTOM_RPC: Plugin = Plugin {
             started: Started::from_number(value(kept, plugin, 9)),
             buttons: [(at(10), at(11)), (at(12), at(13))],
             stream_link: at(14),
+            platform: value(kept, plugin, 15),
         }));
     },
     hooks: None,
@@ -222,7 +233,8 @@ mod tests {
                 "button-1-link",
                 "button-2-text",
                 "button-2-link",
-                "stream-link"
+                "stream-link",
+                "platform"
             ]
         );
         assert_eq!(keys(&ANIMATED_STATUS), ["lines", "every", "emoji"]);

@@ -4,7 +4,7 @@
 use iced::Task;
 use yapfast_core::application::Action;
 
-use super::{Kept, PLUGINS, Plugin, id, off};
+use super::{Kept, Kind, PLUGINS, Plugin, Setting, id, off};
 use crate::{
     account,
     app::{App, Message},
@@ -38,6 +38,16 @@ pub(super) const USER_AREA: Plugin = Plugin {
             "A button that switches Fake deafen on and off.",
         ),
         off(
+            "fake_camera_button",
+            "Fake camera button",
+            "A button that switches Fake camera on and off.",
+        ),
+        off(
+            "fake_stream_button",
+            "Fake stream button",
+            "A button that switches Fake stream on and off.",
+        ),
+        off(
             "stats_button",
             "Stats button",
             "A button that opens the call's connection details.",
@@ -67,12 +77,33 @@ pub(super) const RESTART: Plugin = Plugin {
     hooks: None,
 };
 
+/// Where Read all's button sits.
+const RAIL: u32 = 0;
+const BAR: u32 = 1;
+const BOTH: u32 = 2;
+
 pub(super) const READ_ALL: Plugin = Plugin {
     id: id::READ_ALL,
     name: "Read all button",
-    about: "A button in the top bar (beside Settings when the bar is the system's) that marks every server and message you have unread as read, in one press.",
+    about: "A button at the top of the server list, or in the top bar (beside Settings when the bar is the system's), that marks every server and message you have unread as read, in one press.",
     on_at_first: true,
-    settings: &[],
+    settings: &[
+        Setting {
+            key: "place",
+            heading: "Where it sits",
+            note: "At the top of the server list, in the top bar, or both.",
+            kind: Kind::Choice {
+                names: &["Top of the server list", "Top bar", "Both"],
+                values: &[RAIL, BAR, BOTH],
+                unless_changed: RAIL,
+            },
+        },
+        off(
+            "compact",
+            "Small text button",
+            "The words Read all in a small pill instead of the tile with the tick.",
+        ),
+    ],
     apply: |_, _| {},
     hooks: None,
 };
@@ -104,6 +135,8 @@ pub struct Dock {
     pub arrows_hidden: bool,
     pub fake_mute: bool,
     pub fake_deafen: bool,
+    pub fake_camera: bool,
+    pub fake_stream: bool,
     pub stats: bool,
     pub stereo: bool,
     pub game: bool,
@@ -130,10 +163,28 @@ impl Kept {
             arrows_hidden: flag("hide_arrows"),
             fake_mute: flag("fake_mute_button"),
             fake_deafen: flag("fake_deafen_button"),
+            fake_camera: flag("fake_camera_button"),
+            fake_stream: flag("fake_stream_button"),
             stats: flag("stats_button"),
             stereo: flag("stereo_button"),
             game: flag("game_button"),
         }
+    }
+}
+
+impl Kept {
+    /// Where Read all's button sits while it is on.
+    fn read_all_place(&self) -> Option<u32> {
+        self.on(&READ_ALL)
+            .then(|| self.value(&READ_ALL, &READ_ALL.settings[0]))
+    }
+
+    /// Read all's button at the top of the server list, while it is on and
+    /// sits there: `Some(true)` for the small text button.
+    pub fn read_all_on_rail(&self) -> Option<bool> {
+        self.read_all_place()
+            .filter(|place| *place != BAR)
+            .map(|_| self.flag(&READ_ALL, &READ_ALL.settings[1]))
     }
 }
 
@@ -157,7 +208,7 @@ pub fn presses(kept: &Kept) -> Vec<(Icon, &'static str, Press)> {
     if kept.is(id::RESTART) {
         buttons.push((Icon::Refresh, "Restart Yapfast", Press::Restart));
     }
-    if kept.is(id::READ_ALL) {
+    if kept.read_all_place().is_some_and(|place| place != RAIL) {
         buttons.push((Icon::MarkRead, "Mark everything read", Press::ReadAll));
     }
     buttons
@@ -261,9 +312,12 @@ pub(crate) struct Fit {
 /// The card's width: the rail's and the sidebar's, inset, or the
 /// sidebar's alone when compact.
 fn card_width(ctx: crate::ctx::Ctx<'_>, compact: bool) -> f32 {
-    crate::conversation::navigation(ctx.layout)
-        - 2.0 * account::INSET
-        - if compact { crate::rail::WIDTH } else { 0.0 }
+    let wide = if compact {
+        crate::sidebar::width(ctx.layout, ctx.look.theme)
+    } else {
+        crate::conversation::navigation_ctx(ctx)
+    };
+    wide - 2.0 * account::INSET
 }
 
 /// Shares the card: beside the name the avatar, the mic and the headphones
@@ -378,8 +432,13 @@ pub fn card_tray<'a>(ctx: crate::ctx::Ctx<'a>) -> Option<iced::Element<'a, Messa
         .width(width)
         .padding(6)
         .style(crate::controls::menu_panel(ctx.look.theme));
-    let right =
-        account::INSET + if compact { crate::rail::WIDTH } else { 0.0 } + card_width(ctx, compact);
+    let right = account::INSET
+        + if compact {
+            crate::rail::width(ctx.layout)
+        } else {
+            0.0
+        }
+        + card_width(ctx, compact);
     let bottom = ctx.look.window.height - account::full_height(ctx) - account::INSET - 4.0;
     Some(
         crate::widgets::Place::new(

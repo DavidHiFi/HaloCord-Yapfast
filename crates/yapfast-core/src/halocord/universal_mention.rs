@@ -46,7 +46,11 @@ pub fn add(state: &AppState, seen: &mut HashSet<String>, candidates: &mut Vec<Ca
         else {
             continue;
         };
-        if room.network != Network::Discord || room.name.is_empty() || !seen.insert(person.clone())
+        // This account itself is never offered.
+        if room.network != Network::Discord
+            || room.name.is_empty()
+            || state.discord_user.as_deref() == Some(person.as_str())
+            || !seen.insert(person.clone())
         {
             continue;
         }

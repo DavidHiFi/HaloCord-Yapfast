@@ -24,6 +24,7 @@ fn build_info() {
         "YAPFAST_COMMIT_DATE",
         "YAPFAST_RELEASE",
         "HALOCORD_BUILD",
+        "HALOCORD_NIGHTLY",
     ] {
         println!("cargo:rerun-if-env-changed={name}");
     }
@@ -77,6 +78,20 @@ fn build_info() {
         .filter(|number| number.chars().all(|c| c.is_ascii_digit()) && !number.is_empty())
     {
         println!("cargo:rustc-env=YAPFAST_BUILD_HALOCORD={number}");
+    }
+    // A nightly's day and run, `YYYYMMDD.N`, which the Nightly workflow names.
+    if let Some(stamp) = env::var("HALOCORD_NIGHTLY")
+        .ok()
+        .map(|stamp| stamp.trim().to_owned())
+        .filter(|stamp| {
+            stamp.split_once('.').is_some_and(|(day, run)| {
+                day.len() == 8
+                    && !run.is_empty()
+                    && day.chars().chain(run.chars()).all(|c| c.is_ascii_digit())
+            })
+        })
+    {
+        println!("cargo:rustc-env=YAPFAST_BUILD_HALOCORD_NIGHTLY={stamp}");
     }
     if env::var_os("YAPFAST_RELEASE").is_some_and(|release| !release.is_empty()) {
         println!("cargo:rustc-env=YAPFAST_BUILD_RELEASE=1");

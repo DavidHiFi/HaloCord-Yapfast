@@ -48,11 +48,11 @@ fn mocha() -> (App, tempfile::TempDir) {
 /// `app` in the MochaCord theme, the system's bar replaced by Yapfast's.
 fn themed(app: &mut App) {
     app.shell.frame.height = 2400.0;
-    let _ = app.update(Message::Settings(Event::Open(Section::Appearance)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Appearance)));
     let _ = app.update(crate::settings::appearance_event(
         crate::settings::ThemeEvent::Choose("mochacord".into()),
     ));
-    let _ = app.update(Message::Settings(Event::Close));
+    let _ = app.update(crate::app::settings(Event::Close));
     let _ = app.update(Message::PopupGone(Popup::Layer(Layer::Settings)));
     app.shell.frame = FRAME;
     app.shell.own_title_bar = true;
@@ -79,11 +79,11 @@ fn draw(app: &App, name: &str) {
 fn picture_of_go_live_keybind() {
     use crate::settings::keybinds::Event as KeybindEvent;
     let (mut app, _folder) = mocha();
-    let _ = app.update(Message::Settings(Event::Open(Section::Keybinds)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Keybinds)));
     interact(&mut app, |ui| {
         ui.click("Add a Keybind").expect("the button");
     });
-    let _ = app.update(Message::Settings(Event::Keybind(KeybindEvent::Action(
+    let _ = app.update(crate::app::settings(Event::Keybind(KeybindEvent::Action(
         0, 6,
     ))));
     assert!(shows(&app, "Toggle Go Live"));
@@ -94,14 +94,14 @@ fn picture_of_go_live_keybind() {
 #[ignore = "writes a picture for the owner to look at"]
 fn picture_of_new_plugins() {
     let (mut app, _folder) = mocha();
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
     let _ = app.sync();
     for (query, name) in [
         ("spoilers", "Reveal all spoilers"),
         ("folder icon", "Plain folder icon"),
         ("trust", "Always trust links"),
     ] {
-        let _ = app.update(Message::Settings(Event::Search(query.into())));
+        let _ = app.update(crate::app::settings(Event::Search(query.into())));
         let _ = app.sync();
         assert!(shows(&app, name), "{name}");
         draw(&app, &format!("plugin-{}", query.replace(' ', "-")));
@@ -168,13 +168,13 @@ fn newest_says(app: &mut App, body: &str) -> String {
 fn picture_of_build_9_plugins() {
     let (mut app, _folder) = mocha();
     turn_on(&mut app, id::INVITE_DEFAULTS);
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
     for (query, name) in [
         ("invite", "Invite defaults"),
         ("pending", "No pending count"),
         ("timeout", "Show timeout duration"),
     ] {
-        let _ = app.update(Message::Settings(Event::Search(query.into())));
+        let _ = app.update(crate::app::settings(Event::Search(query.into())));
         let _ = app.sync();
         assert!(shows(&app, name), "{name}");
         draw(&app, &format!("plugin-{query}"));
@@ -214,12 +214,12 @@ fn picture_of_build_10_plugins() {
     let (mut app, _folder) = mocha();
     let _alone = super::plugin_alone();
     turn_on(&mut app, id::SEND_TIMESTAMPS);
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
     for (query, name) in [
         ("timestamps", "Send timestamps"),
         ("extensions", "Fix file extensions"),
     ] {
-        let _ = app.update(Message::Settings(Event::Search(query.into())));
+        let _ = app.update(crate::app::settings(Event::Search(query.into())));
         let _ = app.sync();
         assert!(shows(&app, name), "{name}");
         draw(&app, &format!("plugin-{query}"));
@@ -292,12 +292,12 @@ fn picture_of_build_11_plugins() {
     let (mut app, _folder) = mocha();
     let _alone = super::plugin_alone();
     turn_on(&mut app, id::BETTER_JOINED_DATE);
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
     for (query, name) in [
         ("joined", "Better joined date"),
         ("game activity", "Game activity button"),
     ] {
-        let _ = app.update(Message::Settings(Event::Search(query.into())));
+        let _ = app.update(crate::app::settings(Event::Search(query.into())));
         let _ = app.sync();
         assert!(shows(&app, name), "{name}");
         draw(&app, &format!("plugin-{}", query.replace(' ', "-")));
@@ -335,8 +335,8 @@ fn picture_of_build_12_plugins() {
     let (mut app, _folder) = mocha();
     let _alone = super::plugin_alone();
     turn_on(&mut app, id::VIEW_ICONS);
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
-    let _ = app.update(Message::Settings(Event::Search("icons".into())));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Search("icons".into())));
     let _ = app.sync();
     assert!(shows(&app, "View icons"));
     draw(&app, "plugin-icons");
@@ -353,12 +353,12 @@ fn picture_of_build_13_plugins() {
     let _ = app.sync();
     assert!(crate::halocord::start_button(app.ctx()).is_some());
     draw(&app, "plugin-jump-to-start-bar");
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
-    let _ = app.update(Message::Settings(Event::Search("jump".into())));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Search("jump".into())));
     let _ = app.sync();
     assert!(shows(&app, "Jump to start"));
     draw(&app, "plugin-jump-to-start");
-    let _ = app.update(Message::Settings(Event::Search("click actions".into())));
+    let _ = app.update(crate::app::settings(Event::Search("click actions".into())));
     let _ = app.sync();
     assert!(shows(&app, "Message click actions"));
     draw(&app, "plugin-click-actions");
@@ -396,8 +396,8 @@ fn picture_of_build_14_plugins() {
         ),
     ] {
         turn_on(&mut app, plugin);
-        let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
-        let _ = app.update(Message::Settings(Event::Search(search.into())));
+        let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
+        let _ = app.update(crate::app::settings(Event::Search(search.into())));
         let _ = app.sync();
         assert!(shows(&app, name), "{name}");
         draw(&app, picture);
@@ -410,8 +410,8 @@ fn picture_of_build_15_plugins() {
     let (mut app, _folder) = mocha();
     let _alone = super::plugin_alone();
     turn_on(&mut app, id::IMAGE_ZOOM);
-    let _ = app.update(Message::Settings(Event::Open(Section::Plugins)));
-    let _ = app.update(Message::Settings(Event::Search("image zoom".into())));
+    let _ = app.update(crate::app::settings(Event::Open(Section::Plugins)));
+    let _ = app.update(crate::app::settings(Event::Search("image zoom".into())));
     let _ = app.sync();
     assert!(shows(&app, "Image zoom"));
     draw(&app, "plugin-image-zoom");
