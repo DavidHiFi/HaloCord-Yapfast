@@ -43,6 +43,41 @@ const CARD_PAD: f32 = 14.0;
 const COG: f32 = 28.0;
 /// The dialogs' widths.
 const DIALOG: f32 = 480.0;
+/// What the card keeps free on its right for the switch and the cog.
+const ROOM: f32 = CARD_PAD + 48.0 + 12.0 + 8.0 + COG;
+/// The widest a letter of the 13px description is taken to be, and a line's
+/// height, when working out how tall a card must be. Taken a little wide so a
+/// card is never too short; the extra is blank space at its foot.
+const LETTER: f32 = 7.0;
+const LINE: f32 = 17.0;
+/// The name above the description, with the gap between.
+const NAME: f32 = 20.0 + 4.0;
+
+/// How tall a plugin's card is, so its whole description shows: the
+/// description is wrapped at the words the way the card will draw it. Never
+/// less than [`CARD`].
+pub(super) fn card_height(about: &str, width: f32) -> f32 {
+    let per_line = ((width - CARD_PAD - ROOM) / LETTER).floor().max(8.0) as usize;
+    let mut lines = 1;
+    let mut used = 0;
+    for word in about.split_whitespace() {
+        let size = word.chars().count();
+        if used == 0 {
+            used = size;
+        } else if used + 1 + size <= per_line {
+            used += 1 + size;
+        } else {
+            lines += 1;
+            used = size;
+        }
+        // A word longer than the line breaks across more.
+        if used > per_line {
+            lines += (used - 1) / per_line;
+            used %= per_line;
+        }
+    }
+    (CARD_PAD * 2.0 + NAME + lines as f32 * LINE).max(CARD)
+}
 
 /// Which plugins the Plugins page lists by their switch.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -443,6 +478,11 @@ impl<'a> Page<'a> {
         let theme = self.cx.look.theme;
         let (rest, hover, line, faint) = (theme.sidebar, theme.hover, theme.line, theme.faint);
         let (accent, on_accent, ink) = (theme.accent, theme.on_accent, theme.secondary);
+        let ink_lit = theme.text;
+        // MochaCord's recipe: the base ground in a 2 px edge, the raised
+        // ground and lit edge under the pointer, the lit edge kept while chosen.
+        let recipe =
+            style::mocha(theme).then(|| style::Pick::new(theme, Some(theme.chat), true, 16.0));
         button(
             text(label)
                 .size(13)
@@ -454,6 +494,16 @@ impl<'a> Page<'a> {
         .on_press(halo_message(event))
         .style(move |_, status| {
             let lit = lights(status);
+            if let Some(recipe) = recipe {
+                let (background, border) =
+                    recipe.face(lit, status == button::Status::Pressed, chosen);
+                return button::Style {
+                    background,
+                    text_color: if chosen || lit { ink_lit } else { ink },
+                    border,
+                    ..Default::default()
+                };
+            }
             button::Style {
                 background: Some(
                     if chosen {
@@ -485,8 +535,14 @@ impl<'a> Page<'a> {
             let mut rows = column![].spacing(CARD_GAP);
             for chunk in shown.chunks(columns) {
                 let mut line = row![].spacing(CARD_GAP);
+                // Cards side by side share the tallest one's height, so the
+                // longest description shows whole and the row stays even.
+                let height = chunk
+                    .iter()
+                    .map(|&index| card_height(PLUGINS[index].about, width))
+                    .fold(CARD, f32::max);
                 for &index in chunk {
-                    line = line.push(self.plugin_card(index, width));
+                    line = line.push(self.plugin_card(index, width, height));
                 }
                 if chunk.len() < columns {
                     line = line.push(Space::new().width(width));
@@ -502,7 +558,7 @@ impl<'a> Page<'a> {
     /// A plugin's card: its name and what it does, the switch at the right
     /// and a cog beside it. The card itself flips
     /// the switch too.
-    fn plugin_card(self, index: usize, width: f32) -> Element<'a, Message> {
+    fn plugin_card(self, index: usize, width: f32, height: f32) -> Element<'a, Message> {
         let theme = self.cx.look.theme;
         let plugin = &PLUGINS[index];
         let on = self.cx.layout.halocord.on(plugin);
@@ -510,31 +566,39 @@ impl<'a> Page<'a> {
             plugin: index,
             on: !on,
         }));
-        let room = CARD_PAD + 48.0 + 12.0 + 8.0 + COG;
         let words = column![
             text(plugin.name)
                 .size(15)
                 .font(BOLD)
                 .color(theme.text)
                 .wrapping(text::Wrapping::None),
-            container(text(plugin.about).size(13).color(theme.muted))
-                .height(36)
-                .clip(true),
+            text(plugin.about).size(13).color(theme.muted),
         ]
         .spacing(4);
         let (rest, hover, line) = (theme.sidebar, theme.hover, theme.line);
+        // MochaCord's recipe: a 2 px edge at rest too.
+        let recipe = style::mocha(theme).then(|| style::Pick::new(theme, Some(rest), true, 8.0));
         let face = button(container(words).padding(iced::Padding {
             top: CARD_PAD,
             bottom: CARD_PAD,
             left: CARD_PAD,
-            right: room,
+            right: ROOM,
         }))
         .padding(0)
         .width(width)
-        .height(CARD)
+        .height(height)
         .on_press(flip.clone())
         .style(move |_, status| {
             let lit = lights(status);
+            if let Some(recipe) = recipe {
+                let (background, border) =
+                    recipe.face(lit, status == button::Status::Pressed, false);
+                return button::Style {
+                    background,
+                    border,
+                    ..Default::default()
+                };
+            }
             button::Style {
                 background: Some(if lit { hover } else { rest }.into()),
                 border: if style::rice().is_some() {
@@ -564,11 +628,11 @@ impl<'a> Page<'a> {
             container(controls)
                 .padding([0.0, CARD_PAD])
                 .width(width)
-                .height(CARD)
+                .height(height)
                 .align_y(Alignment::Center)
         ]
         .width(width)
-        .height(CARD)
+        .height(height)
         .into()
     }
 
@@ -778,4 +842,30 @@ pub fn mocha_found(query: &str) -> bool {
     ]
     .iter()
     .any(|word| word.contains(query))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{CARD, card_height};
+
+    #[test]
+    fn a_short_description_keeps_the_usual_card() {
+        assert_eq!(card_height("Short.", 500.0), CARD);
+        assert_eq!(card_height("", 500.0), CARD);
+    }
+
+    #[test]
+    fn a_long_description_grows_the_card_a_line_at_a_time() {
+        let about = "word ".repeat(60);
+        let wide = card_height(&about, 900.0);
+        let narrow = card_height(&about, 300.0);
+        assert!(wide > CARD, "the long text needs more than the usual card");
+        assert!(narrow > wide, "a narrower card needs more height");
+    }
+
+    #[test]
+    fn one_word_longer_than_the_line_breaks_across_lines() {
+        let word = "x".repeat(400);
+        assert!(card_height(&word, 300.0) > card_height("x", 300.0));
+    }
 }

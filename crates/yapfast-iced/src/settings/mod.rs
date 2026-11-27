@@ -29,7 +29,7 @@ pub use theme_keys::ThemeKey;
 pub use theme_page::trial_banner;
 pub mod updates;
 
-pub use pages::{HaloEvent, HaloState, block_game, message_size, open_detected_games_menu};
+pub use pages::{HaloEvent, HaloState, Pref, block_game, message_size, open_detected_games_menu};
 pub mod voice;
 
 use crate::widgets::scroll_view;
@@ -787,7 +787,18 @@ impl<'a> Page<'a> {
                 true,
             )
             .size(14)
-            .padding([11, 12])
+            // Room between the box's edge, the caret and the first letter.
+            .padding([11, 16])
+            // The recipe's input: the mantle ground, not the near-black one.
+            .style(controls::field_style(
+                theme,
+                if yapfast_iced_kit::style::mocha(theme) {
+                    theme.sidebar
+                } else {
+                    theme.sunken
+                },
+                true,
+            ))
             .on_input(|query| crate::app::settings(Event::Search(query))),
         )
         .padding([0, 16]);

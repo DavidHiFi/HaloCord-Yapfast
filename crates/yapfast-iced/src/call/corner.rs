@@ -206,12 +206,7 @@ pub fn corner_view(app: &App) -> Option<Element<'_, Message>> {
         }
     };
     let theme = &app.theme;
-    let content = crate::call::stage::frame(
-        app,
-        &key,
-        Some((RADIUS as u32, crate::theme::rgb(Color::BLACK))),
-    )
-    .unwrap_or_else(|| {
+    let content = crate::call::stage::frame(app, &key, Some(RADIUS as u32)).unwrap_or_else(|| {
         container(text(status).size(14).color(NOTE).align_x(Alignment::Center))
             .padding([0, 16])
             .center(Length::Fill)

@@ -1748,6 +1748,11 @@ pub fn choices_within<'a, M: Clone + 'a>(
         text: theme.text,
         secondary: theme.secondary,
         sunken: theme.sunken,
+        recipe: crate::style::mocha(theme).then(|| Recipe {
+            pick: crate::style::Pick::new(theme, None, false, 6.0),
+            frame: theme.sidebar,
+            edge: theme.edge,
+        }),
     };
     let options = options.to_vec();
     let presses: Vec<M> = (0..options.len()).map(on_choose).collect();
@@ -1771,6 +1776,17 @@ struct ChoiceInks {
     text: Color,
     secondary: Color,
     sunken: Color,
+    /// MochaCord's look for the row: set for that theme alone.
+    recipe: Option<Recipe>,
+}
+
+/// The rice recipe's segmented switch: its segments' faces and the dock's
+/// mantle ground and edge round them.
+#[derive(Clone, Copy)]
+struct Recipe {
+    pick: crate::style::Pick,
+    frame: Color,
+    edge: Color,
 }
 
 /// [`choices`]' options on lines that fit `width`, in their sunken frame.
@@ -1783,7 +1799,10 @@ fn choice_rows<'a, M: Clone + 'a>(
 ) -> Element<'a, M> {
     let shared = choice_lines(options, width);
     let more = shared.len().saturating_sub(1) as f32;
-    let mut lines = column![].spacing(CHOICE_GAP).padding(CHOICE_PAD);
+    // The recipe's dock has a 2 px edge of its own, so its segments sit that
+    // far further in.
+    let pad = CHOICE_PAD + if inks.recipe.is_some() { 2.0 } else { 0.0 };
+    let mut lines = column![].spacing(CHOICE_GAP).padding(pad);
     for line in shared {
         let mut row = row![].spacing(CHOICE_GAP).height(CHOICE_LINE);
         for index in line {
@@ -1797,10 +1816,17 @@ fn choice_rows<'a, M: Clone + 'a>(
         lines = lines.push(row);
     }
     let sunken = inks.sunken;
+    let recipe = inks.recipe;
     container(lines)
-        .height(2.0 * CHOICE_PAD + CHOICE_LINE + (CHOICE_LINE + CHOICE_GAP) * more)
+        .height(2.0 * pad + CHOICE_LINE + (CHOICE_LINE + CHOICE_GAP) * more)
         .max_width(width)
-        .style(move |_| rounded(sunken, 8))
+        .style(move |_| match recipe {
+            Some(recipe) => {
+                let rest = crate::style::rice().map_or(recipe.edge, |rice| rice.rest);
+                rounded(recipe.frame, 10).border(crate::style::edge(rest, 10.0))
+            }
+            None => rounded(sunken, 8),
+        })
         .into()
 }
 
@@ -1812,6 +1838,7 @@ fn choice<'a, M: Clone + 'a>(
     press: M,
 ) -> Element<'a, M> {
     let (active, hover) = (inks.active, inks.hover);
+    let recipe = inks.recipe;
     let (ink, lit_ink) = if chosen {
         (inks.text, inks.text)
     } else {
@@ -1834,6 +1861,18 @@ fn choice<'a, M: Clone + 'a>(
     .on_press(press)
     .style(move |_, status| {
         let lit = lights(status);
+        if let Some(recipe) = recipe {
+            let (background, border) =
+                recipe
+                    .pick
+                    .face(lit, status == button::Status::Pressed, chosen);
+            return button::Style {
+                background,
+                text_color: if lit { lit_ink } else { ink },
+                border,
+                ..Default::default()
+            };
+        }
         button::Style {
             background: if chosen {
                 Some(active.into())

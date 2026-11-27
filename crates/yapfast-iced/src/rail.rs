@@ -1213,18 +1213,19 @@ impl<'a> View<'a> {
                         .height(1)
                         .into(),
                 };
-                self.rail_top(0.0, rail_width)
-                    .push(
-                        container(self.home_tile())
-                            .center_y(tiles.height + 2.0 * tiles.pad + self.label_height()),
-                    )
-                    .push(divider)
-                    .push(list)
+                self.home_then_top(
+                    0.0,
+                    rail_width,
+                    container(self.home_tile())
+                        .center_y(tiles.height + 2.0 * tiles.pad + self.label_height())
+                        .into(),
+                )
+                .push(divider)
+                .push(list)
             }
             None => {
                 let line = container(bar(theme.outline, 32, 1)).center_x(rail_width);
-                self.rail_top(GAP, rail_width)
-                    .push(self.home_tile())
+                self.home_then_top(GAP, rail_width, self.home_tile())
                     .push(line)
                     .push(list)
             }
@@ -1337,12 +1338,18 @@ impl<'a> View<'a> {
             .into()
     }
 
+    /// The home (Direct Messages) tile at the top of the rail, then
     /// HaloCord's Read all and Server list indicators (docs/halocord.md),
-    /// above the home tile, in a column the rest of the rail joins.
-    fn rail_top(self, spacing: f32, width: f32) -> iced::widget::Column<'a, Message> {
+    /// in a column the rest of the rail joins.
+    fn home_then_top(
+        self,
+        spacing: f32,
+        width: f32,
+        home: Element<'a, Message>,
+    ) -> iced::widget::Column<'a, Message> {
         crate::halocord::rail_top(self.cx)
             .into_iter()
-            .fold(column![].spacing(spacing).width(width), |items, top| {
+            .fold(column![home].spacing(spacing).width(width), |items, top| {
                 items.push(top)
             })
     }

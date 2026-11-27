@@ -527,6 +527,10 @@ impl<'a, M: Clone + 'a> Dropdown<'a, M> {
             theme.accent,
         );
         let open = self.open;
+        // MochaCord's recipe: the mantle ground, a 2 px edge at rest, the
+        // raised ground and the lit edge under the pointer or while open.
+        let recipe = crate::style::mocha(theme)
+            .then(|| crate::style::Pick::new(theme, Some(theme.sidebar), true, 8.0));
         let base = button(
             container(face)
                 .height(Length::Fill)
@@ -537,10 +541,28 @@ impl<'a, M: Clone + 'a> Dropdown<'a, M> {
         .width(self.width)
         .height(self.height)
         .on_press_maybe(enabled.then(|| self.toggle.clone()))
-        .style(move |_, status| button::Style {
-            background: Some(if lights(status) { lit } else { ground }.into()),
-            border: crate::style::edge(if open { accent } else { edge }, 4.0),
-            ..Default::default()
+        .style(move |_, status| {
+            if let Some(recipe) = recipe {
+                let (background, border) = recipe.face(
+                    lights(status) && enabled,
+                    status == button::Status::Pressed,
+                    false,
+                );
+                return button::Style {
+                    background,
+                    border: if open {
+                        crate::style::lit_edge(true, false, 8.0)
+                    } else {
+                        border
+                    },
+                    ..Default::default()
+                };
+            }
+            button::Style {
+                background: Some(if lights(status) { lit } else { ground }.into()),
+                border: crate::style::edge(if open { accent } else { edge }, 4.0),
+                ..Default::default()
+            }
         });
         let list = (self.open && enabled).then(|| {
             let mut rows = column![].spacing(2);
@@ -643,21 +665,40 @@ pub fn options<'a, M: Clone + 'a>(
         ]
         .spacing(2);
         let (chosen_ground, lit) = (theme.wash(0.08), theme.wash(0.05));
+        // MochaCord's recipe: each row the base ground in a 2 px edge, the
+        // raised ground and lit edge under the pointer, the same with the
+        // gradient edge kept while chosen.
+        let recipe = crate::style::mocha(theme)
+            .then(|| crate::style::Pick::new(theme, Some(theme.chat), true, 8.0));
         list = list.push(
             button(row![radio, words].spacing(12).align_y(Alignment::Center))
                 .padding(10)
                 .width(Length::Fill)
                 .on_press_maybe(usable.then(|| on_choose(index)))
-                .style(move |_, status| button::Style {
-                    background: if on {
-                        Some(chosen_ground.into())
-                    } else if lights(status) {
-                        Some(lit.into())
-                    } else {
-                        None
-                    },
-                    border: Border::default().rounded(6),
-                    ..Default::default()
+                .style(move |_, status| {
+                    if let Some(recipe) = recipe {
+                        let (background, border) = recipe.face(
+                            lights(status) && usable,
+                            status == button::Status::Pressed && usable,
+                            on,
+                        );
+                        return button::Style {
+                            background,
+                            border,
+                            ..Default::default()
+                        };
+                    }
+                    button::Style {
+                        background: if on {
+                            Some(chosen_ground.into())
+                        } else if lights(status) {
+                            Some(lit.into())
+                        } else {
+                            None
+                        },
+                        border: Border::default().rounded(6),
+                        ..Default::default()
+                    }
                 }),
         );
     }

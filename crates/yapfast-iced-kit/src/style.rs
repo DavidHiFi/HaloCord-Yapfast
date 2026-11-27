@@ -119,10 +119,43 @@ thread_local! {
     static RICE: std::cell::Cell<Option<Rice>> = const { std::cell::Cell::new(None) };
 }
 
+/// Colours the person picked for MochaCord's edges: the first and second
+/// ends of the blue to mauve run, and the edge at rest. None keeps the
+/// theme's own.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Accents {
+    pub from: Option<Color>,
+    pub to: Option<Color>,
+    pub rest: Option<Color>,
+}
+
+static ACCENTS: std::sync::RwLock<Accents> = std::sync::RwLock::new(Accents {
+    from: None,
+    to: None,
+    rest: None,
+});
+
+/// Draws MochaCord's edges in these colours from the next frame on.
+pub fn set_accents(accents: Accents) {
+    if let Ok(mut now) = ACCENTS.write() {
+        *now = accents;
+    }
+}
+
+fn accents() -> Accents {
+    ACCENTS.read().map(|now| *now).unwrap_or_default()
+}
+
 /// `theme`'s [`Rice`]: none on Bonfire or a theme made from it.
 pub fn rice_of(theme: &Theme) -> Option<Rice> {
     let mix = |a: f32, b: f32| (a + b) / 2.0;
-    let (from, to) = (theme.edge_from, theme.edge_to);
+    let picked = if mocha(theme) {
+        accents()
+    } else {
+        Accents::default()
+    };
+    let from = picked.from.unwrap_or(theme.edge_from);
+    let to = picked.to.unwrap_or(theme.edge_to);
     (!theme.bonfire).then(|| Rice {
         hover: Color::from_rgba(
             mix(from.r, to.r),
@@ -131,7 +164,7 @@ pub fn rice_of(theme: &Theme) -> Option<Rice> {
             mix(from.a, to.a),
         ),
         press: to,
-        rest: theme.edge,
+        rest: picked.rest.unwrap_or(theme.edge),
         ground: theme.frost_solid,
         shadow: theme.shadow,
         dim: theme.dim,
@@ -163,6 +196,60 @@ pub fn lit_edge(lit: bool, pressed: bool, radius: impl Into<border::Radius>) -> 
             radius: scaled(radius.into()),
         },
         _ => round(radius),
+    }
+}
+
+/// Whether `theme` is MochaCord, the theme the rice recipe's control fills
+/// are drawn for.
+pub fn mocha(theme: &Theme) -> bool {
+    theme.id == "mochacord"
+}
+
+/// The rice recipe's look for something that can be picked (a tab, a
+/// segment, a chip, a list row, an option): `ground` is its fill at rest
+/// (none for a row on its dock), the theme's raised ground under the
+/// pointer, that ground at three quarters and a lit 2 px edge once chosen,
+/// and a 2 px edge at rest when `edged`.
+#[derive(Clone, Copy, Debug)]
+pub struct Pick {
+    raised: Color,
+    edge: Color,
+    ground: Option<Color>,
+    edged: bool,
+    radius: f32,
+}
+
+impl Pick {
+    pub fn new(theme: &Theme, ground: Option<Color>, edged: bool, radius: f32) -> Self {
+        Self {
+            raised: theme.raised,
+            edge: rice().map_or(theme.edge, |rice| rice.rest),
+            ground,
+            edged,
+            radius,
+        }
+    }
+
+    /// Its fill and edge in the state given.
+    pub fn face(self, lit: bool, pressed: bool, chosen: bool) -> (Option<Background>, Border) {
+        let background = if chosen {
+            Some(Color {
+                a: 0.75,
+                ..self.raised
+            })
+        } else if lit || pressed {
+            Some(self.raised)
+        } else {
+            self.ground
+        };
+        let border = if chosen || lit || pressed {
+            lit_edge(true, pressed, self.radius)
+        } else if self.edged {
+            edge(rice().map_or(self.edge, |rice| rice.rest), self.radius)
+        } else {
+            round(self.radius)
+        };
+        (background.map(Background::Color), border)
     }
 }
 

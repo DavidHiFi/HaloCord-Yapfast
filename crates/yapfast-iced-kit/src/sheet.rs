@@ -334,6 +334,8 @@ pub fn nav_row<'a, M: Clone + 'a>(
         theme.secondary,
         theme.danger,
     );
+    let mocha = crate::style::mocha(theme);
+    let pick = crate::style::Pick::new(theme, None, false, 8.0);
     button(
         container(
             row![
@@ -357,6 +359,26 @@ pub fn nav_row<'a, M: Clone + 'a>(
     .on_press(press)
     .style(move |_, status| {
         let lit = lights(status);
+        if mocha && crate::style::rice().is_some() {
+            // The recipe's picked row: the raised ground at three quarters
+            // and a lit edge while chosen, the raised ground and edge
+            // under the pointer, bare on its dock at rest.
+            let (background, border) = pick.face(lit, status == button::Status::Pressed, selected);
+            return button::Style {
+                background,
+                text_color: if danger {
+                    red
+                } else if selected {
+                    text_ink
+                } else if lit {
+                    lit_ink
+                } else {
+                    rest_ink
+                },
+                border,
+                ..Default::default()
+            };
+        }
         button::Style {
             background: if selected {
                 Some(active.into())
