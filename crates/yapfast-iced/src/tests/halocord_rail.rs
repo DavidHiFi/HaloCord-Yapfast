@@ -3,6 +3,8 @@
 
 use std::sync::Arc;
 
+use iced::Settings;
+use iced_test::{Simulator, selector::Candidate};
 use yapfast_core::chat::{Friend, Presence, ServerFolder};
 
 use super::{change, open_plugin, preview, shows};
@@ -32,20 +34,52 @@ fn set(app: &mut App, change: Change) {
     super::change(app, |_| {});
 }
 
+/// How far below the top of the server list the count `count` sits, the
+/// top being the highest box in the list's column.
+fn below_the_rail_top(app: &App, count: &str) -> f32 {
+    let window = iced::Rectangle::with_size(app.shell.frame);
+    let mut ui = Simulator::with_size(Settings::default(), window.size(), app.view());
+    let (mut top, mut at) = (f32::MAX, None);
+    let _ = ui.find(|candidate: Candidate<'_>| {
+        match candidate {
+            Candidate::Container {
+                bounds,
+                visible_bounds: Some(_),
+                ..
+            } if bounds.x + bounds.width <= crate::rail::WIDTH + 1.0 && bounds.height < 200.0 => {
+                top = top.min(bounds.y);
+            }
+            Candidate::Text {
+                content,
+                visible_bounds: Some(bounds),
+                ..
+            } if content == count && bounds.x < crate::rail::WIDTH => {
+                at = Some(bounds.center_y());
+            }
+            _ => {}
+        }
+        None::<()>
+    });
+    at.unwrap_or_else(|| panic!("{count:?} isn't on the server list")) - top
+}
+
 #[test]
 fn the_counts_show_at_the_top_of_the_server_list_as_set() {
     let (mut app, _folder) = preview();
-    change(&mut app, |state| {
-        state.friends = vec![
-            friend("a", Presence::Online),
-            friend("b", Presence::Mobile),
-            friend("c", Presence::Idle),
-            friend("d", Presence::Offline),
-        ];
-    });
     let servers = app.client.state().servers.len();
-    let servers = format!("{servers} servers");
-    assert!(shows(&app, "3 online"), "on at first, the friends around");
+    // Numbers apart from the server count, so each pill reads on its own.
+    let online = servers + 10;
+    change(&mut app, |state| {
+        let mut friends: Vec<Friend> = (0..online)
+            .map(|n| friend(&format!("o{n}"), Presence::Online))
+            .collect();
+        friends.push(friend("idle", Presence::Idle));
+        friends.push(friend("gone", Presence::Offline));
+        state.friends = friends;
+    });
+    let (with_idle, without_idle) = ((online + 1).to_string(), online.to_string());
+    let servers = servers.to_string();
+    assert!(shows(&app, &with_idle), "on at first, the friends around");
     assert!(!shows(&app, &servers), "only the friends at first");
     let plugin = place(SERVER_COUNTS).expect("the plugin");
     set(
@@ -56,7 +90,7 @@ fn the_counts_show_at_the_top_of_the_server_list_as_set() {
             on: true,
         },
     );
-    assert!(shows(&app, "2 online"), "idle friends left out");
+    assert!(shows(&app, &without_idle), "idle friends left out");
     set(
         &mut app,
         Change::Choose {
@@ -65,7 +99,7 @@ fn the_counts_show_at_the_top_of_the_server_list_as_set() {
             choice: 1,
         },
     );
-    assert!(shows(&app, &servers) && !shows(&app, "2 online"));
+    assert!(shows(&app, &servers) && !shows(&app, &without_idle));
     set(
         &mut app,
         Change::Choose {
@@ -74,11 +108,28 @@ fn the_counts_show_at_the_top_of_the_server_list_as_set() {
             choice: 2,
         },
     );
-    assert!(shows(&app, &servers) && shows(&app, "2 online"), "both");
+    assert!(shows(&app, &servers) && shows(&app, &without_idle), "both");
     set(&mut app, Change::Switch { plugin, on: false });
     assert!(
-        !shows(&app, &servers) && !shows(&app, "2 online"),
+        !shows(&app, &servers) && !shows(&app, &without_idle),
         "gone while off"
+    );
+}
+
+#[test]
+fn direct_messages_is_the_top_of_the_server_list() {
+    let (mut app, _folder) = preview();
+    let servers = app.client.state().servers.len();
+    let online = servers + 10;
+    change(&mut app, |state| {
+        state.friends = (0..online)
+            .map(|n| friend(&format!("o{n}"), Presence::Online))
+            .collect();
+    });
+    let below = below_the_rail_top(&app, &online.to_string());
+    assert!(
+        below >= crate::rail::TILE,
+        "the counts sit under the Direct Messages tile, {below} px from the top"
     );
 }
 

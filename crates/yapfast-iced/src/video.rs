@@ -49,8 +49,6 @@ use yapfast_core::{
     picture::{self, Feed, FrameBuffer},
 };
 
-use crate::paint;
-
 type Renderer = iced::Renderer;
 
 // ---------------------------------------------------------------------------
@@ -557,9 +555,10 @@ pub struct Video {
     shared: Arc<Shared>,
     key: String,
     ground: Color,
-    /// The tile's round corners, cut by drawing what's behind the tile over
-    /// them: the radius and the colour behind.
-    corners: Option<(u32, u32)>,
+    /// The tile's round corners: the radius. The picture is never drawn on
+    /// a pixel outside the curve, so the tile's own round ground shows
+    /// there, whatever is behind the tile (glass included).
+    corners: Option<u32>,
     /// The window's pixels to the app's units (the display's scale times
     /// the zoom), which frames are made in.
     scale: f32,
@@ -584,56 +583,24 @@ impl Video {
         self
     }
 
-    pub fn corners(mut self, radius: u32, behind: u32) -> Self {
-        self.corners = Some((radius, behind));
+    /// Kept inside a tile's round corners of `radius` (in the app's units).
+    pub fn corners(mut self, radius: u32) -> Self {
+        self.corners = Some(radius);
         self
     }
 }
 
-thread_local! {
-    /// Each corner's picture, by radius, colour and corner, made once.
-    static CORNERS: std::cell::RefCell<HashMap<(u32, u32, u8), Handle>> = Default::default();
-}
-
-/// A `radius` square, `behind` outside the quarter circle of a tile's
-/// corner (0 top left, 1 top right, 2 bottom right, 3 bottom left) and clear
-/// inside it, edged by coverage.
-fn corner(radius: u32, behind: u32, which: u8) -> Handle {
-    CORNERS.with_borrow_mut(|corners| {
-        corners
-            .entry((radius, behind, which))
-            .or_insert_with(|| {
-                let side = radius as usize;
-                let mut pixels = vec![0u8; side * side * 4];
-                let [_, r, g, b] = behind.to_be_bytes();
-                for y in 0..side {
-                    for x in 0..side {
-                        // Distance from the arc's centre, in the top-left corner's terms.
-                        let (cx, cy) = match which {
-                            0 => (side - x, side - y),
-                            1 => (x + 1, side - y),
-                            2 => (x + 1, y + 1),
-                            _ => (side - x, y + 1),
-                        };
-                        let (dx, dy) = (cx as f32 - 0.5, cy as f32 - 0.5);
-                        let outside =
-                            ((dx * dx + dy * dy).sqrt() - radius as f32 + 0.5).clamp(0.0, 1.0);
-                        let scale = |c: u8| (f32::from(c) * outside).round() as u8;
-                        let at = (y * side + x) * 4;
-                        // Premultiplied BGRA, as the window draws its pictures.
-                        pixels[at..at + 4].copy_from_slice(&[
-                            scale(b),
-                            scale(g),
-                            scale(r),
-                            (outside * 255.0).round() as u8,
-                        ]);
-                    }
-                }
-                paint::finish(&mut pixels);
-                Handle::from_rgba(radius, radius, pixels)
-            })
-            .clone()
-    })
+/// Where a row of a round corner starts: the first pixel of `row` (counted
+/// from the tile's edge) that lies wholly inside the curve of `radius`
+/// pixels. Pixels the curve only partly covers are left to the tile's own
+/// smoothed ground.
+fn corner_inset(radius: f32, row: usize) -> usize {
+    let down = radius - row as f32;
+    if down <= 0.0 {
+        return 0;
+    }
+    let across = (radius * radius - down * down).max(0.0).sqrt();
+    (radius - across).ceil().clamp(0.0, radius.ceil()) as usize
 }
 
 impl<M> Widget<M, Theme, Renderer> for Video {
@@ -663,6 +630,11 @@ impl<M> Widget<M, Theme, Renderer> for Video {
         use iced::advanced::{Renderer as _, image::Renderer as _};
         let tile = layout.bounds();
         let Some((handle, size)) = self.shared.frame(&self.key) else {
+            // A round tile has its own ground under this; a square fill
+            // would show at its corners.
+            if self.corners.is_some() {
+                return;
+            }
             renderer.fill_quad(
                 renderer::Quad {
                     bounds: tile,
@@ -721,55 +693,74 @@ impl<M> Widget<M, Theme, Renderer> for Video {
                 ),
             ),
         ];
-        for bar in bars {
-            if bar.width > 0.01 && bar.height > 0.01 {
-                renderer.fill_quad(
-                    renderer::Quad {
-                        bounds: bar,
-                        ..Default::default()
-                    },
-                    self.ground,
-                );
+        let draw = |renderer: &mut Renderer, clip: Rectangle| {
+            let Some(clip) = clip.intersection(&picture) else {
+                return;
+            };
+            renderer.draw_image(
+                raster::Image {
+                    handle: handle.clone(),
+                    filter_method: raster::FilterMethod::Linear,
+                    rotation: iced::Radians(0.0),
+                    border_radius: Default::default(),
+                    opacity: 1.0,
+                    snap: true,
+                },
+                picture,
+                clip,
+            );
+        };
+        let Some(radius) = self.corners.filter(|radius| *radius > 0) else {
+            for bar in bars {
+                if bar.width > 0.01 && bar.height > 0.01 {
+                    renderer.fill_quad(
+                        renderer::Quad {
+                            bounds: bar,
+                            ..Default::default()
+                        },
+                        self.ground,
+                    );
+                }
             }
-        }
-        renderer.draw_image(
-            raster::Image {
-                handle,
-                filter_method: raster::FilterMethod::Linear,
-                rotation: iced::Radians(0.0),
-                border_radius: Default::default(),
-                opacity: 1.0,
-                snap: true,
-            },
-            picture,
-            picture,
+            draw(renderer, picture);
+            return;
+        };
+        // A round tile: its ground, a round rectangle, is under the picture
+        // already, so there are no bars. The picture goes down in strips,
+        // each corner row narrowed to the curve, so no pixel of it lands
+        // outside the round and nothing is painted over the corner.
+        let left = (tile.x * pixels).round();
+        let top = (tile.y * pixels).round();
+        let (wide, high) = (
+            (tile.width * pixels).round(),
+            (tile.height * pixels).round(),
         );
-        if let Some((radius, behind)) = self.corners {
-            let side = radius as f32;
-            let at = [
-                (tile.x, tile.y),
-                (tile.x + tile.width - side, tile.y),
-                (tile.x + tile.width - side, tile.y + tile.height - side),
-                (tile.x, tile.y + tile.height - side),
-            ];
-            for (which, (x, y)) in at.into_iter().enumerate() {
-                let bounds = Rectangle::new(
-                    iced::Point::new(x.round(), y.round()),
-                    Size::new(side, side),
-                );
-                renderer.draw_image(
-                    raster::Image {
-                        handle: corner(radius, behind, which as u8),
-                        filter_method: raster::FilterMethod::Linear,
-                        rotation: iced::Radians(0.0),
-                        border_radius: Default::default(),
-                        opacity: 1.0,
-                        snap: true,
-                    },
-                    bounds,
-                    bounds,
-                );
+        let radius = (radius as f32 * pixels)
+            .min(wide / 2.0)
+            .min(high / 2.0)
+            .max(0.0);
+        let rows = radius.ceil() as usize;
+        let strip = |x: f32, y: f32, width: f32, height: f32| {
+            Rectangle::new(
+                iced::Point::new(x / pixels, y / pixels),
+                Size::new(width / pixels, height / pixels),
+            )
+        };
+        for row in 0..rows {
+            let inset = corner_inset(radius, row) as f32;
+            let width = wide - 2.0 * inset;
+            if width <= 0.0 {
+                continue;
             }
+            draw(renderer, strip(left + inset, top + row as f32, width, 1.0));
+            draw(
+                renderer,
+                strip(left + inset, top + high - 1.0 - row as f32, width, 1.0),
+            );
+        }
+        let middle = high - 2.0 * rows as f32;
+        if middle > 0.0 {
+            draw(renderer, strip(left, top + rows as f32, wide, middle));
         }
     }
 }

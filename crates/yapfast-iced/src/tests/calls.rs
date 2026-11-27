@@ -1370,8 +1370,18 @@ fn click_to_unmute_marks_the_muted_and_unmutes_on_a_click() {
 /// setting is on.
 #[test]
 fn voice_count_writes_how_many_are_in_a_voice_channel() {
-    use crate::halocord::{Change, VOICE_COUNT, changed, place};
+    use crate::halocord::{Change, SERVER_COUNTS, VOICE_COUNT, changed, place};
     let (mut app, _folder) = super::preview();
+    // Server list indicators also draws a zero in the rail, so keep this
+    // test focused on the voice-channel row.
+    changed(
+        &mut app.layout,
+        &mut app.client,
+        Change::Switch {
+            plugin: place(SERVER_COUNTS).unwrap(),
+            on: false,
+        },
+    );
     let crowd = |count: usize| {
         (0..count)
             .map(|at| yapfast_core::chat::VoicePerson {

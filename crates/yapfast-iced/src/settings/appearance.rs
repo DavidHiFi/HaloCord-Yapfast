@@ -7,7 +7,7 @@
 use std::path::{Path, PathBuf};
 
 use iced::{
-    Alignment, Border, Color, Element, Length, Task,
+    Alignment, Border, Color, Element, Length, Padding, Task,
     widget::{Id, Space, button, column, container, operation, row, stack, text},
 };
 use yapfast_core::{
@@ -30,7 +30,11 @@ use crate::{
 
 /// A theme's tile: at least this wide, this tall, this far apart.
 const TILE: f32 = 150.0;
-const TILE_HEIGHT: f32 = 124.0;
+/// Room for a name on two lines under the preview: 8 + 78 + 6 + 38 + 8.
+const NAME_HEIGHT: f32 = 38.0;
+const TILE_HEIGHT: f32 = 138.0;
+/// The cog's or pencil's width and the gap beside it.
+const COG_ROOM: f32 = 28.0;
 const TILE_GAP: f32 = 12.0;
 /// The open colour picker's code field.
 pub(crate) const COLOUR_CODE: &str = "theme-colour-code";
@@ -1101,20 +1105,32 @@ impl<'a> Page<'a> {
                 .size(14)
                 .font(if current { BOLD } else { MEDIUM })
                 .color(if current { theme.text } else { theme.secondary })
-                .wrapping(text::Wrapping::None)
+                .wrapping(text::Wrapping::WordOrGlyph)
                 .width(Length::Fill)
         ]
         .spacing(6)
         .align_y(Alignment::Center)
-        .height(24);
+        .height(NAME_HEIGHT);
         if current {
             label = label.push(self.cx.look.glyph(Icon::Check, 16, theme.accent));
         }
+        // The cog or pencil sits at the tile's right edge, so a name
+        // wraps before it rather than running under it.
+        let corner = if custom || id == crate::mochacord::THEME {
+            COG_ROOM
+        } else {
+            0.0
+        };
         let (accent, faint, line, hover) = (theme.accent, theme.faint, theme.line, theme.hover);
         let face = button(
-            column![preview, container(label).padding([0, 2])]
-                .spacing(6)
-                .padding(8),
+            column![
+                preview,
+                container(label)
+                    .padding(Padding::ZERO.left(2).right(2.0 + corner))
+                    .clip(true)
+            ]
+            .spacing(6)
+            .padding(8),
         )
         .padding(0)
         .width(width)

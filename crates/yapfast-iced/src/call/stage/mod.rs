@@ -19,7 +19,6 @@ use crate::{
     header,
     pictures::Icon,
     style::{faded, fill, hex, rounded},
-    theme::rgb,
     tile::{self, GLASS, NOTE, Tile},
     video::{self, Video},
     widgets::Spot,
@@ -291,17 +290,13 @@ pub fn focus_tile(app: &mut App, place: Option<usize>) {
     place_videos(app);
 }
 
-/// A frame by its key, fitted into its tile with `corners` cut round
-/// on `behind` (none full screen).
-pub fn frame<'a>(
-    app: &'a App,
-    key: &str,
-    corners: Option<(u32, u32)>,
-) -> Option<Element<'a, Message>> {
+/// A frame by its key, fitted into its tile with `corners` of that radius
+/// kept round (none full screen).
+pub fn frame<'a>(app: &'a App, key: &str, corners: Option<u32>) -> Option<Element<'a, Message>> {
     app.video.has(key).then(|| {
         let video = Video::new(&app.video, key, Color::BLACK).scale(app.device_scale());
         let video = match corners {
-            Some((radius, behind)) => video.corners(radius, behind),
+            Some(radius) => video.corners(radius),
             None => video,
         };
         Element::from(video)
@@ -696,11 +691,11 @@ fn stage_tile(
     let voice = &app.client.state().voice;
     let size = bounds.size();
     let pointed = app.call.pointed == Some(place);
-    // The corner patches take the tile's own black ground, not the stage's
-    // colour: the video sits on that ground inside the tile, so a stage
-    // coloured patch showed as dark squares at the corners of every
-    // screen share and camera.
-    let corners = (!full).then(|| (tile::RADIUS as u32, rgb(Color::BLACK)));
+    // The picture keeps off every pixel outside the tile's curve, at the
+    // radius the tile itself is drawn with (a theme's, or MochaCord's
+    // roundness setting), so the tile's round black ground shows at the
+    // corners and nothing square is left over a glass stage.
+    let corners = (!full).then(|| theme.surface_radius("call", tile::RADIUS).round() as u32);
     let watch_user = voice
         .watching
         .as_ref()
