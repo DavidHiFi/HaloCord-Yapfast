@@ -466,6 +466,7 @@ mod halocord_rail;
 mod halocord_settings_pictures;
 mod header;
 mod link_dialogs;
+mod look_fixes;
 mod media;
 mod menus;
 mod navigation;
