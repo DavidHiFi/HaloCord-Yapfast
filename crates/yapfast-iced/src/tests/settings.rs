@@ -17,7 +17,8 @@ use crate::{
         layers::{Layer, Popup},
     },
     settings::{
-        Event, Section, THEME_COLOUR_CODE, ThemeEvent, appearance_event, voice::Event as VoiceEvent,
+        Event, Pref, Section, THEME_COLOUR_CODE, ThemeEvent, appearance_event,
+        voice::Event as VoiceEvent,
     },
 };
 
@@ -2351,6 +2352,51 @@ fn mochacord_options_are_kept_across_a_restart() {
     assert!(!again.layout.mochacord.accent_gradient);
     assert_eq!(again.layout.mochacord.font, "Cascadia Code");
     // Put the shared look settings back for the tests after this one.
+    crate::mochacord::Kept::default().apply();
+}
+
+/// MochaCord's dialog takes any installed font by name, any weight, and its
+/// accents as codes or swatches; each is kept across a restart.
+#[test]
+fn mochacord_takes_any_font_weight_and_accent() {
+    let (mut app, folder) = preview();
+    app.shell.frame.height = 2400.0;
+    open(&mut app, Section::Themes);
+    let _ = app.update(crate::app::settings(Event::HaloCord(
+        crate::settings::HaloEvent::OpenMocha,
+    )));
+    for row in [
+        "Any installed font",
+        "Any weight",
+        "Accent 2, the end of the run",
+    ] {
+        assert!(shows(&app, row), "{row} is offered");
+    }
+    interact(&mut app, |ui| {
+        ui.click(Id::new("mochacord-font")).expect("the font field");
+        ui.tap_key(Key::Named(key::Named::End));
+        for _ in 0..40 {
+            ui.tap_key(Key::Named(key::Named::Backspace));
+        }
+        ui.typewrite("Iosevka");
+    });
+    assert_eq!(app.layout.mochacord.font, "Iosevka");
+    let _ = app.update(crate::app::settings(Event::Pref(Pref::MochaCord(
+        crate::mochacord::Change::Weight(330),
+    ))));
+    let _ = app.update(crate::app::settings(Event::Pref(Pref::MochaCord(
+        crate::mochacord::Change::Accent("#f38ba8".into()),
+    ))));
+    let kept = &stored(&folder)["mochacord"];
+    assert_eq!(kept["font"], "Iosevka");
+    assert_eq!(kept["weight"], 330);
+    assert_eq!(kept["accent"], "#f38ba8");
+    let again = start(&folder, true);
+    assert_eq!(again.layout.mochacord.weight, 330);
+    assert_eq!(
+        crate::mochacord::colour(&again.layout.mochacord.accent),
+        Some(iced::Color::from_rgb8(0xf3, 0x8b, 0xa8))
+    );
     crate::mochacord::Kept::default().apply();
 }
 

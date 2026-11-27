@@ -76,6 +76,12 @@ pub struct Kept {
     pub font: String,
     /// The weight of regular text, 100 to 900.
     pub weight: u32,
+    /// The accent, as `#rrggbb`: the blue end of the run. Empty is Mocha blue.
+    pub accent: String,
+    /// The second accent, the mauve end. Empty is Mocha mauve.
+    pub accent_two: String,
+    /// The edge at rest on every control. Empty is Mocha's.
+    pub edge: String,
     /// Whether popups, menus and dialogs open and close moving.
     pub motion: bool,
     /// How quick they move, by its place in [`SPEEDS`]: 0 follows the
@@ -93,6 +99,9 @@ impl Default for Kept {
             corners: 100,
             font: FONT.to_owned(),
             weight: 500,
+            accent: String::new(),
+            accent_two: String::new(),
+            edge: String::new(),
             motion: true,
             motion_speed: 0,
         }
@@ -108,6 +117,9 @@ pub enum Change {
     Corners(u32),
     Font(String),
     Weight(u32),
+    Accent(String),
+    AccentTwo(String),
+    Edge(String),
     Motion(bool),
     MotionSpeed(usize),
     /// Every option back to how it starts.
@@ -118,6 +130,22 @@ pub enum Change {
 pub const MOST_CORNERS: u32 = 200;
 /// The weights the page offers.
 pub const WEIGHTS: [u32; 6] = [400, 450, 500, 600, 700, 800];
+/// A colour typed as `#rrggbb` (the `#` may be left off), or none when the
+/// text is empty or isn't one.
+pub fn colour(text: &str) -> Option<Color> {
+    let text = text.trim();
+    let argb = if text.starts_with('#') {
+        yapfast_core::themes::package::parse_colour(text)?
+    } else {
+        yapfast_core::themes::package::parse_colour(&format!("#{text}"))?
+    };
+    Some(Color::from_rgb8(
+        (argb >> 16) as u8,
+        (argb >> 8) as u8,
+        argb as u8,
+    ))
+}
+
 /// The font families the page offers; empty is Yapfast's own.
 pub const FONTS: [&str; 5] = [
     FONT,
@@ -133,11 +161,18 @@ impl Kept {
         GLASS_ON.store(self.glass, Ordering::Relaxed);
         STRENGTH.store(self.glass_strength.min(100), Ordering::Relaxed);
         style::set_corner_scale(self.corners);
+        let accent = colour(&self.accent);
+        let accent_two = colour(&self.accent_two);
         widgets::set_bar_look(self.accent_gradient.then_some(widgets::BarGradient {
-            from: BLUE,
-            to: MAUVE,
+            from: accent.unwrap_or(BLUE),
+            to: accent_two.unwrap_or(MAUVE),
             track: LANE,
         }));
+        style::set_accents(style::Accents {
+            from: accent,
+            to: accent_two,
+            rest: colour(&self.edge),
+        });
         MOTION_ON.store(self.motion, Ordering::Relaxed);
         MOTION_SPEED.store(
             self.motion_speed.min(SPEEDS.len() - 1) as u32,
@@ -155,6 +190,9 @@ impl Kept {
             Change::Corners(value) => self.corners = value.min(MOST_CORNERS),
             Change::Font(family) => self.font = family,
             Change::Weight(value) => self.weight = value.clamp(100, 900),
+            Change::Accent(text) => self.accent = text,
+            Change::AccentTwo(text) => self.accent_two = text,
+            Change::Edge(text) => self.edge = text,
             Change::Motion(on) => self.motion = on,
             Change::MotionSpeed(speed) => self.motion_speed = speed.min(SPEEDS.len() - 1),
             Change::Reset => {
@@ -282,10 +320,16 @@ pub fn live() -> bool {
 }
 
 /// `color` for `dock`: itself while glass isn't live, else with the alpha
-/// the strength gives, never under the dock's own floor.
+/// the strength gives, never under the dock's own floor. The channel list
+/// adds no fill of its own while glass shows: the navigation's glass under
+/// it, the rail's and the title bar's, is the one surface, so the rail, the
+/// list and the bar read as one piece with no step between them.
 pub fn glass(color: Color, dock: Dock) -> Color {
     if !live() {
         return color;
+    }
+    if dock == Dock::Sidebar {
+        return Color::TRANSPARENT;
     }
     glassy(color, dock, STRENGTH.load(Ordering::Relaxed))
 }

@@ -2,13 +2,21 @@
 //! indicators' counts of the friends online and the servers you're in.
 
 use iced::{
-    Element, Length,
-    widget::{button, column, container, text, tooltip},
+    Alignment, Color, Element,
+    widget::{button, column, container, row, text, tooltip},
 };
 use yapfast_core::chat::Presence;
 
 use super::{Kind, Plugin, Press, Setting, id, off};
-use crate::{app::Message, controls, ctx::Ctx, fonts::MEDIUM, rail, style::rounded};
+use crate::{
+    app::Message,
+    controls,
+    ctx::Ctx,
+    fonts::MEDIUM,
+    pictures::Icon,
+    rail,
+    style::{self, rounded},
+};
 
 /// What Server list indicators counts.
 const FRIENDS: u32 = 0;
@@ -122,14 +130,14 @@ fn counts<'a>(cx: Ctx<'a>) -> Element<'a, Message> {
             format!("{n} {many}")
         }
     };
-    let mut lines = column![].spacing(2).width(Length::Fill);
+    let mut lines = column![].spacing(4).align_x(Alignment::Center);
     let mut said = Vec::new();
     if mode != SERVERS {
-        lines = lines.push(line(theme, format!("{friends} online")));
+        lines = lines.push(pill(cx, Icon::Users, theme.live, friends));
         said.push(format!("{} online", plural(friends, "friend", "friends")));
     }
     if mode != FRIENDS {
-        lines = lines.push(line(theme, plural(servers, "server", "servers")));
+        lines = lines.push(pill(cx, Icon::Community, theme.accent, servers));
         said.push(plural(servers, "server", "servers"));
     }
     let tip = tooltip(
@@ -142,8 +150,28 @@ fn counts<'a>(cx: Ctx<'a>) -> Element<'a, Message> {
     container(tip).width(rail::WIDTH).into()
 }
 
-fn line<'a>(theme: &yapfast_iced_kit::theme::Theme, words: String) -> Element<'a, Message> {
-    container(text(words).size(11).font(MEDIUM).color(theme.muted))
-        .center_x(Length::Fill)
-        .into()
+/// One count in a bubble: its glyph and the number, on the base ground in
+/// a 2 px edge, as the rice's chips are. The tooltip says what it counts.
+fn pill<'a>(cx: Ctx<'a>, icon: Icon, ink: Color, count: usize) -> Element<'a, Message> {
+    let theme = cx.look.theme;
+    let (ground, line) = (theme.chat, theme.line);
+    container(
+        row![
+            cx.look.glyph(icon, 12, ink),
+            text(count.to_string())
+                .size(11)
+                .font(MEDIUM)
+                .color(theme.secondary)
+                .wrapping(text::Wrapping::None)
+        ]
+        .spacing(4)
+        .align_y(Alignment::Center),
+    )
+    .padding([3, 8])
+    .style(move |_| {
+        let mut face = rounded(ground, 16.0);
+        face.border = style::edge(style::rice().map_or(line, |rice| rice.rest), 16.0);
+        face
+    })
+    .into()
 }

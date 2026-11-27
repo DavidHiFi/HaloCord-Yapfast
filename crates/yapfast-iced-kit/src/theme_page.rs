@@ -374,9 +374,12 @@ pub fn tile<'a, M: Clone + 'a>(
             .size(13)
             .font(if chosen { BOLD } else { MEDIUM })
             .color(if chosen { theme.text } else { theme.secondary })
-            .wrapping(text::Wrapping::None)
+            .align_x(Alignment::Center)
+            .width(Length::Fill)
+            .wrapping(text::Wrapping::WordOrGlyph)
     ]
     .spacing(4)
+    .width(Length::Fill)
     .align_y(Alignment::Center);
     if chosen {
         name = name.push(look.glyph(Icon::Check, 14, theme.accent_text()));
@@ -392,9 +395,11 @@ pub fn tile<'a, M: Clone + 'a>(
                     border: Border::default().rounded(4),
                     ..Default::default()
                 }),
+            // Two lines of room, so a long name wraps inside the tile.
             container(name)
                 .center_x(Length::Fill)
-                .height(22)
+                .height(36)
+                .clip(true)
                 .align_y(Alignment::Center),
         ]
         .spacing(4),

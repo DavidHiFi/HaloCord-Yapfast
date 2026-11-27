@@ -3,19 +3,55 @@
 //! `layout.json` under `mochacord`. The options and their rules are
 //! [`crate::mochacord`].
 
-use iced::Element;
+use iced::{Alignment, Color, Element, widget::row};
+use yapfast_iced_kit::{theme::Theme, theme_page as kit};
 
 use super::{Pref, pref};
 use crate::{
     app::Message,
     controls::{choices, slider},
     form,
-    mochacord::{Change, FONTS, MOST_CORNERS, SPEEDS, WEIGHTS},
+    mochacord::{Change, FONTS, MOST_CORNERS, SPEEDS, WEIGHTS, colour},
     settings::{Drop, Event, Page},
 };
 
 /// What the weight row calls each of [`WEIGHTS`].
 const WEIGHT_NAMES: [&str; 6] = ["400", "450", "500", "600", "700", "800"];
+
+/// The lightest and heaviest weight the free slider reaches.
+const MIN_WEIGHT: u32 = 100;
+const MAX_WEIGHT: u32 = 900;
+
+/// Mocha's accents, as codes the colour fields take.
+const SWATCHES: [&str; 10] = [
+    "#89B4FA", "#CBA6F7", "#B4BEFE", "#74C7EC", "#94E2D5", "#A6E3A1", "#FAB387", "#F5C2E7",
+    "#F38BA8", "#F9E2AF",
+];
+
+/// Whether a typed code is there but isn't a colour.
+fn wrong(text: &str) -> bool {
+    !text.trim().is_empty() && colour(text).is_none()
+}
+
+/// A row of Mocha's accents to pick from; the one in use is ringed.
+fn swatch_row<'a>(
+    theme: &Theme,
+    now: &str,
+    pick: impl Fn(String) -> Message + Copy + 'a,
+) -> Element<'a, Message> {
+    let now = colour(now);
+    let mut swatches = row![].spacing(4).align_y(Alignment::Center);
+    for code in SWATCHES {
+        let shade = colour(code).unwrap_or(Color::BLACK);
+        swatches = swatches.push(kit::swatch(
+            theme,
+            shade,
+            now == Some(shade),
+            pick(code.to_owned()),
+        ));
+    }
+    swatches.into()
+}
 
 /// What the font list says under each of [`FONTS`].
 const FONT_NOTES: [&str; 5] = [
@@ -62,11 +98,8 @@ impl<'a> Page<'a> {
         let weight_now = WEIGHTS
             .iter()
             .position(|weight| *weight == kept.weight)
-            .unwrap_or(2);
-        let font_now = FONTS
-            .iter()
-            .position(|family| *family == kept.font)
-            .unwrap_or(0);
+            .unwrap_or(usize::MAX);
+        let font_now = FONTS.iter().position(|family| *family == kept.font);
         vec![
             form::group(vec![
                 form::switch(
@@ -134,16 +167,73 @@ impl<'a> Page<'a> {
             ]),
             form::group(vec![
                 form::heading(theme, "Font"),
-                form::options(theme, font_choices(), Some(font_now), true, move |index| {
+                form::options(theme, font_choices(), font_now, true, move |index| {
                     change(Change::Font(FONTS[index].to_owned()))
                 }),
+                form::heading(theme, "Any installed font"),
+                form::entry(theme, "mochacord-font", "Type a font's name", &kept.font)
+                    .on_input(move |text| change(Change::Font(text)))
+                    .into(),
                 form::heading(theme, "Weight"),
                 choices(theme, &WEIGHT_NAMES, weight_now, move |index| {
                     change(Change::Weight(WEIGHTS[index]))
                 }),
+                slider(
+                    "Any weight",
+                    kept.weight.clamp(MIN_WEIGHT, MAX_WEIGHT) - MIN_WEIGHT,
+                    MAX_WEIGHT - MIN_WEIGHT,
+                    move |value| change(Change::Weight(value + MIN_WEIGHT)),
+                )
+                .step(10)
+                .shown(kept.weight.to_string())
+                .mark(false)
+                .view(theme),
                 form::note(
                     theme,
                     "A font that isn't installed falls back to Yapfast's own. Font changes show after a restart.",
+                ),
+            ]),
+            form::group(vec![
+                form::heading(theme, "Accent"),
+                swatch_row(theme, &kept.accent, move |text| {
+                    change(Change::Accent(text))
+                }),
+                form::colour_row(
+                    theme,
+                    "Accent",
+                    colour(&kept.accent).unwrap_or(theme.edge_from),
+                    &kept.accent,
+                    wrong(&kept.accent),
+                    move |text| change(Change::Accent(text)),
+                )
+                .view(),
+                form::heading(theme, "Accent 2, the end of the run"),
+                swatch_row(theme, &kept.accent_two, move |text| {
+                    change(Change::AccentTwo(text))
+                }),
+                form::colour_row(
+                    theme,
+                    "Accent 2",
+                    colour(&kept.accent_two).unwrap_or(theme.edge_to),
+                    &kept.accent_two,
+                    wrong(&kept.accent_two),
+                    move |text| change(Change::AccentTwo(text)),
+                )
+                .view(),
+                form::heading(theme, "Edge at rest"),
+                swatch_row(theme, &kept.edge, move |text| change(Change::Edge(text))),
+                form::colour_row(
+                    theme,
+                    "Edge",
+                    colour(&kept.edge).unwrap_or(theme.edge),
+                    &kept.edge,
+                    wrong(&kept.edge),
+                    move |text| change(Change::Edge(text)),
+                )
+                .view(),
+                form::note(
+                    theme,
+                    "Type a code like #89B4FA or pick a swatch. Empty is Mocha's own. The accents are the two ends of the hover edge and the scrollbars.",
                 ),
             ]),
         ]
