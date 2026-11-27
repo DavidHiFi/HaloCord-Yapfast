@@ -803,9 +803,9 @@ impl Processing {
                     .block(samples);
             }
         }
-        // A push-to-mute key held, or a fake deafen, sends nothing in either
-        // mode.
-        let muting = crate::push_to_talk::muting() || crate::halocord::fake_deafened();
+        // A push-to-mute key held sends nothing in either mode. A fake mute
+        // or deafen only changes what Discord is told; the microphone sends.
+        let muting = crate::push_to_talk::muting();
         let talking = if crate::push_to_talk::on() {
             let (held, delay) = (
                 crate::push_to_talk::held(),

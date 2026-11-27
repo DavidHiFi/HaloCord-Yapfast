@@ -494,12 +494,10 @@ pub(crate) async fn call(
             let talking = capture.as_ref().is_some_and(Capture::talking);
             let participants = discord_participants(
                 &discord_states.borrow(),
-                guild,
                 &channel,
                 &me,
                 state,
                 &hearing.speaking(),
-                &link.present(),
                 talking,
                 filming.as_ref().map(|filming| &filming.feed),
                 &cameras,
@@ -1163,35 +1161,36 @@ fn open_discord_microphone(
 
 /// Everyone in the Discord voice channel, this account first, with a feed
 /// for each camera on: this account's `own`, and the others' from
-/// `cameras`, which keeps one for each who films. Those the voice server
-/// says are `present` but Discord's gateway hasn't listed show too, since
-/// they are heard.
+/// `cameras`, which keeps one for each who films. The list is the gateway's
+/// live voice states, the same the channel list shows, so someone who
+/// leaves is gone from it at once. The voice server's own roster isn't
+/// added: it can keep naming someone after they left.
 #[allow(
     clippy::too_many_arguments,
     reason = "each says something about a different person"
 )]
 fn discord_participants(
     snapshot: &yapfast_discord::service::Snapshot,
-    guild: &str,
     channel: &str,
     me: &str,
     state: &State,
     speaking: &[u64],
-    present: &[u64],
     talking: bool,
     own: Option<&crate::picture::Feed>,
     cameras: &Cameras,
 ) -> Vec<Participant> {
-    let listed = snapshot.voice.get(channel).map_or(&[][..], Vec::as_slice);
-    let missed = missed(snapshot, guild, listed, me, present);
-    let members = listed.iter().chain(&missed);
+    let members = snapshot.voice.get(channel).map_or(&[][..], Vec::as_slice);
     let filming: Vec<u64> = members
-        .clone()
+        .iter()
         .filter(|member| member.video && member.user_id != me)
         .filter_map(|member| member.user_id.parse().ok())
         .collect();
     cameras.film(&filming);
+    // What this account's own tile says is what the others see, which
+    // includes a fake mute or deafen.
+    let (shown_muted, shown_deafened) = crate::halocord::voice_state(state.muted, state.deafened);
     let mut participants: Vec<Participant> = members
+        .iter()
         .map(|member| {
             let local = member.user_id == me;
             let video = if local {
@@ -1209,12 +1208,12 @@ fn discord_participants(
                 person: member.user_id.clone(),
                 local,
                 muted: if local {
-                    state.muted || member.server_muted
+                    shown_muted || member.server_muted
                 } else {
                     member.muted
                 },
                 deafened: if local {
-                    state.deafened || member.server_deafened
+                    shown_deafened || member.server_deafened
                 } else {
                     member.deafened
                 },
@@ -1271,48 +1270,6 @@ fn discord_participants(
     }
     participants.sort_by_key(|person| std::cmp::Reverse(person.local));
     participants
-}
-
-/// Those the voice server says are in the call whom the gateway's list
-/// lacks, named as Discord knows them.
-fn missed(
-    snapshot: &Snapshot,
-    guild: &str,
-    listed: &[yapfast_discord::service::VoiceMember],
-    me: &str,
-    present: &[u64],
-) -> Vec<yapfast_discord::service::VoiceMember> {
-    let missing: Vec<String> = present
-        .iter()
-        .map(u64::to_string)
-        .filter(|user| user != me && !listed.iter().any(|member| &member.user_id == user))
-        .collect();
-    if missing.is_empty() {
-        return Vec::new();
-    }
-    let names = snapshot.names.read();
-    let server = (guild != PRIVATE).then_some(guild);
-    missing
-        .into_iter()
-        .map(|user| yapfast_discord::service::VoiceMember {
-            name: names
-                .name(guild, &user)
-                .unwrap_or("Discord user")
-                .to_owned(),
-            avatar: names.avatar(server, &user),
-            user_id: user,
-            muted: false,
-            deafened: false,
-            server_muted: false,
-            speaking_blocked: false,
-            server_deafened: false,
-            streaming: false,
-            video: false,
-            elsewhere: false,
-            style: None,
-            tag: None,
-        })
-        .collect()
 }
 
 /// Shows the call in `channel`, where someone moved this account.
